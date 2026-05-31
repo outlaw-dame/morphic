@@ -1,6 +1,5 @@
 'use client'
 
-// import Link from 'next/link' // No longer needed directly here for Sign In button
 import React, { useState } from 'react'
 import { usePathname } from 'next/navigation'
 
@@ -12,8 +11,7 @@ import { useSidebar } from '@/components/ui/sidebar'
 
 import { Button } from './ui/button'
 import { FeedbackModal } from './feedback-modal'
-// import { Button } from './ui/button' // No longer needed directly here for Sign In button
-import GuestMenu from './guest-menu' // Import the new GuestMenu component
+import GuestMenu from './guest-menu'
 import UserMenu from './user-menu'
 
 interface HeaderProps {
@@ -30,19 +28,20 @@ export const Header: React.FC<HeaderProps> = ({ user }) => {
     <>
       <header
         className={cn(
-          'absolute top-0 right-0 p-2 md:p-3 flex justify-between items-center z-10 backdrop-blur-sm lg:backdrop-blur-none bg-background/80 lg:bg-transparent transition-[width] duration-200 ease-linear',
-          open ? 'md:w-[calc(100%-var(--sidebar-width))]' : 'md:w-full',
-          'w-full'
+          'absolute top-0 right-0 z-10 flex min-h-[var(--native-toolbar-height)] w-full items-center justify-between border-b border-border/30 bg-background/70 px-3 py-2 shadow-sm backdrop-blur-xl transition-[width,background-color,border-color,box-shadow] duration-200 ease-[var(--motion-ease-out)]',
+          open ? 'md:w-[calc(100%-var(--sidebar-width))]' : 'md:w-full'
         )}
       >
-        {/* This div can be used for a logo or title on the left if needed */}
-        <div></div>
+        <div className="pointer-events-none text-sm font-semibold tracking-tight text-muted-foreground/80">
+          {isRootPage ? '' : 'Morphic'}
+        </div>
 
         <div className="flex items-center gap-2">
           {isRootPage && (
             <Button
               variant="outline"
               size="sm"
+              className="h-9 rounded-full border-border/60 bg-background/70 px-3 shadow-none backdrop-blur-md"
               onClick={() => setFeedbackOpen(true)}
             >
               Feedback
