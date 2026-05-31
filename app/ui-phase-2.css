@@ -1,0 +1,17 @@
+.group\/form-container {
+  background: color-mix(in oklch, var(--background) 82%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.group\/form-container form > div:last-of-type {
+  border-color: color-mix(in oklch, var(--border) 70%, transparent);
+  background: color-mix(in oklch, var(--background) 86%, transparent);
+  box-shadow: 0 18px 48px hsl(0 0% 0% / 0.14);
+}
+
+.group\/form-container textarea {
+  min-height: 3.5rem;
+  font-size: 0.9375rem;
+  line-height: 1.5rem;
+}
