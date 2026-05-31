@@ -105,7 +105,7 @@ export function SearchModeSelector({
             <Button
               variant="outline"
               size="sm"
-              className="gap-1 rounded-full text-xs shadow-none transition-[background-color,color,box-shadow,transform]"
+              className="h-9 gap-1 rounded-full border-border/60 bg-background/75 px-3 text-xs shadow-none backdrop-blur-md transition-[background-color,color,box-shadow,transform]"
             >
               {SelectedIcon && (
                 <SelectedIcon
@@ -124,7 +124,11 @@ export function SearchModeSelector({
               />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64" sideOffset={5}>
+          <DropdownMenuContent
+            align="start"
+            className="w-64 rounded-2xl border-border/60 bg-background/95 p-1 shadow-xl backdrop-blur-xl"
+            sideOffset={8}
+          >
             {SEARCH_MODE_CONFIGS.map(config => {
               const ModeIcon = config.icon
               const isSelected = value === config.value
@@ -132,10 +136,10 @@ export function SearchModeSelector({
                 <DropdownMenuItem
                   key={config.value}
                   onClick={() => handleModeSelect(config.value)}
-                  className="relative flex flex-col items-start gap-1 py-2 pl-8 pr-2 cursor-pointer focus:outline-none"
+                  className="relative flex cursor-pointer flex-col items-start gap-1 rounded-xl py-2.5 pl-8 pr-2 focus:outline-none"
                 >
                   {isSelected && (
-                    <Check className="absolute left-2 top-2.5 size-4" />
+                    <Check className="absolute left-2 top-3 size-4" />
                   )}
                   <div className="flex items-center gap-2">
                     <ModeIcon
@@ -143,8 +147,8 @@ export function SearchModeSelector({
                     />
                     <span className="text-sm font-medium">{config.label}</span>
                   </div>
-                  <div className="flex flex-col gap-0.5 ml-6">
-                    <span className="text-xs text-muted-foreground">
+                  <div className="ml-6 flex flex-col gap-0.5">
+                    <span className="text-xs leading-snug text-muted-foreground">
                       {config.description}
                     </span>
                   </div>
@@ -157,10 +161,10 @@ export function SearchModeSelector({
 
       {/* Desktop Toggle */}
       <div className="hidden sm:block">
-        <div className="relative inline-flex items-center rounded-full bg-background border p-1">
+        <div className="relative inline-flex items-center rounded-full border border-border/60 bg-background/70 p-1 shadow-none backdrop-blur-md">
           {/* Animated background indicator */}
           <div
-            className="absolute inset-1 rounded-full bg-muted transition-[transform,width] duration-[180ms] ease-[var(--motion-ease-in-out)]"
+            className="absolute inset-1 rounded-full bg-muted/85 shadow-sm transition-[transform,width] duration-[180ms] ease-[var(--motion-ease-in-out)]"
             style={{
               width: `calc(${100 / modeCount}% - 4px)`,
               transform: `translateX(${selectedIndex * 100}%)`
@@ -169,7 +173,7 @@ export function SearchModeSelector({
 
           {/* Mode buttons */}
           <div className="relative flex items-center">
-            {SEARCH_MODE_CONFIGS.map((config, index) => {
+            {SEARCH_MODE_CONFIGS.map(config => {
               const Icon = config.icon
               const isSelected = value === config.value
 
@@ -190,7 +194,7 @@ export function SearchModeSelector({
                       type="button"
                       onClick={() => handleModeSelect(config.value)}
                       className={cn(
-                        'relative z-10 flex-1 items-center justify-center rounded-full px-3 py-2 transition-colors duration-[140ms] ease-[var(--motion-ease-out)]',
+                        'relative z-10 flex min-h-8 flex-1 items-center justify-center rounded-full px-3 py-2 transition-colors duration-[140ms] ease-[var(--motion-ease-out)]',
                         isSelected
                           ? 'text-foreground'
                           : 'text-muted-foreground hover:text-foreground/80'
@@ -208,9 +212,9 @@ export function SearchModeSelector({
                   </HoverCardTrigger>
 
                   <HoverCardContent
-                    className="w-72"
+                    className="w-72 rounded-2xl border-border/60 bg-background/95 shadow-xl backdrop-blur-xl"
                     align="center"
-                    sideOffset={8}
+                    sideOffset={10}
                   >
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
@@ -219,7 +223,7 @@ export function SearchModeSelector({
                           {config.label}
                         </h4>
                       </div>
-                      <p className="text-xs text-muted-foreground leading-tight">
+                      <p className="text-xs leading-snug text-muted-foreground">
                         {config.description}
                       </p>
                     </div>
