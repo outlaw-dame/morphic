@@ -99,11 +99,11 @@ export function ModelSelectorClient({ data }: ModelSelectorClientProps) {
     return (
       <Button
         variant="outline"
-        className="h-auto gap-1 rounded-full border-none bg-muted px-3 py-2 text-sm shadow-none transition-[background-color,color,box-shadow,transform]"
+        className="h-9 gap-1 rounded-full border-border/60 bg-background/70 px-3 py-2 text-sm shadow-none backdrop-blur-md transition-[background-color,color,box-shadow,transform]"
         disabled
         title="No enabled models are available"
       >
-        <span className="truncate max-w-52 text-xs font-medium">
+        <span className="max-w-52 truncate text-xs font-medium">
           No enabled model available
         </span>
       </Button>
@@ -121,10 +121,10 @@ export function ModelSelectorClient({ data }: ModelSelectorClientProps) {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="h-auto gap-1 rounded-full border-none bg-muted px-3 py-2 text-sm shadow-none transition-[background-color,color,box-shadow,transform]"
+          className="h-9 gap-1 rounded-full border-border/60 bg-background/70 px-3 py-2 text-sm shadow-none backdrop-blur-md transition-[background-color,color,box-shadow,transform]"
         >
           <ProviderLogo providerId={selectedModel.providerId} />
-          <span className="truncate max-w-40 text-xs font-medium">
+          <span className="max-w-40 truncate text-xs font-medium">
             {selectedModel.name}
           </span>
           <ChevronDown
@@ -135,8 +135,12 @@ export function ModelSelectorClient({ data }: ModelSelectorClientProps) {
           />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0" align="end" sideOffset={6}>
-        <Command>
+      <PopoverContent
+        className="w-[300px] rounded-2xl border-border/60 bg-background/95 p-1 shadow-xl backdrop-blur-xl"
+        align="end"
+        sideOffset={8}
+      >
+        <Command className="rounded-xl bg-transparent">
           <CommandInput placeholder="Search models..." />
           <CommandList>
             <CommandEmpty>No model found.</CommandEmpty>
@@ -165,7 +169,7 @@ export function ModelSelectorClient({ data }: ModelSelectorClientProps) {
                         )
                         setOpen(false)
                       }}
-                      className="cursor-pointer"
+                      className="cursor-pointer rounded-xl"
                     >
                       <Check
                         className={cn(
