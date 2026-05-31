@@ -73,28 +73,36 @@ export default function UserMenu({ user }: UserMenuProps) {
     <>
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="relative size-6 rounded-full">
-            <Avatar className="size-6">
+          <Button
+            variant="ghost"
+            className="relative size-9 rounded-full border border-border/50 bg-background/70 p-0 shadow-none backdrop-blur-md"
+          >
+            <Avatar className="size-7">
               <AvatarImage src={avatarUrl} alt={userName} />
-              <AvatarFallback>
+              <AvatarFallback className="text-xs">
                 {getInitials(userName, user.email)}
               </AvatarFallback>
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-60" align="end" forceMount>
+        <DropdownMenuContent
+          className="w-64 rounded-2xl border-border/60 bg-background/95 p-1 shadow-xl backdrop-blur-xl"
+          align="end"
+          forceMount
+        >
           <DropdownMenuLabel className="font-normal">
-            <div className="flex flex-col space-y-1">
-              <p className="text-sm font-medium leading-none truncate">
+            <div className="flex flex-col space-y-1 rounded-xl px-1 py-1">
+              <p className="truncate text-sm font-semibold leading-none">
                 {userName}
               </p>
-              <p className="text-xs leading-none text-muted-foreground truncate">
+              <p className="truncate text-xs leading-none text-muted-foreground">
                 {user.email}
               </p>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem
+            className="rounded-xl"
             onSelect={event => {
               event.preventDefault()
               handleOpenAccount()
@@ -104,16 +112,16 @@ export default function UserMenu({ user }: UserMenuProps) {
             <span>Account</span>
           </DropdownMenuItem>
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger className="rounded-xl">
               <Link2 className="size-4" />
               <span>Links</span>
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
+            <DropdownMenuSubContent className="rounded-2xl border-border/60 bg-background/95 p-1 shadow-xl backdrop-blur-xl">
               <ExternalLinkItems />
             </DropdownMenuSubContent>
           </DropdownMenuSub>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleLogout}>
+          <DropdownMenuItem className="rounded-xl" onClick={handleLogout}>
             <LogOut className="size-4" />
             <span>Logout</span>
           </DropdownMenuItem>
