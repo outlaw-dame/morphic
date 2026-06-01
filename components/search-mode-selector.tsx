@@ -126,7 +126,7 @@ export function SearchModeSelector({
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="start"
-            className="w-64 rounded-2xl border-border/60 bg-background/95 p-1 shadow-xl backdrop-blur-xl"
+            className="w-64"
             sideOffset={8}
           >
             {SEARCH_MODE_CONFIGS.map(config => {
@@ -136,7 +136,7 @@ export function SearchModeSelector({
                 <DropdownMenuItem
                   key={config.value}
                   onClick={() => handleModeSelect(config.value)}
-                  className="relative flex cursor-pointer flex-col items-start gap-1 rounded-xl py-2.5 pl-8 pr-2 focus:outline-none"
+                  className="relative flex cursor-pointer flex-col items-start gap-1 py-2.5 pl-8 pr-2 focus:outline-none"
                 >
                   {isSelected && (
                     <Check className="absolute left-2 top-3 size-4" />
