@@ -15,3 +15,20 @@
   font-size: 0.9375rem;
   line-height: 1.5rem;
 }
+
+[data-slot='dropdown-menu-content'],
+[data-slot='dropdown-menu-sub-content'] {
+  border-color: color-mix(in oklch, var(--border) 70%, transparent);
+  border-radius: 1rem;
+  background: color-mix(in oklch, var(--background) 95%, transparent);
+  box-shadow: 0 18px 48px hsl(0 0% 0% / 0.14);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+[data-slot='dropdown-menu-item'],
+[data-slot='dropdown-menu-sub-trigger'],
+[data-slot='dropdown-menu-checkbox-item'],
+[data-slot='dropdown-menu-radio-item'] {
+  border-radius: 0.75rem;
+}
