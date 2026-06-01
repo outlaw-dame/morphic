@@ -100,7 +100,7 @@ export function AccountSettingsDialog({
         }
       }}
     >
-      <DialogContent className="sm:max-w-md rounded-[var(--native-radius-sheet)] border-border/60 bg-background/95 shadow-2xl backdrop-blur-xl">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader className="space-y-2">
           <DialogTitle className="text-xl tracking-tight">Account</DialogTitle>
           <DialogDescription>
