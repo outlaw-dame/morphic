@@ -4,7 +4,7 @@
   -webkit-backdrop-filter: blur(18px);
 }
 
-.group\/form-container form > div:last-of-type {
+.group\/form-container form > div:has(textarea) {
   border-color: color-mix(in oklch, var(--border) 70%, transparent);
   background: color-mix(in oklch, var(--background) 86%, transparent);
   box-shadow: 0 18px 48px hsl(0 0% 0% / 0.14);
