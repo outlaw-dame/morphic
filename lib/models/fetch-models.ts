@@ -137,6 +137,38 @@ function passesOpenAICompatibleFilters(id: string): boolean {
   )
 }
 
+function passesCloudflareChatFilters(id: string): boolean {
+  const normalizedId = id.toLowerCase()
+
+  return (
+    id.startsWith('@cf/') &&
+    passesOpenAICompatibleFilters(id) &&
+    ![
+      'guard',
+      'moderation',
+      'safety',
+      'whisper',
+      'stable-diffusion',
+      'flux',
+      'resnet',
+      'melotts',
+      'aura',
+      'embedding',
+      'bge',
+      'rerank'
+    ].some(keyword => normalizedId.includes(keyword))
+  )
+}
+
+function isCloudflareTextGenerationModel(item: Record<string, any>): boolean {
+  const taskName = String(item?.task?.name ?? '').toLowerCase()
+  if (!taskName) {
+    return true
+  }
+
+  return taskName === 'text generation'
+}
+
 function formatProviderModelName(id: string): string {
   const modelId = id.includes('/') ? id.split('/').pop() || id : id
   return modelId
@@ -605,34 +637,44 @@ export async function fetchCloudflareModels(): Promise<Model[]> {
 
   const fallbacks = [
     {
-      id: '@cf/meta/llama-3.3-70b-instruct',
-      name: 'Llama 3.3 70B Instruct',
-      provider: 'Cloudflare',
-      providerId: 'cloudflare'
-    },
-    {
-      id: '@cf/meta/llama-3.1-8b-instruct',
-      name: 'Llama 3.1 8B Instruct',
-      provider: 'Cloudflare',
-      providerId: 'cloudflare'
-    },
-    {
       id: '@cf/meta/llama-3.2-3b-instruct',
       name: 'Llama 3.2 3B Instruct',
-      provider: 'Cloudflare',
+      provider: 'Cloudflare Workers AI',
       providerId: 'cloudflare'
     },
     {
-      id: '@cf/qwen/qwen1.5-14b-chat-awq',
-      name: 'Qwen 1.5 14B Chat AWQ',
-      provider: 'Cloudflare',
+      id: '@cf/openai/gpt-oss-20b',
+      name: 'GPT OSS 20B',
+      provider: 'Cloudflare Workers AI',
+      providerId: 'cloudflare'
+    },
+    {
+      id: '@cf/openai/gpt-oss-120b',
+      name: 'GPT OSS 120B',
+      provider: 'Cloudflare Workers AI',
+      providerId: 'cloudflare'
+    },
+    {
+      id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      name: 'Llama 3.3 70B Instruct FP8 Fast',
+      provider: 'Cloudflare Workers AI',
       providerId: 'cloudflare'
     }
   ]
 
+  const staticList = process.env.CLOUDFLARE_MODELS
+  if (staticList) {
+    return modelsFromStaticList(
+      staticList,
+      'Cloudflare Workers AI',
+      'cloudflare',
+      passesCloudflareChatFilters
+    )
+  }
+
   try {
     const json = await fetchJson(
-      `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/ai/v1/models`,
+      `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/ai/models/search`,
       {
         Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN}`
       }
@@ -648,22 +690,23 @@ export async function fetchCloudflareModels(): Promise<Model[]> {
     }
 
     const fetchedModels = data
-      .map(item => String(item?.id ?? ''))
-      .filter(Boolean)
-      .filter(
-        id =>
-          id.startsWith('@cf/') &&
-          (id.includes('llama') ||
-            id.includes('mistral') ||
-            id.includes('qwen') ||
-            id.includes('gemma') ||
-            id.includes('phi') ||
-            id.includes('deepseek'))
+      .filter(isCloudflareTextGenerationModel)
+      .map(item =>
+        String(
+          item?.name ??
+            item?.model ??
+            item?.model_id ??
+            item?.modelId ??
+            item?.id ??
+            ''
+        )
       )
+      .filter(Boolean)
+      .filter(passesCloudflareChatFilters)
       .map(id => ({
         id,
         name: id.split('/').pop() || id,
-        provider: 'Cloudflare',
+        provider: 'Cloudflare Workers AI',
         providerId: 'cloudflare'
       }))
 

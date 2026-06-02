@@ -130,6 +130,31 @@ OPENAI_COMPATIBLE_MODELS=orcarouter/openai/gpt-5.5,orcarouter/anthropic/claude-o
 
 Morphic's research agents rely on tool calling, so make sure any model you select supports it. Restricting `OPENAI_COMPATIBLE_MODELS` to known tool-capable models (as above) is the simplest way to keep the selector clean and avoid hitting non-tool-capable upstreams.
 
+#### Cloudflare Workers AI
+
+[Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/) is exposed through Cloudflare's OpenAI-compatible Workers AI endpoint.
+
+```bash
+CLOUDFLARE_ACCOUNT_ID=[YOUR_CLOUDFLARE_ACCOUNT_ID]
+CLOUDFLARE_API_TOKEN=[YOUR_CLOUDFLARE_API_TOKEN]
+# Optional. Defaults to "default".
+CLOUDFLARE_AI_GATEWAY_ID=default
+```
+
+When both values are set, Morphic adds Cloudflare Workers AI to the model selector and discovers models from Cloudflare's model search endpoint. The app sends chat requests to:
+
+```bash
+https://api.cloudflare.com/client/v4/accounts/<account_id>/ai/v1/chat/completions
+```
+
+If you want to pin the selector to known chat-capable models or avoid a discovery call, set a comma-separated model list:
+
+```bash
+CLOUDFLARE_MODELS=@cf/meta/llama-3.2-3b-instruct,@cf/openai/gpt-oss-20b
+```
+
+Cloudflare Workers AI will not appear in the provider list unless both `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` are configured.
+
 ## Search Providers
 
 ### SearXNG Configuration

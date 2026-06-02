@@ -1,12 +1,15 @@
 'use client'
 
 import React, { useState } from 'react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 import { User } from '@supabase/supabase-js'
+import { IconArrowLeft } from '@tabler/icons-react'
 
 import { cn } from '@/lib/utils'
 
+import { Button } from '@/components/ui/button'
 import { useSidebar } from '@/components/ui/sidebar'
 
 import { FeedbackModal } from './feedback-modal'
@@ -22,6 +25,7 @@ export const Header: React.FC<HeaderProps> = ({ user }) => {
   const pathname = usePathname()
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const isSearchPage = pathname === '/' || pathname.startsWith('/search')
+  const isSettingsPage = pathname === '/settings'
 
   return (
     <>
@@ -32,8 +36,20 @@ export const Header: React.FC<HeaderProps> = ({ user }) => {
           'w-full'
         )}
       >
-        {/* This div can be used for a logo or title on the left if needed */}
-        <div></div>
+        <div>
+          {isSettingsPage && (
+            <Button
+              asChild
+              variant="ghost"
+              size="icon"
+              className="native-menu-trigger size-9 rounded-full text-muted-foreground hover:text-foreground"
+            >
+              <Link href="/" aria-label="Back to search" title="Back to search">
+                <IconArrowLeft className="size-4" />
+              </Link>
+            </Button>
+          )}
+        </div>
 
         <div className="flex items-center gap-2">
           {user ? (

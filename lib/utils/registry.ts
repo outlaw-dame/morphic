@@ -2,7 +2,7 @@ import { anthropic } from '@ai-sdk/anthropic'
 import { createGateway } from '@ai-sdk/gateway'
 import { google } from '@ai-sdk/google'
 import { mistral } from '@ai-sdk/mistral'
-import { createOpenAI, openai } from '@ai-sdk/openai'
+import { openai } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { createProviderRegistry, LanguageModel } from 'ai'
 import { createOllama } from 'ai-sdk-ollama'
@@ -13,6 +13,163 @@ import { createOllama } from 'ai-sdk-ollama'
 //   OPENAI_COMPATIBLE_API_BASE_URL=https://api.deepseek.com/v1
 function normalizeOpenAICompatibleBaseURL(raw: string): string {
   return raw.replace(/\/+$/, '').replace(/\/v1$/, '') + '/v1'
+}
+
+function stringifyMessageContent(content: unknown): unknown {
+  if (!Array.isArray(content)) {
+    return content
+  }
+
+  return content
+    .map(part => {
+      if (typeof part === 'string') {
+        return part
+      }
+
+      if (
+        part &&
+        typeof part === 'object' &&
+        'type' in part &&
+        part.type === 'text' &&
+        'text' in part
+      ) {
+        return String(part.text ?? '')
+      }
+
+      return JSON.stringify(part)
+    })
+    .filter(Boolean)
+    .join('\n')
+}
+
+function normalizeCloudflareRequestBody(args: Record<string, any>) {
+  const messages = Array.isArray(args.messages)
+    ? args.messages.map(message => {
+        const normalized = {
+          ...message,
+          content: stringifyMessageContent(message.content)
+        }
+
+        if (
+          normalized.role === 'assistant' &&
+          Array.isArray(normalized.tool_calls) &&
+          normalized.tool_calls.length > 0 &&
+          normalized.content === ''
+        ) {
+          normalized.content = null
+        }
+
+        return normalized
+      })
+    : args.messages
+
+  return {
+    ...args,
+    messages
+  }
+}
+
+function stringifyCloudflareDeltaContent(content: unknown): string | undefined {
+  if (content == null) {
+    return content as undefined
+  }
+
+  if (typeof content === 'string') {
+    return content
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map(part => (typeof part === 'string' ? part : JSON.stringify(part)))
+      .join('')
+  }
+
+  return String(content)
+}
+
+function normalizeCloudflareSseLine(line: string): string {
+  if (!line.startsWith('data: ')) {
+    return line
+  }
+
+  const payload = line.slice('data: '.length)
+  if (payload === '[DONE]') {
+    return line
+  }
+
+  try {
+    const json = JSON.parse(payload)
+    if (Array.isArray(json?.choices)) {
+      json.choices = json.choices.map((choice: Record<string, any>) => {
+        if (
+          choice?.delta &&
+          'content' in choice.delta &&
+          choice.delta.content != null &&
+          typeof choice.delta.content !== 'string'
+        ) {
+          return {
+            ...choice,
+            delta: {
+              ...choice.delta,
+              content: stringifyCloudflareDeltaContent(choice.delta.content)
+            }
+          }
+        }
+
+        return choice
+      })
+    }
+
+    return `data: ${JSON.stringify(json)}`
+  } catch {
+    return line
+  }
+}
+
+async function fetchCloudflare(input: RequestInfo | URL, init?: RequestInit) {
+  const response = await fetch(input, init)
+  const url = String(input)
+  const contentType = response.headers.get('content-type') || ''
+
+  if (
+    !response.body ||
+    !url.includes('/chat/completions') ||
+    !contentType.includes('text/event-stream')
+  ) {
+    return response
+  }
+
+  const decoder = new TextDecoder()
+  const encoder = new TextEncoder()
+  let buffer = ''
+
+  const body = response.body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        buffer += decoder.decode(chunk, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          controller.enqueue(
+            encoder.encode(`${normalizeCloudflareSseLine(line)}\n`)
+          )
+        }
+      },
+      flush(controller) {
+        buffer += decoder.decode()
+        if (buffer) {
+          controller.enqueue(encoder.encode(normalizeCloudflareSseLine(buffer)))
+        }
+      }
+    })
+  )
+
+  return new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers
+  })
 }
 
 // Build providers object conditionally
@@ -40,9 +197,15 @@ const providers: Record<string, any> = {
   gateway: createGateway({
     apiKey: process.env.AI_GATEWAY_API_KEY
   }),
-  cloudflare: createOpenAI({
+  cloudflare: createOpenAICompatible({
+    name: 'cloudflare',
     apiKey: process.env.CLOUDFLARE_API_TOKEN,
-    baseURL: `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/ai/v1`
+    baseURL: `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/ai/v1`,
+    headers: {
+      'cf-aig-gateway-id': process.env.CLOUDFLARE_AI_GATEWAY_ID || 'default'
+    },
+    fetch: fetchCloudflare,
+    transformRequestBody: normalizeCloudflareRequestBody
   })
 }
 

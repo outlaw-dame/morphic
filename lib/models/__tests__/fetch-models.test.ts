@@ -27,6 +27,9 @@ describe('fetch-models', () => {
     delete process.env.NVIDIA_API_KEY
     delete process.env.NVIDIA_API_BASE_URL
     delete process.env.NVIDIA_MODELS
+    delete process.env.CLOUDFLARE_API_TOKEN
+    delete process.env.CLOUDFLARE_ACCOUNT_ID
+    delete process.env.CLOUDFLARE_MODELS
   })
 
   it('filters non-chat and snapshot OpenAI models', async () => {
@@ -416,6 +419,85 @@ describe('fetch-models', () => {
         'meta/llama-3.1-8b-instruct',
         'nvidia/llama-3.1-nemotron-70b-instruct'
       ])
+    })
+  })
+
+  describe('fetchCloudflareModels', () => {
+    it('fetches Cloudflare Workers AI models from the model search endpoint', async () => {
+      mockIsProviderEnabled.mockImplementation(
+        providerId => providerId === 'cloudflare'
+      )
+      process.env.CLOUDFLARE_API_TOKEN = 'cf-test'
+      process.env.CLOUDFLARE_ACCOUNT_ID = 'acct-test'
+
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: async () => ({
+          result: [
+            {
+              id: '9b9c87c6-d4b7-494c-b177-87feab5904db',
+              name: '@cf/meta/llama-3.1-8b-instruct-fp8',
+              task: { name: 'Text Generation' }
+            },
+            {
+              id: 'c58c317b-0c15-4bda-abb6-93e275f282d9',
+              name: '@cf/mistral/mistral-7b-instruct-v0.1',
+              task: { name: 'Text Generation' }
+            },
+            {
+              id: '429b9e8b-d99e-44de-91ad-706cf8183658',
+              name: '@cf/baai/bge-base-en-v1.5',
+              task: { name: 'Text Embeddings' }
+            }
+          ]
+        })
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const models = await fetchModels.fetchCloudflareModels()
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.cloudflare.com/client/v4/accounts/acct-test/ai/models/search',
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer cf-test' },
+          method: 'GET'
+        })
+      )
+      expect(models.map(model => model.id)).toEqual([
+        '@cf/meta/llama-3.1-8b-instruct-fp8',
+        '@cf/mistral/mistral-7b-instruct-v0.1'
+      ])
+      expect(models[0]).toMatchObject({
+        provider: 'Cloudflare Workers AI',
+        providerId: 'cloudflare'
+      })
+    })
+
+    it('uses CLOUDFLARE_MODELS static list when set', async () => {
+      mockIsProviderEnabled.mockImplementation(
+        providerId => providerId === 'cloudflare'
+      )
+      process.env.CLOUDFLARE_API_TOKEN = 'cf-test'
+      process.env.CLOUDFLARE_ACCOUNT_ID = 'acct-test'
+      process.env.CLOUDFLARE_MODELS =
+        '@cf/meta/llama-3.1-8b-instruct, @cf/baai/bge-base-en-v1.5, @cf/meta/llama-3.2-3b-instruct'
+
+      const fetchMock = vi.fn()
+      vi.stubGlobal('fetch', fetchMock)
+
+      const models = await fetchModels.fetchCloudflareModels()
+
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(models.map(model => model.id)).toEqual([
+        '@cf/meta/llama-3.1-8b-instruct',
+        '@cf/meta/llama-3.2-3b-instruct'
+      ])
+      expect(models[0]).toMatchObject({
+        provider: 'Cloudflare Workers AI',
+        providerId: 'cloudflare'
+      })
     })
   })
 })
