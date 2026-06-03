@@ -3,6 +3,10 @@
 import * as React from 'react'
 
 import { assessExternalNavigation } from '@/lib/security/external-navigation'
+import {
+  checkSafeBrowsingUrl,
+  type SafeBrowsingResult
+} from '@/lib/security/safe-browsing'
 
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 
@@ -23,6 +27,9 @@ export function GuardedExternalLink({
 }: GuardedExternalLinkProps) {
   const [open, setOpen] = React.useState(false)
   const [appOrigin, setAppOrigin] = React.useState('https://morphic.sh')
+  const [isCheckingSafety, setIsCheckingSafety] = React.useState(false)
+  const [safeBrowsingResult, setSafeBrowsingResult] =
+    React.useState<SafeBrowsingResult | null>(null)
   const assessment = React.useMemo(
     () => assessExternalNavigation(href, appOrigin),
     [appOrigin, href]
@@ -31,6 +38,13 @@ export function GuardedExternalLink({
   React.useEffect(() => {
     setAppOrigin(window.location.origin)
   }, [])
+
+  React.useEffect(() => {
+    if (!open) {
+      setIsCheckingSafety(false)
+      setSafeBrowsingResult(null)
+    }
+  }, [open, href])
 
   const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
     onClick?.(event)
@@ -47,13 +61,21 @@ export function GuardedExternalLink({
     setOpen(true)
   }
 
-  const continueNavigation = () => {
+  const continueNavigation = async () => {
+    if (isCheckingSafety) return
+
+    const destination = assessment.normalizedHref ?? href
+    setIsCheckingSafety(true)
+    const result = await checkSafeBrowsingUrl(destination)
+    setSafeBrowsingResult(result)
+    setIsCheckingSafety(false)
+
+    if (!result.safe) {
+      return
+    }
+
     setOpen(false)
-    window.open(
-      assessment.normalizedHref ?? href,
-      target,
-      'noopener,noreferrer'
-    )
+    window.open(destination, target, 'noopener,noreferrer')
   }
 
   return (
@@ -67,6 +89,8 @@ export function GuardedExternalLink({
           <LeavingMorphicDialog
             href={href}
             appOrigin={appOrigin}
+            isCheckingSafety={isCheckingSafety}
+            safeBrowsingResult={safeBrowsingResult}
             onCancel={() => setOpen(false)}
             onContinue={continueNavigation}
           />

@@ -157,6 +157,20 @@ Cloudflare Workers AI will not appear in the provider list unless both `CLOUDFLA
 
 ## Search Providers
 
+### Google Safe Browsing
+
+Morphic can check external destinations with Google Safe Browsing before opening
+links from search results and citations. The API key stays server-side and is
+used by the same-origin `/api/safe-browsing` route.
+
+```bash
+GOOGLE_SAFE_BROWSING_API_KEY=[YOUR_GOOGLE_SAFE_BROWSING_API_KEY]
+```
+
+When the key is not configured or Google is unavailable, Morphic fails open so
+search remains usable. When Safe Browsing returns a threat match, Morphic blocks
+the navigation and shows the reported threat type.
+
 ### SearXNG Configuration
 
 SearXNG can be used as an alternative search backend with advanced search capabilities. Docker Compose includes SearXNG automatically.

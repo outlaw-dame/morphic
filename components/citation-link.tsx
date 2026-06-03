@@ -1,12 +1,12 @@
 'use client'
 
 import { memo, useState } from 'react'
-import Link from 'next/link'
 
 import type { SearchResultItem } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { isCitationLabel } from '@/lib/utils/citation'
 
+import { GuardedExternalLink } from '@/components/navigation/guarded-external-link'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Popover,
@@ -50,14 +50,14 @@ export const CitationLink = memo(function CitationLink({
   // If no citation data, render as simple link
   if (!citationData) {
     return (
-      <a
+      <GuardedExternalLink
         href={href}
         target="_blank"
         rel="noopener noreferrer"
         className={linkClasses}
       >
         {children}
-      </a>
+      </GuardedExternalLink>
     )
   }
 
@@ -66,7 +66,7 @@ export const CitationLink = memo(function CitationLink({
     return (
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <a
+          <GuardedExternalLink
             href={href}
             target="_blank"
             rel="noopener noreferrer"
@@ -75,7 +75,7 @@ export const CitationLink = memo(function CitationLink({
             onMouseLeave={() => setOpen(false)}
           >
             {children}
-          </a>
+          </GuardedExternalLink>
         </PopoverTrigger>
         <PopoverContent
           className="w-80 p-0 z-50 shadow-xs"
@@ -85,7 +85,7 @@ export const CitationLink = memo(function CitationLink({
           onPointerDownOutside={e => e.preventDefault()}
         >
           {citationData ? (
-            <Link
+            <GuardedExternalLink
               href={citationData.url}
               target="_blank"
               rel="noopener noreferrer"
@@ -115,7 +115,7 @@ export const CitationLink = memo(function CitationLink({
                   {citationData.content}
                 </p>
               </div>
-            </Link>
+            </GuardedExternalLink>
           ) : null}
         </PopoverContent>
       </Popover>
@@ -124,13 +124,13 @@ export const CitationLink = memo(function CitationLink({
 
   // For non-numbered citations, render as regular link
   return (
-    <a
+    <GuardedExternalLink
       href={href}
       target="_blank"
       rel="noopener noreferrer"
       className={linkClasses}
     >
       {children}
-    </a>
+    </GuardedExternalLink>
   )
 })

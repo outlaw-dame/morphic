@@ -6,10 +6,13 @@ import {
   assessExternalNavigation,
   type ExternalNavigationAssessment
 } from '@/lib/security/external-navigation'
+import type { SafeBrowsingResult } from '@/lib/security/safe-browsing'
 
 interface LeavingMorphicDialogProps {
   href: string
   appOrigin: string
+  isCheckingSafety?: boolean
+  safeBrowsingResult?: SafeBrowsingResult | null
   onContinue: () => void
   onCancel: () => void
 }
@@ -17,6 +20,8 @@ interface LeavingMorphicDialogProps {
 export function LeavingMorphicDialog({
   href,
   appOrigin,
+  isCheckingSafety = false,
+  safeBrowsingResult = null,
   onContinue,
   onCancel
 }: LeavingMorphicDialogProps) {
@@ -47,6 +52,16 @@ export function LeavingMorphicDialog({
             </div>
           )}
 
+          {safeBrowsingResult && !safeBrowsingResult.safe && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              Google Safe Browsing flagged this destination
+              {safeBrowsingResult.threatTypes.length > 0
+                ? ` for ${safeBrowsingResult.threatTypes.join(', ')}`
+                : ''}
+              . Morphic will not open it.
+            </div>
+          )}
+
           <div className="flex gap-2">
             <button
               type="button"
@@ -59,9 +74,14 @@ export function LeavingMorphicDialog({
             <button
               type="button"
               className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
+              disabled={isCheckingSafety || safeBrowsingResult?.safe === false}
               onClick={onContinue}
             >
-              Continue
+              {isCheckingSafety
+                ? 'Checking...'
+                : safeBrowsingResult?.safe === false
+                  ? 'Blocked'
+                  : 'Continue'}
               <ExternalLink className="h-4 w-4" />
             </button>
           </div>
