@@ -6,6 +6,7 @@ import { fetchTool } from '@/lib/tools/fetch'
 import { askQuestionTool } from '@/lib/tools/question'
 import { searchTool } from '@/lib/tools/search'
 import { createTodoTools, type TodoItem } from '@/lib/tools/todo'
+import { wolframAlphaTool } from '@/lib/tools/wolfram'
 import type { SearchMode } from '@/lib/types/search'
 
 // Re-export TodoItem for external use
@@ -37,6 +38,7 @@ export type UITools = {
   search: InferUITool<typeof searchTool>
   feedSearch: InferUITool<typeof feedTool>
   fetch: InferUITool<typeof fetchTool>
+  wolframAlpha: InferUITool<typeof wolframAlphaTool>
   askQuestion: InferUITool<typeof askQuestionTool>
   todoWrite: InferUITool<typeof todoTools.todoWrite>
   // Dynamic tools will be added at runtime

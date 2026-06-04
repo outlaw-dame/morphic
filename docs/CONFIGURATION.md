@@ -157,6 +157,22 @@ Cloudflare Workers AI will not appear in the provider list unless both `CLOUDFLA
 
 ## Search Providers
 
+### Wolfram|Alpha API
+
+Morphic can use Wolfram|Alpha as a computational knowledge tool for math,
+symbolic algebra, unit conversions, constants, chemistry/physics facts, dates
+and other computed answers.
+
+```bash
+WOLFRAM_ALPHA_APP_ID=[YOUR_WOLFRAM_ALPHA_APP_ID]
+```
+
+Wolfram currently advertises free non-commercial development access for up to
+2,000 API calls per month. Morphic uses the AppID-based Short Answers API for
+concise answers and the Full Results API with `output=json&format=plaintext`
+for structured result pods. The AppID is server-side only; do not expose it as a
+`NEXT_PUBLIC_*` variable.
+
 ### Google Safe Browsing
 
 Morphic can check external destinations with Google Safe Browsing before opening

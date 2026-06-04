@@ -10,6 +10,7 @@ import { createQuestionTool } from '../tools/question'
 import { createSearchTool } from '../tools/search'
 import { createResearchSubtaskTool } from '../tools/subtask-agent'
 import { createTodoTools } from '../tools/todo'
+import { wolframAlphaTool } from '../tools/wolfram'
 import { SearchMode } from '../types/search'
 import { getModel } from '../utils/registry'
 import { isTracingEnabled } from '../utils/telemetry'
@@ -98,10 +99,10 @@ export function createResearcher({
     switch (searchMode) {
       case 'quick':
         console.log(
-          '[Researcher] Quick mode: maxSteps=20, tools=[search, fetch]'
+          '[Researcher] Quick mode: maxSteps=20, tools=[search, fetch, wolframAlpha]'
         )
         systemPrompt = QUICK_MODE_PROMPT
-        activeToolsList = ['search', 'fetch']
+        activeToolsList = ['search', 'fetch', 'wolframAlpha']
         maxSteps = 20
         searchTool = wrapSearchToolForQuickMode(originalSearchTool)
         break
@@ -115,7 +116,8 @@ export function createResearcher({
           'fetch',
           'todoWrite',
           'researchSubtask',
-          'mapSearch'
+          'mapSearch',
+          'wolframAlpha'
         ]
         console.log(
           `[Researcher] Adaptive mode: maxSteps=50, tools=[${activeToolsList.join(', ')}]`
@@ -131,6 +133,7 @@ export function createResearcher({
       feedSearch: feedSearchTool,
       mapSearch: mapSearchTool,
       fetch: fetchTool,
+      wolframAlpha: wolframAlphaTool,
       askQuestion: askQuestionTool,
       researchSubtask: researchSubtaskTool,
       ...todoTools

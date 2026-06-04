@@ -5,6 +5,7 @@ import { getModel } from '../utils/registry'
 
 import { fetchTool } from './fetch'
 import { createSearchTool } from './search'
+import { wolframAlphaTool } from './wolfram'
 
 // Input schema for research subtask tool
 export const researchSubtaskInputSchema = z.object({
@@ -47,7 +48,7 @@ export function createResearchSubtaskTool(fullModel: string) {
       const systemPrompt = `You are a specialized Researcher Sub-Agent. Your task is to perform thorough research on the following topic:
 "${task}"
 
-${context ? `Additional Context/Goals: ${context}\n` : ''}Use the search tool and fetch tool to gather information.
+${context ? `Additional Context/Goals: ${context}\n` : ''}Use the search tool and fetch tool to gather information. Use Wolfram|Alpha for computational knowledge, math, unit conversions, constants, and computed factual answers.
 Analyze the findings, compare options if relevant, check multiple sources, and synthesize high-quality, comprehensive research notes.
 Focus ONLY on this task. Do not deviate to other topics.
 
@@ -63,9 +64,10 @@ Sources:
           instructions: systemPrompt,
           tools: {
             search: searchTool,
-            fetch: fetchTool
+            fetch: fetchTool,
+            wolframAlpha: wolframAlphaTool
           },
-          activeTools: ['search', 'fetch'],
+          activeTools: ['search', 'fetch', 'wolframAlpha'],
           stopWhen: stepCountIs(8)
         })
 

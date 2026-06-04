@@ -11,6 +11,7 @@ import { QuestionConfirmation } from './question-confirmation'
 import { ResearchSubtaskSection } from './research-subtask-section'
 import { SearchSection } from './search-section'
 import { ToolTodoDisplay } from './tool-todo-display'
+import { WolframSection } from './wolfram-section'
 
 interface ToolSectionProps {
   tool: ToolPart
@@ -102,6 +103,15 @@ export function ToolSection({
           isOpen={isOpen}
           onOpenChange={onOpenChange}
           status={status}
+          borderless={borderless}
+          isFirst={isFirst}
+          isLast={isLast}
+        />
+      )
+    case 'tool-wolframAlpha':
+      return (
+        <WolframSection
+          tool={tool as ToolPart<'wolframAlpha'>}
           borderless={borderless}
           isFirst={isFirst}
           isLast={isLast}

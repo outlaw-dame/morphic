@@ -13,6 +13,7 @@ import type { createQuestionTool } from '../tools/question'
 import type { createSearchTool } from '../tools/search'
 import type { createResearchSubtaskTool } from '../tools/subtask-agent'
 import type { createTodoTools } from '../tools/todo'
+import type { wolframAlphaTool } from '../tools/wolfram'
 
 // Define the tools type for researcher agent
 export type ResearcherTools = {
@@ -20,6 +21,7 @@ export type ResearcherTools = {
   feedSearch: ReturnType<typeof createFeedTool>
   mapSearch: ReturnType<typeof createMapTool>
   fetch: typeof fetchTool
+  wolframAlpha: typeof wolframAlphaTool
   askQuestion: ReturnType<typeof createQuestionTool>
   researchSubtask: ReturnType<typeof createResearchSubtaskTool>
 } & ReturnType<typeof createTodoTools>
@@ -40,6 +42,9 @@ export type FeedSearchToolInvocation = UIToolInvocation<
   ResearcherTools['feedSearch']
 >
 export type FetchToolInvocation = UIToolInvocation<ResearcherTools['fetch']>
+export type WolframAlphaToolInvocation = UIToolInvocation<
+  ResearcherTools['wolframAlpha']
+>
 export type QuestionToolInvocation = UIToolInvocation<
   ResearcherTools['askQuestion']
 >
@@ -59,6 +64,7 @@ export type ResearcherToolInvocation =
   | FeedSearchToolInvocation
   | MapSearchToolInvocation
   | FetchToolInvocation
+  | WolframAlphaToolInvocation
   | QuestionToolInvocation
   | TodoWriteToolInvocation
   | ResearchSubtaskToolInvocation
