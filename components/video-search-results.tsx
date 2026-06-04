@@ -31,7 +31,8 @@ export function VideoSearchResults({
 }: VideoSearchResultsProps) {
   const videos = results.videos.filter((video: SerperSearchResultItem) => {
     try {
-      return new URL(video.link).pathname === '/watch'
+      new URL(video.link)
+      return true
     } catch (e) {
       console.error('Invalid video URL:', video.link)
       return false

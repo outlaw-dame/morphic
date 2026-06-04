@@ -75,17 +75,47 @@ describe('getVideoPlaybackSource', () => {
 
   it('embeds Twitch VODs and clips with the parent host', () => {
     expect(
-      getVideoPlaybackSource(video('https://www.twitch.tv/videos/12345'), 'localhost')
+      getVideoPlaybackSource(
+        video('https://www.twitch.tv/videos/12345'),
+        'localhost'
+      )
     ).toEqual({
       kind: 'iframe',
       src: 'https://player.twitch.tv/?video=v12345&parent=localhost'
     })
 
     expect(
-      getVideoPlaybackSource(video('https://clips.twitch.tv/FancyClip'), 'morphic.sh')
+      getVideoPlaybackSource(
+        video('https://clips.twitch.tv/FancyClip'),
+        'morphic.sh'
+      )
     ).toEqual({
       kind: 'iframe',
       src: 'https://clips.twitch.tv/embed?clip=FancyClip&parent=morphic.sh'
+    })
+  })
+
+  it('embeds Owncast streams when the result identifies Owncast', () => {
+    const owncastResult = video('https://watch.owncast.online/')
+    owncastResult.source = 'Owncast'
+
+    expect(getVideoPlaybackSource(owncastResult)).toEqual({
+      kind: 'iframe',
+      src: 'https://watch.owncast.online/embed/video'
+    })
+
+    expect(
+      getVideoPlaybackSource(video('https://stream.example.com/embed/video'))
+    ).toEqual({
+      kind: 'iframe',
+      src: 'https://stream.example.com/embed/video'
+    })
+  })
+
+  it('does not classify arbitrary video result homepages as Owncast', () => {
+    expect(getVideoPlaybackSource(video('https://example.com/'))).toEqual({
+      kind: 'link',
+      src: 'https://example.com/'
     })
   })
 
@@ -99,7 +129,9 @@ describe('getVideoPlaybackSource', () => {
   })
 
   it('plays direct public video files with a native video element', () => {
-    expect(getVideoPlaybackSource(video('https://example.com/video.webm'))).toEqual({
+    expect(
+      getVideoPlaybackSource(video('https://example.com/video.webm'))
+    ).toEqual({
       kind: 'video',
       src: 'https://example.com/video.webm'
     })

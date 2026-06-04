@@ -18,11 +18,21 @@ import {
 import { getBaseUrlString } from '@/lib/utils/url'
 
 import {
+  mergeCommunityResults,
+  searchCommunitySources,
+  shouldSearchCommunitySources
+} from './search/community'
+import {
   createSearchProvider,
   DEFAULT_PROVIDER,
   SearchProviderType
 } from './search/providers'
 import { searchUserFeeds } from './search/user-feeds'
+import {
+  mergeVideoResults,
+  searchOwncastSources,
+  shouldSearchOwncastSources
+} from './search/video-sources'
 
 /**
  * Creates a search tool with the appropriate schema for the given model.
@@ -104,6 +114,8 @@ export function createSearchTool(fullModel: string) {
         `Using search API: ${searchAPI}, Type: ${type}, Search Depth: ${effectiveSearchDepthForAPI}`
       )
 
+      const searchProvider = createSearchProvider(searchAPI)
+
       // Read user search preferences from cookies
       let userPrefs = { ...DEFAULT_SEARCH_PREFERENCES }
       let userFeedSubscriptions: FeedSubscription[] = []
@@ -154,9 +166,6 @@ export function createSearchTool(fullModel: string) {
           }
           searchResult = await response.json()
         } else {
-          // Use the provider factory to get the appropriate search provider
-          const searchProvider = createSearchProvider(searchAPI)
-
           searchResult = await searchProvider.search(
             filledQuery,
             effectiveMaxResults,
@@ -173,6 +182,41 @@ export function createSearchTool(fullModel: string) {
           )
         }
 
+        const searchContentTypes = content_types as Array<
+          'web' | 'video' | 'image' | 'news'
+        >
+        const communityResults = shouldSearchCommunitySources({
+          query: filledQuery,
+          contentTypes: searchContentTypes,
+          includeDomains: include_domains
+        })
+          ? await searchCommunitySources({
+              provider: searchProvider,
+              query: filledQuery,
+              searchDepth: effectiveSearchDepthForAPI,
+              excludeDomains: exclude_domains,
+              maxResults: 4
+            })
+          : []
+
+        searchResult = mergeCommunityResults(searchResult, communityResults)
+
+        const owncastVideos = shouldSearchOwncastSources({
+          query: filledQuery,
+          contentTypes: searchContentTypes,
+          includeDomains: include_domains
+        })
+          ? await searchOwncastSources({
+              provider: searchProvider,
+              query: filledQuery,
+              searchDepth: effectiveSearchDepthForAPI,
+              excludeDomains: exclude_domains,
+              maxResults: 3
+            })
+          : []
+
+        searchResult = mergeVideoResults(searchResult, owncastVideos)
+
         const userFeedResults = await searchUserFeeds({
           query: filledQuery,
           subscriptions: userFeedSubscriptions,
@@ -184,8 +228,9 @@ export function createSearchTool(fullModel: string) {
             ...searchResult,
             results: [...userFeedResults, ...(searchResult.results ?? [])],
             number_of_results:
-              (searchResult.number_of_results ?? searchResult.results?.length ?? 0) +
-              userFeedResults.length
+              (searchResult.number_of_results ??
+                searchResult.results?.length ??
+                0) + userFeedResults.length
           }
         }
       } catch (error) {

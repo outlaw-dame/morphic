@@ -41,9 +41,10 @@ export type SearchResultItem = {
   title: string
   url: string
   content: string
-  sourceType?: 'web' | 'user_feed' | 'podcast_transcript'
+  sourceType?: 'web' | 'user_feed' | 'podcast_transcript' | 'community'
   feedTitle?: string
   feedUrl?: string
+  communitySource?: string
   audioUrl?: string
   transcriptStartTime?: number
   transcriptEndTime?: number

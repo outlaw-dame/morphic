@@ -66,7 +66,10 @@ export function getVimeoEmbedUrl(link: string): string | undefined {
     const url = new URL(link)
     if (!url.hostname.includes('vimeo.com')) return undefined
 
-    if (url.hostname === 'player.vimeo.com' && url.pathname.startsWith('/video/')) {
+    if (
+      url.hostname === 'player.vimeo.com' &&
+      url.pathname.startsWith('/video/')
+    ) {
       return url.toString()
     }
 
@@ -146,7 +149,9 @@ export function getTwitchEmbedUrl(
 
     const segments = url.pathname.split('/').filter(Boolean)
     if (segments[0] === 'videos' && segments[1]) {
-      const video = segments[1].startsWith('v') ? segments[1] : `v${segments[1]}`
+      const video = segments[1].startsWith('v')
+        ? segments[1]
+        : `v${segments[1]}`
       return `https://player.twitch.tv/?video=${video}&parent=${parent}`
     }
 
@@ -181,6 +186,38 @@ export function getInternetArchiveEmbedUrl(link: string): string | undefined {
   }
 }
 
+export function getOwncastEmbedUrl(
+  link: string,
+  metadataHint: string = ''
+): string | undefined {
+  try {
+    const url = new URL(link)
+    if (
+      url.pathname === '/embed/video' ||
+      url.pathname.startsWith('/embed/video/')
+    ) {
+      return url.toString()
+    }
+
+    // Owncast instances are single-channel sites; the video embed is always
+    // rooted at /embed/video on the public instance URL. Require a hint before
+    // converting root URLs so generic video results are not misclassified.
+    const owncastHint = `${url.hostname} ${metadataHint}`.toLowerCase()
+    const isLikelyOwncast = owncastHint.includes('owncast')
+    if (
+      isLikelyOwncast &&
+      (url.pathname === '/' ||
+        url.pathname === '' ||
+        url.pathname.startsWith('/watch') ||
+        url.pathname.startsWith('/stream'))
+    ) {
+      return `${url.origin}/embed/video`
+    }
+  } catch {
+    return undefined
+  }
+}
+
 export function getVideoPlaybackSource(
   video: SerperSearchResultItem,
   parentHost?: string
@@ -195,6 +232,10 @@ export function getVideoPlaybackSource(
     getVimeoEmbedUrl(video.link) ||
     getDailymotionEmbedUrl(video.link) ||
     getTwitchEmbedUrl(video.link, parentHost) ||
+    getOwncastEmbedUrl(
+      video.link,
+      `${video.title} ${video.snippet} ${video.source} ${video.channel}`
+    ) ||
     getInternetArchiveEmbedUrl(video.link)
 
   if (iframeSrc) {
