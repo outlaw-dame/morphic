@@ -12,6 +12,7 @@ import {
   PodcastMetadata,
   PodcastValueRecipient
 } from '@/lib/types/feed'
+import { readResponseWithLimit, safeFetch } from '@/lib/utils/ssrf-guard'
 
 const FEEDSEARCH_API_URL = 'https://feedsearch.dev/api/v1/search'
 const FEEDSEARCH_ATTRIBUTION = {
@@ -130,22 +131,39 @@ async function fetchText(url: string): Promise<{
   contentType: string
   finalUrl: string
 }> {
-  const response = await fetch(withDefaultScheme(url), {
-    headers: {
-      Accept: FEED_ACCEPT_HEADER,
-      'User-Agent': USER_AGENT
-    }
-  })
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10_000)
+
+  let response: Response
+  try {
+    response = await safeFetch(withDefaultScheme(url), {
+      signal: controller.signal,
+      maxRedirects: 3,
+      maxResponseBytes: 1_000_000,
+      headers: {
+        Accept: FEED_ACCEPT_HEADER,
+        'User-Agent': USER_AGENT
+      }
+    })
+  } finally {
+    clearTimeout(timeout)
+  }
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`)
   }
 
   return {
-    body: await response.text(),
+    body: await readResponseWithLimit(response, 1_000_000),
     contentType: response.headers.get('content-type') ?? '',
     finalUrl: response.url || url
   }
+}
+
+export function getPreferredPodcastAudioUrl(item: FeedItem): string | undefined {
+  return item.enclosures?.find(enclosure =>
+    enclosure.type?.toLowerCase().startsWith('audio/')
+  )?.url ?? item.enclosures?.[0]?.url
 }
 
 function normalizeFeedsearchResult(item: any): FeedDiscoveryResult | null {

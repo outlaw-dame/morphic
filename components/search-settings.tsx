@@ -11,6 +11,8 @@ import {
   IconLanguage,
   IconMapPin,
   IconNews,
+  IconPlus,
+  IconRss,
   IconSpeakerphone,
   IconTrash
 } from '@tabler/icons-react'
@@ -43,6 +45,11 @@ type WolframAppIdStatus = {
   source: 'user' | 'environment' | 'none'
 }
 
+type FeedSubscription = {
+  url: string
+  title?: string
+}
+
 export function SearchSettings() {
   const { preferences, setPreferences } = useSearchPreferences()
   const [wolframAppId, setWolframAppId] = useState('')
@@ -50,6 +57,13 @@ export function SearchSettings() {
     useState<WolframAppIdStatus | null>(null)
   const [isWolframSaving, setIsWolframSaving] = useState(false)
   const [isWolframLoading, setIsWolframLoading] = useState(true)
+  const [feedUrl, setFeedUrl] = useState('')
+  const [feedSubscriptions, setFeedSubscriptions] = useState<
+    FeedSubscription[]
+  >([])
+  const [maxFeedSubscriptions, setMaxFeedSubscriptions] = useState(20)
+  const [isFeedSaving, setIsFeedSaving] = useState(false)
+  const [isFeedsLoading, setIsFeedsLoading] = useState(true)
 
   const update = (key: string, value: string | boolean, label: string) => {
     setPreferences({ [key]: value })
@@ -72,6 +86,25 @@ export function SearchSettings() {
   useEffect(() => {
     loadWolframStatus()
   }, [loadWolframStatus])
+
+  const loadFeedSubscriptions = useCallback(async () => {
+    try {
+      const response = await fetch('/api/feed-subscriptions')
+      if (!response.ok) throw new Error('Unable to load feed settings')
+      const payload = await response.json()
+      setFeedSubscriptions(payload.feeds || [])
+      setMaxFeedSubscriptions(payload.maxFeeds || 20)
+    } catch (error) {
+      console.error(error)
+      toast.error('Could not load feed settings')
+    } finally {
+      setIsFeedsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadFeedSubscriptions()
+  }, [loadFeedSubscriptions])
 
   const saveWolframAppId = async () => {
     const appId = wolframAppId.trim()
@@ -127,6 +160,59 @@ export function SearchSettings() {
     }
   }
 
+  const addFeedSubscription = async () => {
+    const url = feedUrl.trim()
+    if (!url) {
+      toast.error('Enter a feed URL first')
+      return
+    }
+
+    setIsFeedSaving(true)
+    try {
+      const response = await fetch('/api/feed-subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      })
+      const payload = await response.json()
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Could not add feed')
+      }
+
+      setFeedSubscriptions(payload.feeds || [])
+      setMaxFeedSubscriptions(payload.maxFeeds || maxFeedSubscriptions)
+      setFeedUrl('')
+      toast.success('Feed added to search')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not add feed')
+    } finally {
+      setIsFeedSaving(false)
+    }
+  }
+
+  const removeFeedSubscription = async (url: string) => {
+    setIsFeedSaving(true)
+    try {
+      const response = await fetch('/api/feed-subscriptions', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      })
+      if (!response.ok) throw new Error('Could not remove feed')
+
+      const payload = await response.json()
+      setFeedSubscriptions(payload.feeds || [])
+      toast.success('Feed removed from search')
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Could not remove feed'
+      )
+    } finally {
+      setIsFeedSaving(false)
+    }
+  }
+
   const wolframStatusText = isWolframLoading
     ? 'Checking configuration...'
     : wolframStatus?.source === 'user'
@@ -134,6 +220,9 @@ export function SearchSettings() {
       : wolframStatus?.source === 'environment'
         ? 'Using the server configured AppID'
         : 'No AppID configured'
+  const feedStatusText = isFeedsLoading
+    ? 'Checking feeds...'
+    : `${feedSubscriptions.length}/${maxFeedSubscriptions} feeds`
 
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-y-auto">
@@ -314,6 +403,79 @@ export function SearchSettings() {
                   ) : null}
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* ── User Feeds ───────────────────────────────────────────── */}
+          <div className="rounded-xl border bg-card p-5 shadow-sm">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex gap-3">
+                  <div className="mt-0.5 rounded-lg bg-primary/10 p-2">
+                    <IconRss className="size-5 text-primary" />
+                  </div>
+                  <div>
+                    <Label htmlFor="feed-url" className="text-sm font-semibold">
+                      Search Feeds
+                    </Label>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Include your feeds and podcast transcripts in search
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right text-xs text-muted-foreground">
+                  {feedStatusText}
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  id="feed-url"
+                  value={feedUrl}
+                  onChange={event => setFeedUrl(event.target.value)}
+                  placeholder="https://example.com/feed.xml"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <Button
+                  type="button"
+                  onClick={addFeedSubscription}
+                  disabled={isFeedSaving || !feedUrl.trim()}
+                  className="gap-2"
+                >
+                  <IconPlus className="size-4" />
+                  Add
+                </Button>
+              </div>
+              {feedSubscriptions.length > 0 && (
+                <div className="space-y-2">
+                  {feedSubscriptions.map(feed => (
+                    <div
+                      key={feed.url}
+                      className="flex items-center justify-between gap-2 rounded-lg border bg-background px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {feed.title || feed.url}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {feed.url}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeFeedSubscription(feed.url)}
+                        disabled={isFeedSaving}
+                        aria-label="Remove feed"
+                        className="shrink-0"
+                      >
+                        <IconTrash className="size-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

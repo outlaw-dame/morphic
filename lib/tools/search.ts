@@ -3,6 +3,11 @@ import { cookies } from 'next/headers'
 import { tool, UIToolInvocation } from 'ai'
 
 import { DEFAULT_SEARCH_PREFERENCES } from '@/lib/config/search-preferences'
+import {
+  FEED_SUBSCRIPTIONS_COOKIE,
+  parseFeedSubscriptionsCookie
+} from '@/lib/config/feed-subscriptions'
+import type { FeedSubscription } from '@/lib/config/feed-subscriptions'
 import { getSearchSchemaForModel } from '@/lib/schema/search'
 import { SearchResultItem, SearchResults } from '@/lib/types'
 import {
@@ -16,6 +21,7 @@ import {
   DEFAULT_PROVIDER,
   SearchProviderType
 } from './search/providers'
+import { searchUserFeeds } from './search/user-feeds'
 
 /**
  * Creates a search tool with the appropriate schema for the given model.
@@ -86,6 +92,7 @@ export function createSearchTool(fullModel: string) {
 
       // Read user search preferences from cookies
       let userPrefs = { ...DEFAULT_SEARCH_PREFERENCES }
+      let userFeedSubscriptions: FeedSubscription[] = []
       try {
         const cookieStore = await cookies()
         const raw = cookieStore.get('searchPreferences')?.value
@@ -93,6 +100,9 @@ export function createSearchTool(fullModel: string) {
           const parsed = JSON.parse(decodeURIComponent(raw))
           userPrefs = { ...userPrefs, ...parsed }
         }
+        userFeedSubscriptions = parseFeedSubscriptionsCookie(
+          cookieStore.get(FEED_SUBSCRIPTIONS_COOKIE)?.value
+        )
       } catch {
         // Use defaults if cookies are unavailable
       }
@@ -159,6 +169,22 @@ export function createSearchTool(fullModel: string) {
                 preferences: searchPreferences
               }
             )
+          }
+        }
+
+        const userFeedResults = await searchUserFeeds({
+          query: filledQuery,
+          subscriptions: userFeedSubscriptions,
+          maxResults: 6
+        })
+
+        if (userFeedResults.length) {
+          searchResult = {
+            ...searchResult,
+            results: [...userFeedResults, ...(searchResult.results ?? [])],
+            number_of_results:
+              (searchResult.number_of_results ?? searchResult.results?.length ?? 0) +
+              userFeedResults.length
           }
         }
       } catch (error) {

@@ -41,6 +41,14 @@ export type SearchResultItem = {
   title: string
   url: string
   content: string
+  sourceType?: 'web' | 'user_feed' | 'podcast_transcript'
+  feedTitle?: string
+  feedUrl?: string
+  audioUrl?: string
+  transcriptStartTime?: number
+  transcriptEndTime?: number
+  transcriptText?: string
+  published?: string
 }
 
 export type ExaSearchResultItem = {

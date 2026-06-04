@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
+vi.mock('@/lib/utils/ssrf-guard', () => ({
+  safeFetch: vi.fn((url, init) => fetch(url, init)),
+  readResponseWithLimit: vi.fn((response: Response) => response.text())
+}))
+
 import { parseFeedUrl } from '../feed'
 
 const originalFetch = globalThis.fetch
