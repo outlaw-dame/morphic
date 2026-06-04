@@ -1,3 +1,4 @@
+import { getEvidenceGraphPrompt } from '@/lib/agentic/prompt'
 import {
   getImageSpecPrompt,
   getRelatedQuestionsSpecPrompt
@@ -246,6 +247,8 @@ Language:
 - ALWAYS respond in the user's language.
 
 ${getApproachStrategy()}
+
+${getEvidenceGraphPrompt()}
 
 RESEARCH SUB-AGENT TOOL (researchSubtask):
 - Use this tool to delegate a focused research task to a specialized sub-agent

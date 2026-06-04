@@ -1,3 +1,8 @@
+import type {
+  MorphicEvidenceItem,
+  MorphicVerificationReport
+} from '@/lib/agentic/types'
+
 // Re-export SearchMode for convenience
 export type { SearchMode } from './search'
 
@@ -9,6 +14,8 @@ export type SearchResults = {
   query: string
   toolCallId?: string // ID of the search tool call
   citationMap?: Record<number, SearchResultItem> // Maps citation number to search result
+  evidence?: MorphicEvidenceItem[]
+  evidenceVerification?: MorphicVerificationReport
 }
 
 // If include_images_description is true, images are objects with url/description.

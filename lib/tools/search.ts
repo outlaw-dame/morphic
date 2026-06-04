@@ -1,15 +1,17 @@
 import { cookies } from 'next/headers'
 
-import { tool, UIToolInvocation } from 'ai'
+import { tool, type UIToolInvocation } from 'ai'
 
-import { DEFAULT_SEARCH_PREFERENCES } from '@/lib/config/search-preferences'
+import { annotateSearchResultsWithEvidence } from '@/lib/agentic/evidence'
+import { classifyOperationRequest } from '@/lib/agentic/router'
 import {
   FEED_SUBSCRIPTIONS_COOKIE,
+  type FeedSubscription,
   parseFeedSubscriptionsCookie
 } from '@/lib/config/feed-subscriptions'
-import type { FeedSubscription } from '@/lib/config/feed-subscriptions'
+import { DEFAULT_SEARCH_PREFERENCES } from '@/lib/config/search-preferences'
 import { getSearchSchemaForModel } from '@/lib/schema/search'
-import { SearchResultItem, SearchResults } from '@/lib/types'
+import type { SearchResultItem, SearchResults } from '@/lib/types'
 import {
   getGeneralSearchProviderType,
   getSearchToolDescription,
@@ -25,7 +27,7 @@ import {
 import {
   createSearchProvider,
   DEFAULT_PROVIDER,
-  SearchProviderType
+  type SearchProviderType
 } from './search/providers'
 import { searchUserFeeds } from './search/user-feeds'
 import {
@@ -239,18 +241,23 @@ export function createSearchTool(fullModel: string) {
         throw error instanceof Error ? error : new Error('Unknown search error')
       }
 
-      // Add citation mapping and toolCallId to search results
+      // Add toolCallId from context before evidence/citation metadata is built.
+      if (context?.toolCallId) {
+        searchResult.toolCallId = context.toolCallId
+      }
+
+      searchResult = annotateSearchResultsWithEvidence(
+        searchResult,
+        classifyOperationRequest(filledQuery)
+      )
+
+      // Add citation mapping to search results
       if (searchResult.results && searchResult.results.length > 0) {
         const citationMap: Record<number, SearchResultItem> = {}
         searchResult.results.forEach((result, index) => {
           citationMap[index + 1] = result // Citation numbers start at 1
         })
         searchResult.citationMap = citationMap
-      }
-
-      // Add toolCallId from context
-      if (context?.toolCallId) {
-        searchResult.toolCallId = context.toolCallId
       }
 
       console.log('completed search')
