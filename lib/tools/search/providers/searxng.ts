@@ -2,7 +2,8 @@ import {
   SearchResultItem,
   SearchResults,
   SearXNGResponse,
-  SearXNGResult
+  SearXNGResult,
+  SerperSearchResultItem
 } from '@/lib/types'
 
 import { BaseSearchProvider } from './base'
@@ -13,17 +14,28 @@ export class SearXNGSearchProvider extends BaseSearchProvider {
     maxResults: number = 10,
     searchDepth: 'basic' | 'advanced' = 'basic',
     includeDomains: string[] = [],
-    excludeDomains: string[] = []
+    excludeDomains: string[] = [],
+    options?: {
+      type?: 'general' | 'optimized'
+      content_types?: Array<'web' | 'video' | 'image' | 'news'>
+    }
   ): Promise<SearchResults> {
     const apiUrl = process.env.SEARXNG_API_URL
     this.validateApiUrl(apiUrl, 'SEARXNG')
+    if (!apiUrl) {
+      throw new Error('SEARXNG_API_URL is not set in the environment variables')
+    }
+    const baseUrl = apiUrl
 
     try {
       // Construct the URL with query parameters
-      const url = new URL(`${apiUrl}/search`)
+      const url = new URL(`${baseUrl}/search`)
       url.searchParams.append('q', query)
       url.searchParams.append('format', 'json')
-      url.searchParams.append('categories', 'general,images')
+      url.searchParams.append(
+        'categories',
+        categoriesFor(options?.content_types ?? ['web', 'image'])
+      )
 
       // Apply search depth settings
       if (searchDepth === 'advanced') {
@@ -59,10 +71,13 @@ export class SearXNGSearchProvider extends BaseSearchProvider {
 
       // Separate general results and image results, and limit to maxResults
       const generalResults = data.results
-        .filter(result => !result.img_src)
+        .filter(result => !isImageResult(result) && !isVideoResult(result))
         .slice(0, maxResults)
       const imageResults = data.results
-        .filter(result => result.img_src)
+        .filter(result => isImageResult(result))
+        .slice(0, maxResults)
+      const videoResults = data.results
+        .filter(result => isVideoResult(result))
         .slice(0, maxResults)
 
       // Format the results to match the expected SearchResults structure
@@ -76,16 +91,75 @@ export class SearXNGSearchProvider extends BaseSearchProvider {
         ),
         query: data.query,
         images: imageResults
-          .map(result => {
-            const imgSrc = result.img_src || ''
-            return imgSrc.startsWith('http') ? imgSrc : `${apiUrl}${imgSrc}`
-          })
+          .map(result =>
+            toAbsoluteUrl(result.img_src || result.thumbnail_src, baseUrl)
+          )
           .filter(Boolean),
+        videos: videoResults.map((result, index) =>
+          toVideoResult(result, index, baseUrl)
+        ),
         number_of_results: data.number_of_results
       }
     } catch (error) {
       console.error('SearXNG API error:', error)
       throw error
     }
+  }
+}
+
+function categoriesFor(
+  contentTypes: Array<'web' | 'video' | 'image' | 'news'>
+): string {
+  const categories = new Set<string>()
+  if (contentTypes.includes('web')) categories.add('general')
+  if (contentTypes.includes('image')) categories.add('images')
+  if (contentTypes.includes('video')) categories.add('videos')
+  if (contentTypes.includes('news')) categories.add('news')
+  if (categories.size === 0) {
+    categories.add('general')
+    categories.add('images')
+  }
+  return Array.from(categories).join(',')
+}
+
+function isImageResult(result: SearXNGResult): boolean {
+  return Boolean(
+    result.template === 'images.html' ||
+      (result.img_src && result.category !== 'videos')
+  )
+}
+
+function isVideoResult(result: SearXNGResult): boolean {
+  return Boolean(
+    result.template === 'videos.html' ||
+      result.category === 'videos' ||
+      result.iframe_src
+  )
+}
+
+function toAbsoluteUrl(value: string | undefined, apiUrl: string): string {
+  if (!value) return ''
+  return value.startsWith('http') ? value : `${apiUrl}${value}`
+}
+
+function toVideoResult(
+  result: SearXNGResult,
+  index: number,
+  apiUrl: string
+): SerperSearchResultItem {
+  return {
+    title: result.title || 'No title',
+    link: result.url || result.iframe_src || '',
+    snippet: result.content || '',
+    imageUrl: toAbsoluteUrl(
+      result.thumbnail || result.thumbnail_src || result.img_src,
+      apiUrl
+    ),
+    iframeUrl: toAbsoluteUrl(result.iframe_src, apiUrl) || undefined,
+    duration: result.length || result.duration || '',
+    source: result.source || result.engine || '',
+    channel: result.author || result.source || result.engine || '',
+    date: result.publishedDate || result.pubdate || '',
+    position: index
   }
 }

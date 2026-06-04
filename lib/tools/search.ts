@@ -12,7 +12,8 @@ import { getSearchSchemaForModel } from '@/lib/schema/search'
 import { SearchResultItem, SearchResults } from '@/lib/types'
 import {
   getGeneralSearchProviderType,
-  getSearchToolDescription
+  getSearchToolDescription,
+  searchProviderSupportsContentTypes
 } from '@/lib/utils/search-config'
 import { getBaseUrlString } from '@/lib/utils/url'
 
@@ -62,17 +63,30 @@ export function createSearchTool(fullModel: string) {
       // Determine which provider to use based on type
       let searchAPI: SearchProviderType
       if (type === 'general') {
-        // Try to use dedicated general search provider
-        const generalProvider = getGeneralSearchProviderType()
-        if (generalProvider) {
-          searchAPI = generalProvider
-        } else {
-          // Fallback to primary provider (optimized search provider)
-          searchAPI =
-            (process.env.SEARCH_API as SearchProviderType) || DEFAULT_PROVIDER
-          console.log(
-            `[Search] type="general" requested but no dedicated provider available, using optimized search provider: ${searchAPI}`
+        const configuredProvider =
+          (process.env.SEARCH_API as SearchProviderType) || DEFAULT_PROVIDER
+
+        if (
+          searchProviderSupportsContentTypes(
+            configuredProvider,
+            content_types as Array<'web' | 'video' | 'image' | 'news'>
           )
+        ) {
+          searchAPI = configuredProvider
+        } else {
+          // Try to use a dedicated general search provider when the configured
+          // provider cannot satisfy the requested media types.
+          const generalProvider = getGeneralSearchProviderType(
+            content_types as Array<'web' | 'video' | 'image' | 'news'>
+          )
+          if (generalProvider) {
+            searchAPI = generalProvider
+          } else {
+            searchAPI = configuredProvider
+            console.log(
+              `[Search] type="general" requested but no configured provider fully supports content_types=${content_types.join(',')}; using ${searchAPI}`
+            )
+          }
         }
       } else {
         // For 'optimized', use the configured provider
@@ -129,7 +143,8 @@ export function createSearchTool(fullModel: string) {
               maxResults: effectiveMaxResults,
               searchDepth: effectiveSearchDepthForAPI,
               includeDomains: include_domains,
-              excludeDomains: exclude_domains
+              excludeDomains: exclude_domains,
+              contentTypes: content_types
             })
           })
           if (!response.ok) {
@@ -142,34 +157,20 @@ export function createSearchTool(fullModel: string) {
           // Use the provider factory to get the appropriate search provider
           const searchProvider = createSearchProvider(searchAPI)
 
-          // Pass content_types only for Brave provider
-          if (searchAPI === 'brave') {
-            searchResult = await searchProvider.search(
-              filledQuery,
-              effectiveMaxResults,
-              effectiveSearchDepthForAPI,
-              include_domains,
-              exclude_domains,
-              {
-                type: type as 'general' | 'optimized',
-                content_types: content_types as Array<
-                  'web' | 'video' | 'image' | 'news'
-                >,
-                preferences: searchPreferences
-              }
-            )
-          } else {
-            searchResult = await searchProvider.search(
-              filledQuery,
-              effectiveMaxResults,
-              effectiveSearchDepthForAPI,
-              include_domains,
-              exclude_domains,
-              {
-                preferences: searchPreferences
-              }
-            )
-          }
+          searchResult = await searchProvider.search(
+            filledQuery,
+            effectiveMaxResults,
+            effectiveSearchDepthForAPI,
+            include_domains,
+            exclude_domains,
+            {
+              type: type as 'general' | 'optimized',
+              content_types: content_types as Array<
+                'web' | 'video' | 'image' | 'news'
+              >,
+              preferences: searchPreferences
+            }
+          )
         }
 
         const userFeedResults = await searchUserFeeds({

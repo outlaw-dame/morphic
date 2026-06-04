@@ -2,7 +2,8 @@ import {
   SearchResultItem,
   SearchResults,
   SearXNGResponse,
-  SearXNGResult
+  SearXNGResult,
+  SerperSearchResultItem
 } from '@/lib/types'
 
 import { BaseSearchProvider } from './base'
@@ -26,7 +27,11 @@ export class SearXNGEngineSearchProvider extends BaseSearchProvider {
     maxResults: number = 10,
     searchDepth: 'basic' | 'advanced' = 'basic',
     includeDomains: string[] = [],
-    excludeDomains: string[] = []
+    excludeDomains: string[] = [],
+    options?: {
+      type?: 'general' | 'optimized'
+      content_types?: Array<'web' | 'video' | 'image' | 'news'>
+    }
   ): Promise<SearchResults> {
     const apiUrl = process.env.SEARXNG_API_URL
     if (!apiUrl) {
@@ -37,11 +42,12 @@ export class SearXNGEngineSearchProvider extends BaseSearchProvider {
     let data = await this.fetchEngineResults(
       apiUrl,
       this.options.engine,
-      this.options.label,
-      query,
-      searchDepth,
-      includeDomains
-    )
+        this.options.label,
+        query,
+        searchDepth,
+        includeDomains,
+        options?.content_types
+      )
 
     if (
       this.options.fallbackEngine &&
@@ -56,7 +62,8 @@ export class SearXNGEngineSearchProvider extends BaseSearchProvider {
         this.options.fallbackEngine.label,
         query,
         searchDepth,
-        includeDomains
+        includeDomains,
+        options?.content_types
       )
     }
 
@@ -71,11 +78,15 @@ export class SearXNGEngineSearchProvider extends BaseSearchProvider {
       })
 
     const generalResults = data.results
-      .filter(result => !result.img_src)
+      .filter(result => !this.isImageResult(result) && !this.isVideoResult(result))
       .filter(result => !matchesExcludedDomain(result))
       .slice(0, maxResults)
     const imageResults = data.results
-      .filter(result => result.img_src)
+      .filter(result => this.isImageResult(result))
+      .filter(result => !matchesExcludedDomain(result))
+      .slice(0, maxResults)
+    const videoResults = data.results
+      .filter(result => this.isVideoResult(result))
       .filter(result => !matchesExcludedDomain(result))
       .slice(0, maxResults)
 
@@ -89,11 +100,11 @@ export class SearXNGEngineSearchProvider extends BaseSearchProvider {
       ),
       query: data.query || query,
       images: imageResults
-        .map(result => {
-          const imgSrc = result.img_src || ''
-          return imgSrc.startsWith('http') ? imgSrc : `${apiUrl}${imgSrc}`
-        })
+        .map(result => this.toAbsoluteUrl(result.img_src || result.thumbnail_src, apiUrl))
         .filter(Boolean),
+      videos: videoResults.map((result, index) =>
+        this.toVideoResult(result, index, apiUrl)
+      ),
       number_of_results: data.number_of_results
     }
   }
@@ -104,12 +115,13 @@ export class SearXNGEngineSearchProvider extends BaseSearchProvider {
     label: string,
     query: string,
     searchDepth: 'basic' | 'advanced',
-    includeDomains: string[]
+    includeDomains: string[],
+    contentTypes: Array<'web' | 'video' | 'image' | 'news'> = ['web']
   ): Promise<SearXNGResponse> {
     const url = new URL('/search', apiUrl)
     url.searchParams.set('q', query)
     url.searchParams.set('format', 'json')
-    url.searchParams.set('categories', 'general,images')
+    url.searchParams.set('categories', this.categoriesFor(contentTypes))
     url.searchParams.set('engines', engine)
     url.searchParams.set('safesearch', searchDepth === 'advanced' ? '0' : '1')
 
@@ -140,5 +152,62 @@ export class SearXNGEngineSearchProvider extends BaseSearchProvider {
     return Boolean(
       data.unresponsive_engines?.some(([name]) => name === engine)
     )
+  }
+
+  private categoriesFor(
+    contentTypes: Array<'web' | 'video' | 'image' | 'news'>
+  ): string {
+    const categories = new Set<string>()
+    if (contentTypes.includes('web')) categories.add('general')
+    if (contentTypes.includes('image')) categories.add('images')
+    if (contentTypes.includes('video')) categories.add('videos')
+    if (contentTypes.includes('news')) categories.add('news')
+    if (categories.size === 0) {
+      categories.add('general')
+      categories.add('images')
+    }
+    return Array.from(categories).join(',')
+  }
+
+  private isImageResult(result: SearXNGResult): boolean {
+    return Boolean(
+      result.template === 'images.html' ||
+        (result.img_src && result.category !== 'videos')
+    )
+  }
+
+  private isVideoResult(result: SearXNGResult): boolean {
+    return Boolean(
+      result.template === 'videos.html' ||
+        result.category === 'videos' ||
+        result.iframe_src
+    )
+  }
+
+  private toAbsoluteUrl(value: string | undefined, apiUrl: string): string {
+    if (!value) return ''
+    return value.startsWith('http') ? value : `${apiUrl}${value}`
+  }
+
+  private toVideoResult(
+    result: SearXNGResult,
+    index: number,
+    apiUrl: string
+  ): SerperSearchResultItem {
+    return {
+      title: result.title || 'No title',
+      link: result.url || result.iframe_src || '',
+      snippet: result.content || '',
+      imageUrl: this.toAbsoluteUrl(
+        result.thumbnail || result.thumbnail_src || result.img_src,
+        apiUrl
+      ),
+      iframeUrl: this.toAbsoluteUrl(result.iframe_src, apiUrl) || undefined,
+      duration: result.length || result.duration || '',
+      source: result.source || result.engine || '',
+      channel: result.author || result.source || result.engine || '',
+      date: result.publishedDate || result.pubdate || '',
+      position: index
+    }
   }
 }

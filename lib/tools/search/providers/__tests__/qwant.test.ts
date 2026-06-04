@@ -54,6 +54,56 @@ describe('QwantSearchProvider', () => {
     ])
   })
 
+  it('requests and maps SearXNG video results when video content is requested', async () => {
+    process.env.SEARXNG_API_URL = 'http://localhost:18080'
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        query: 'morphic video',
+        number_of_results: 1,
+        results: [
+          {
+            title: 'Morphic demo',
+            url: 'https://video.example.com/watch/123',
+            content: 'Demo video',
+            template: 'videos.html',
+            iframe_src: 'https://video.example.com/embed/123',
+            thumbnail: '/image-proxy?url=thumb'
+          }
+        ]
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const provider = new QwantSearchProvider()
+    const results = await provider.search(
+      'morphic video',
+      10,
+      'basic',
+      [],
+      [],
+      { type: 'general', content_types: ['video'] }
+    )
+
+    const url = new URL(fetchMock.mock.calls[0][0])
+    expect(url.searchParams.get('categories')).toBe('videos')
+    expect(results.results).toEqual([])
+    expect(results.videos).toEqual([
+      {
+        title: 'Morphic demo',
+        link: 'https://video.example.com/watch/123',
+        snippet: 'Demo video',
+        imageUrl: 'http://localhost:18080/image-proxy?url=thumb',
+        iframeUrl: 'https://video.example.com/embed/123',
+        duration: '',
+        source: '',
+        channel: '',
+        date: '',
+        position: 0
+      }
+    ])
+  })
+
   it('falls back to DuckDuckGo when SearXNG reports Qwant as unresponsive', async () => {
     process.env.SEARXNG_API_URL = 'http://localhost:18080'
     const fetchMock = vi

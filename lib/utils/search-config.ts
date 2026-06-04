@@ -5,10 +5,14 @@
 
 /**
  * Checks if a dedicated "general" search provider is available
- * Currently checks for Brave Search, but can be extended for other providers
  */
 export function isGeneralSearchProviderAvailable(): boolean {
-  return !!process.env.BRAVE_SEARCH_API_KEY
+  return Boolean(
+    process.env.BRAVE_SEARCH_API_KEY ||
+      process.env.TAVILY_API_KEY ||
+      process.env.FIRECRAWL_API_KEY ||
+      process.env.SEARXNG_API_URL
+  )
 }
 
 /**
@@ -18,6 +22,15 @@ export function getGeneralSearchProviderName(): string {
   if (process.env.BRAVE_SEARCH_API_KEY) {
     return 'Brave Search'
   }
+  if (process.env.TAVILY_API_KEY) {
+    return 'Tavily'
+  }
+  if (process.env.FIRECRAWL_API_KEY) {
+    return 'Firecrawl'
+  }
+  if (process.env.SEARXNG_API_URL) {
+    return 'SearXNG'
+  }
   return 'primary provider'
 }
 
@@ -25,8 +38,40 @@ export function getGeneralSearchProviderName(): string {
  * Checks if the general search provider supports multimedia content types
  */
 export function supportsMultimediaContentTypes(): boolean {
-  // Currently only Brave supports video/image content_types
-  return !!process.env.BRAVE_SEARCH_API_KEY
+  return Boolean(
+    process.env.BRAVE_SEARCH_API_KEY ||
+      process.env.TAVILY_API_KEY ||
+      process.env.FIRECRAWL_API_KEY ||
+      process.env.SEARXNG_API_URL
+  )
+}
+
+export function searchProviderSupportsContentTypes(
+  provider: string | undefined,
+  contentTypes: Array<'web' | 'video' | 'image' | 'news'> = ['web']
+): boolean {
+  const requested = new Set(contentTypes)
+  const wantsImages = requested.has('image')
+  const wantsVideos = requested.has('video')
+  const wantsNews = requested.has('news')
+
+  switch (provider) {
+    case 'brave':
+      return Boolean(process.env.BRAVE_SEARCH_API_KEY)
+    case 'tavily':
+      return Boolean(process.env.TAVILY_API_KEY && !wantsVideos)
+    case 'firecrawl':
+      return Boolean(process.env.FIRECRAWL_API_KEY && !wantsVideos)
+    case 'searxng':
+    case 'qwant':
+    case 'duckduckgo':
+      return Boolean(process.env.SEARXNG_API_URL)
+    case 'exa':
+    case 'kagi':
+      return !wantsImages && !wantsVideos && !wantsNews
+    default:
+      return !wantsImages && !wantsVideos && !wantsNews
+  }
 }
 
 /**
@@ -37,7 +82,7 @@ export function getSearchTypeDescription(): string {
   const providerName = getGeneralSearchProviderName()
 
   if (hasGeneralProvider) {
-    return `Search type: general for ${providerName} (supports video/image with content_types, basic results may need fetch for details), optimized for AI-focused providers with content snippets (Tavily/Exa/SearXNG)`
+    return `Search type: general for ${providerName} or another configured multimedia-capable provider (supports image/video content_types when that provider exposes them), optimized for AI-focused providers with content snippets (Tavily/Exa/SearXNG)`
   } else {
     return 'Search type: general and optimized both use the primary AI-focused provider (Tavily/Exa/SearXNG) with content snippets. Note: video/image content_types require a dedicated general search provider (not configured)'
   }
@@ -50,7 +95,7 @@ export function getSearchToolDescription(): string {
   const supportsMultimedia = supportsMultimediaContentTypes()
 
   if (supportsMultimedia) {
-    return 'Search the web for information. For YouTube/video content, use type="general" with content_types:["video"] for optimal visual presentation with thumbnails.'
+    return 'Search the web for information. For video/image content, use type="general" with content_types:["video"] or content_types:["image"] when a multimedia-capable provider is configured.'
   } else {
     return 'Search the web for information using AI-focused providers. Note: Video/image searches with content_types require a dedicated general search provider (not configured). Use type="optimized" for best results with available providers.'
   }
@@ -66,7 +111,7 @@ export function getContentTypesGuidance(): string {
 
   if (hasGeneralProvider && supportsMultimedia) {
     return `- **type="general" (for time-sensitive or specific content):**
-  - Uses ${providerName} for enhanced multimedia support
+  - Uses ${providerName} or another configured provider for enhanced multimedia support
   - Returns search results without deep content extraction
   - Best for:
     - Today's news, current events, recent updates
@@ -107,12 +152,22 @@ export function getSearchStrategyGuidance(): string {
 }
 
 /**
- * Gets the appropriate search provider type for "general" searches
- * Returns 'brave' if available, otherwise null to indicate fallback
+ * Gets the appropriate fallback search provider type for "general" searches.
  */
-export function getGeneralSearchProviderType(): 'brave' | null {
-  if (process.env.BRAVE_SEARCH_API_KEY) {
+export function getGeneralSearchProviderType(
+  contentTypes: Array<'web' | 'video' | 'image' | 'news'> = ['web']
+): 'brave' | 'tavily' | 'firecrawl' | 'searxng' | null {
+  if (searchProviderSupportsContentTypes('brave', contentTypes)) {
     return 'brave'
+  }
+  if (searchProviderSupportsContentTypes('tavily', contentTypes)) {
+    return 'tavily'
+  }
+  if (searchProviderSupportsContentTypes('firecrawl', contentTypes)) {
+    return 'firecrawl'
+  }
+  if (searchProviderSupportsContentTypes('searxng', contentTypes)) {
+    return 'searxng'
   }
   return null
 }

@@ -9,10 +9,13 @@ import { createClient } from 'redis'
 
 import {
   SearchResultItem,
+  SerperSearchResultItem,
   SearXNGResponse,
   SearXNGResult,
   SearXNGSearchResults
 } from '@/lib/types'
+
+type SearchContentType = 'web' | 'video' | 'image' | 'news'
 
 /**
  * Maximum number of results to fetch from SearXNG.
@@ -135,15 +138,24 @@ async function cleanupExpiredCache() {
 setInterval(cleanupExpiredCache, CACHE_EXPIRATION_CHECK_INTERVAL)
 
 export async function POST(request: Request) {
-  const { query, maxResults, searchDepth, includeDomains, excludeDomains } =
-    await request.json()
+  const {
+    query,
+    maxResults,
+    searchDepth,
+    includeDomains,
+    excludeDomains,
+    contentTypes
+  } = await request.json()
+  const normalizedContentTypes = normalizeContentTypes(contentTypes)
 
   const SEARXNG_DEFAULT_DEPTH = process.env.SEARXNG_DEFAULT_DEPTH || 'basic'
 
   try {
     const cacheKey = `search:${query}:${maxResults}:${searchDepth}:${
       Array.isArray(includeDomains) ? includeDomains.join(',') : ''
-    }:${Array.isArray(excludeDomains) ? excludeDomains.join(',') : ''}`
+    }:${Array.isArray(excludeDomains) ? excludeDomains.join(',') : ''}:${
+      normalizedContentTypes.join(',')
+    }`
 
     // Try to get cached results
     const cachedResults = await getCachedResults(cacheKey)
@@ -157,7 +169,8 @@ export async function POST(request: Request) {
       Math.min(maxResults, SEARXNG_MAX_RESULTS),
       searchDepth || SEARXNG_DEFAULT_DEPTH,
       Array.isArray(includeDomains) ? includeDomains : [],
-      Array.isArray(excludeDomains) ? excludeDomains : []
+      Array.isArray(excludeDomains) ? excludeDomains : [],
+      normalizedContentTypes
     )
 
     // Cache the results
@@ -185,7 +198,8 @@ async function advancedSearchXNGSearch(
   maxResults: number = 10,
   searchDepth: 'basic' | 'advanced' = 'advanced',
   includeDomains: string[] = [],
-  excludeDomains: string[] = []
+  excludeDomains: string[] = [],
+  contentTypes: SearchContentType[] = ['web', 'image']
 ): Promise<SearXNGSearchResults> {
   const apiUrl = process.env.SEARXNG_API_URL
   if (!apiUrl) {
@@ -205,7 +219,7 @@ async function advancedSearchXNGSearch(
     const url = new URL(`${apiUrl}/search`)
     url.searchParams.append('q', query)
     url.searchParams.append('format', 'json')
-    url.searchParams.append('categories', 'general,images')
+    url.searchParams.append('categories', categoriesFor(contentTypes))
 
     // Add time_range if it's not 'None'
     if (SEARXNG_TIME_RANGE !== 'None') {
@@ -239,7 +253,8 @@ async function advancedSearchXNGSearch(
     }
 
     let generalResults = data.results.filter(
-      (result: SearXNGResult) => result && !result.img_src
+      (result: SearXNGResult) =>
+        result && !isImageResult(result) && !isVideoResult(result)
     )
 
     // Apply domain filtering manually
@@ -279,7 +294,10 @@ async function advancedSearchXNGSearch(
     generalResults = generalResults.slice(0, maxResults)
 
     const imageResults = (data.results || [])
-      .filter((result: SearXNGResult) => result && result.img_src)
+      .filter((result: SearXNGResult) => result && isImageResult(result))
+      .slice(0, maxResults)
+    const videoResults = (data.results || [])
+      .filter((result: SearXNGResult) => result && isVideoResult(result))
       .slice(0, maxResults)
 
     return {
@@ -293,10 +311,13 @@ async function advancedSearchXNGSearch(
       query: data.query || query,
       images: imageResults
         .map((result: SearXNGResult) => {
-          const imgSrc = result.img_src || ''
+          const imgSrc = result.img_src || result.thumbnail_src || ''
           return imgSrc.startsWith('http') ? imgSrc : `${apiUrl}${imgSrc}`
         })
         .filter(Boolean),
+      videos: videoResults.map((result, index) =>
+        toVideoResult(result, index, apiUrl)
+      ),
       number_of_results: data.number_of_results || generalResults.length
     }
   } catch (error) {
@@ -307,6 +328,73 @@ async function advancedSearchXNGSearch(
       images: [],
       number_of_results: 0
     }
+  }
+}
+
+function normalizeContentTypes(value: unknown): SearchContentType[] {
+  const allowed = new Set(['web', 'video', 'image', 'news'])
+  if (!Array.isArray(value)) return ['web', 'image']
+
+  const normalized = value.filter(
+    (item): item is SearchContentType =>
+      typeof item === 'string' && allowed.has(item)
+  )
+
+  return normalized.length ? normalized : ['web', 'image']
+}
+
+function categoriesFor(contentTypes: SearchContentType[]): string {
+  const categories = new Set<string>()
+  if (contentTypes.includes('web')) categories.add('general')
+  if (contentTypes.includes('image')) categories.add('images')
+  if (contentTypes.includes('video')) categories.add('videos')
+  if (contentTypes.includes('news')) categories.add('news')
+  if (categories.size === 0) {
+    categories.add('general')
+    categories.add('images')
+  }
+  return Array.from(categories).join(',')
+}
+
+function isImageResult(result: SearXNGResult): boolean {
+  return Boolean(
+    result.template === 'images.html' ||
+      (result.img_src && result.category !== 'videos')
+  )
+}
+
+function isVideoResult(result: SearXNGResult): boolean {
+  return Boolean(
+    result.template === 'videos.html' ||
+      result.category === 'videos' ||
+      result.iframe_src
+  )
+}
+
+function toAbsoluteUrl(value: string | undefined, apiUrl: string): string {
+  if (!value) return ''
+  return value.startsWith('http') ? value : `${apiUrl}${value}`
+}
+
+function toVideoResult(
+  result: SearXNGResult,
+  index: number,
+  apiUrl: string
+): SerperSearchResultItem {
+  return {
+    title: result.title || 'No title',
+    link: result.url || result.iframe_src || '',
+    snippet: result.content || '',
+    imageUrl: toAbsoluteUrl(
+      result.thumbnail || result.thumbnail_src || result.img_src,
+      apiUrl
+    ),
+    iframeUrl: toAbsoluteUrl(result.iframe_src, apiUrl) || undefined,
+    duration: result.length || result.duration || '',
+    source: result.source || result.engine || '',
+    channel: result.author || result.source || result.engine || '',
+    date: result.publishedDate || result.pubdate || '',
+    position: index
   }
 }
 

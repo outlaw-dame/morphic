@@ -1,5 +1,5 @@
 import {
-  SearchImageItem,
+  SearchResultImage,
   SearchResults,
   SerperSearchResultItem
 } from '@/lib/types'
@@ -216,9 +216,10 @@ export class BraveSearchProvider implements SearchProvider {
         (result: BraveImageResult) =>
           ({
             title: result.title || 'No title',
-            link: result.url || result.source || '',
-            thumbnailUrl: this.getImageThumbnailUrl(result)
-          }) as SearchImageItem
+            sourceUrl: result.url || result.source || '',
+            url: this.getImageThumbnailUrl(result),
+            description: result.title || ''
+          }) as SearchResultImage
       )
     } catch (error) {
       console.error('Brave image search error:', error)

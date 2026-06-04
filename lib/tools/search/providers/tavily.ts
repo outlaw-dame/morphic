@@ -14,7 +14,11 @@ export class TavilySearchProvider extends BaseSearchProvider {
     maxResults: number = 10,
     searchDepth: 'basic' | 'advanced' = 'basic',
     includeDomains: string[] = [],
-    excludeDomains: string[] = []
+    excludeDomains: string[] = [],
+    options?: {
+      type?: 'general' | 'optimized'
+      content_types?: Array<'web' | 'video' | 'image' | 'news'>
+    }
   ): Promise<SearchResults> {
     const apiKey = process.env.TAVILY_API_KEY
     this.validateApiKey(apiKey, 'TAVILY')
@@ -28,7 +32,9 @@ export class TavilySearchProvider extends BaseSearchProvider {
       ? Array.from(new Set([...excludeDomains, ...CLOUD_EXCLUDED_DOMAINS]))
       : excludeDomains
 
-    const includeImageDescriptions = true
+    const requestedContentTypes = options?.content_types ?? ['web', 'image']
+    const includeImages = requestedContentTypes.includes('image')
+    const includeImageDescriptions = includeImages
     const response = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: {
@@ -39,7 +45,7 @@ export class TavilySearchProvider extends BaseSearchProvider {
         query: filledQuery,
         max_results: Math.max(maxResults, 5),
         search_depth: searchDepth,
-        include_images: true,
+        include_images: includeImages,
         include_image_descriptions: includeImageDescriptions,
         include_answers: true,
         include_domains: includeDomains,
@@ -76,7 +82,7 @@ export class TavilySearchProvider extends BaseSearchProvider {
 
     const processedImages = includeImageDescriptions
       ? (
-          data.images as Array<{
+          (data.images ?? []) as Array<{
             url: string
             title?: string
             description?: string
@@ -99,11 +105,12 @@ export class TavilySearchProvider extends BaseSearchProvider {
               image.description !== undefined &&
               image.description !== ''
           )
-      : data.images.map((url: string) => sanitizeUrl(url))
+      : (data.images ?? []).map((url: string) => sanitizeUrl(url))
 
     return {
       ...data,
-      images: processedImages
+      images: processedImages,
+      videos: []
     }
   }
 }

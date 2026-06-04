@@ -13,24 +13,38 @@ export class FirecrawlSearchProvider extends BaseSearchProvider {
     maxResults: number = 10,
     searchDepth: 'basic' | 'advanced' = 'basic',
     includeDomains: string[] = [],
-    excludeDomains: string[] = []
+    excludeDomains: string[] = [],
+    options?: {
+      type?: 'general' | 'optimized'
+      content_types?: Array<'web' | 'video' | 'image' | 'news'>
+    }
   ): Promise<SearchResults> {
     const apiKey = process.env.FIRECRAWL_API_KEY
     this.validateApiKey(apiKey, 'FIRECRAWL')
 
     const firecrawl = new FirecrawlClient(apiKey)
 
-    const sources: ('web' | 'news' | 'images')[] = ['web']
-    if (searchDepth === 'advanced') {
+    const contentTypes = options?.content_types ?? ['web', 'image']
+    const sources: ('web' | 'news' | 'images')[] = []
+    if (contentTypes.includes('web')) {
+      sources.push('web')
+    }
+    if (contentTypes.includes('news') || searchDepth === 'advanced') {
       sources.push('news')
     }
-    sources.push('images')
+    if (contentTypes.includes('image')) {
+      sources.push('images')
+    }
+    if (sources.length === 0) {
+      sources.push('web')
+    }
 
     const response = await firecrawl.search({
       query,
       sources,
       limit: maxResults
-      // Note: Firecrawl Search API does not support includeDomains/excludeDomains yet...
+      // Note: Firecrawl Search API support for include/exclude domains depends
+      // on endpoint version; the local client currently does not pass them.
     })
 
     const resources: (FirecrawlWebResult | FirecrawlNewsResult)[] = [
@@ -65,6 +79,7 @@ export class FirecrawlSearchProvider extends BaseSearchProvider {
       results,
       query,
       images,
+      videos: [],
       number_of_results: results.length
     }
   }

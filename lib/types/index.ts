@@ -65,6 +65,7 @@ export type SerperSearchResultItem = {
   link: string
   snippet: string
   imageUrl: string
+  iframeUrl?: string
   duration: string
   source: string
   channel: string
@@ -83,6 +84,18 @@ export interface SearXNGResult {
   url: string
   content: string
   img_src?: string
+  thumbnail?: string
+  thumbnail_src?: string
+  iframe_src?: string
+  audio_src?: string
+  template?: string
+  category?: string
+  length?: string
+  duration?: string
+  source?: string
+  engine?: string
+  author?: string
+  pubdate?: string
   publishedDate?: string
   score?: number
 }
@@ -99,6 +112,7 @@ export type SearXNGImageResult = string
 export type SearXNGSearchResults = {
   images: SearXNGImageResult[]
   results: SearchResultItem[]
+  videos?: SerperSearchResultItem[]
   number_of_results?: number
   query: string
 }

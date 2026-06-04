@@ -28,6 +28,33 @@ interface VideoCarouselDialogProps {
   initialIndex?: number // Add initialIndex prop
 }
 
+function getYouTubeEmbedUrl(link: string): string | undefined {
+  try {
+    const url = new URL(link)
+    if (url.hostname.includes('youtube.com')) {
+      const videoId = url.searchParams.get('v')
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}?enablejsapi=1`
+      }
+      if (url.pathname.startsWith('/embed/')) {
+        return `${url.origin}${url.pathname}?enablejsapi=1`
+      }
+    }
+    if (url.hostname === 'youtu.be') {
+      const videoId = url.pathname.replace(/^\/+/, '')
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}?enablejsapi=1`
+      }
+    }
+  } catch {
+    return undefined
+  }
+}
+
+function getVideoEmbedUrl(video: SerperSearchResultItem): string | undefined {
+  return video.iframeUrl || getYouTubeEmbedUrl(video.link)
+}
+
 export function VideoCarouselDialog({
   children,
   videos,
@@ -92,20 +119,31 @@ export function VideoCarouselDialog({
           >
             <CarouselContent>
               {videos.map((video, idx) => {
-                const videoId = video.link.split('v=')[1]
+                const embedUrl = getVideoEmbedUrl(video)
                 return (
                   <CarouselItem key={idx}>
                     <div className="p-1 flex items-center justify-center h-full">
-                      <iframe
-                        ref={el => {
-                          videoRefs.current[idx] = el
-                        }}
-                        src={`https://www.youtube.com/embed/${videoId}?enablejsapi=1`}
-                        className="w-full aspect-video"
-                        title={video.title}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                      />
+                      {embedUrl ? (
+                        <iframe
+                          ref={el => {
+                            videoRefs.current[idx] = el
+                          }}
+                          src={embedUrl}
+                          className="w-full aspect-video"
+                          title={video.title}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <a
+                          href={video.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex aspect-video w-full items-center justify-center bg-background text-sm text-primary hover:underline"
+                        >
+                          Open video
+                        </a>
+                      )}
                     </div>
                   </CarouselItem>
                 )
