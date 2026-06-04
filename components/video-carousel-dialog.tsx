@@ -22,6 +22,14 @@ import {
   DialogTrigger
 } from '@/components/ui/dialog'
 
+function getPostMessageOrigin(frame: HTMLIFrameElement) {
+  try {
+    return new URL(frame.src, window.location.href).origin
+  } catch {
+    return '*'
+  }
+}
+
 interface VideoCarouselDialogProps {
   children: React.ReactNode
   videos: SerperSearchResultItem[]
@@ -50,7 +58,7 @@ export function VideoCarouselDialog({
       const prevVideo = videoRefs.current[previousIndexRef.current]
       prevVideo?.contentWindow?.postMessage(
         '{"event":"command","func":"pauseVideo","args":""}',
-        '*'
+        prevVideo ? getPostMessageOrigin(prevVideo) : '*'
       )
       previousIndexRef.current = newIndex
       setCurrent(newIndex + 1)
@@ -95,7 +103,9 @@ export function VideoCarouselDialog({
               {videos.map((video, idx) => {
                 const playbackSource = getVideoPlaybackSource(
                   video,
-                  typeof window === 'undefined' ? undefined : window.location.hostname
+                  typeof window === 'undefined'
+                    ? undefined
+                    : window.location.hostname
                 )
                 return (
                   <CarouselItem key={idx}>
@@ -108,8 +118,15 @@ export function VideoCarouselDialog({
                           src={playbackSource.src}
                           className="w-full aspect-video"
                           title={video.title}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allow="autoplay; encrypted-media; fullscreen; picture-in-picture; web-share"
                           allowFullScreen
+                          loading="lazy"
+                          referrerPolicy="strict-origin-when-cross-origin"
+                          sandbox={
+                            playbackSource.isolation === 'sandboxed'
+                              ? 'allow-scripts allow-popups allow-popups-to-escape-sandbox'
+                              : undefined
+                          }
                         />
                       ) : playbackSource.kind === 'video' ? (
                         <video

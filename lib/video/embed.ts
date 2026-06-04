@@ -1,9 +1,19 @@
 import type { SerperSearchResultItem } from '@/lib/types'
 
+import {
+  getBlueskyEmbedUrl,
+  getLoopsEmbedUrl,
+  getMastodonEmbedUrl,
+  getPixelfedEmbedUrl,
+  isTrustedProviderIframeUrl,
+  parseSafeEmbedUrl
+} from './social-embeds'
+
 export type VideoPlaybackSource =
   | {
       kind: 'iframe'
       src: string
+      isolation?: 'standard' | 'sandboxed'
     }
   | {
       kind: 'video'
@@ -222,8 +232,18 @@ export function getVideoPlaybackSource(
   video: SerperSearchResultItem,
   parentHost?: string
 ): VideoPlaybackSource {
-  if (video.iframeUrl) {
+  if (video.iframeUrl && isTrustedProviderIframeUrl(video.iframeUrl)) {
     return { kind: 'iframe', src: video.iframeUrl }
+  }
+
+  const metadataHint = `${video.title} ${video.snippet} ${video.source} ${video.channel}`
+  const blueskyEmbedUrl = getBlueskyEmbedUrl(video.link)
+  if (blueskyEmbedUrl) {
+    return {
+      kind: 'iframe',
+      src: blueskyEmbedUrl,
+      isolation: 'sandboxed'
+    }
   }
 
   const iframeSrc =
@@ -232,19 +252,20 @@ export function getVideoPlaybackSource(
     getVimeoEmbedUrl(video.link) ||
     getDailymotionEmbedUrl(video.link) ||
     getTwitchEmbedUrl(video.link, parentHost) ||
-    getOwncastEmbedUrl(
-      video.link,
-      `${video.title} ${video.snippet} ${video.source} ${video.channel}`
-    ) ||
+    getOwncastEmbedUrl(video.link, metadataHint) ||
+    getLoopsEmbedUrl(video.link, metadataHint) ||
+    getPixelfedEmbedUrl(video.link, metadataHint) ||
+    getMastodonEmbedUrl(video.link, metadataHint) ||
     getInternetArchiveEmbedUrl(video.link)
 
   if (iframeSrc) {
     return { kind: 'iframe', src: iframeSrc }
   }
 
-  if (DIRECT_VIDEO_EXTENSIONS.test(video.link)) {
-    return { kind: 'video', src: video.link }
+  const safeLink = parseSafeEmbedUrl(video.link)?.toString()
+  if (safeLink && DIRECT_VIDEO_EXTENSIONS.test(safeLink)) {
+    return { kind: 'video', src: safeLink }
   }
 
-  return { kind: 'link', src: video.link }
+  return { kind: 'link', src: safeLink ?? 'about:blank' }
 }
