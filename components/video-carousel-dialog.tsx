@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { SerperSearchResultItem } from '@/lib/types'
+import { getVideoPlaybackSource } from '@/lib/video/embed'
 
 import {
   Carousel,
@@ -26,33 +27,6 @@ interface VideoCarouselDialogProps {
   videos: SerperSearchResultItem[]
   query: string
   initialIndex?: number // Add initialIndex prop
-}
-
-function getYouTubeEmbedUrl(link: string): string | undefined {
-  try {
-    const url = new URL(link)
-    if (url.hostname.includes('youtube.com')) {
-      const videoId = url.searchParams.get('v')
-      if (videoId) {
-        return `https://www.youtube.com/embed/${videoId}?enablejsapi=1`
-      }
-      if (url.pathname.startsWith('/embed/')) {
-        return `${url.origin}${url.pathname}?enablejsapi=1`
-      }
-    }
-    if (url.hostname === 'youtu.be') {
-      const videoId = url.pathname.replace(/^\/+/, '')
-      if (videoId) {
-        return `https://www.youtube.com/embed/${videoId}?enablejsapi=1`
-      }
-    }
-  } catch {
-    return undefined
-  }
-}
-
-function getVideoEmbedUrl(video: SerperSearchResultItem): string | undefined {
-  return video.iframeUrl || getYouTubeEmbedUrl(video.link)
 }
 
 export function VideoCarouselDialog({
@@ -119,24 +93,34 @@ export function VideoCarouselDialog({
           >
             <CarouselContent>
               {videos.map((video, idx) => {
-                const embedUrl = getVideoEmbedUrl(video)
+                const playbackSource = getVideoPlaybackSource(
+                  video,
+                  typeof window === 'undefined' ? undefined : window.location.hostname
+                )
                 return (
                   <CarouselItem key={idx}>
                     <div className="p-1 flex items-center justify-center h-full">
-                      {embedUrl ? (
+                      {playbackSource.kind === 'iframe' ? (
                         <iframe
                           ref={el => {
                             videoRefs.current[idx] = el
                           }}
-                          src={embedUrl}
+                          src={playbackSource.src}
                           className="w-full aspect-video"
                           title={video.title}
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                           allowFullScreen
                         />
+                      ) : playbackSource.kind === 'video' ? (
+                        <video
+                          src={playbackSource.src}
+                          className="w-full aspect-video bg-black"
+                          controls
+                          playsInline
+                        />
                       ) : (
                         <a
-                          href={video.link}
+                          href={playbackSource.src}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex aspect-video w-full items-center justify-center bg-background text-sm text-primary hover:underline"
