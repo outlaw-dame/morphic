@@ -1,4 +1,11 @@
 import { tool, UIToolInvocation } from 'ai'
+import { cookies } from 'next/headers'
+
+import {
+  getEnvironmentWolframAlphaAppId,
+  normalizeWolframAlphaAppId,
+  WOLFRAM_ALPHA_APP_ID_COOKIE
+} from '@/lib/config/wolfram-alpha'
 
 import {
   wolframAlphaSchema,
@@ -15,19 +22,29 @@ const DEFAULT_FULL_RESULTS_ENDPOINT =
 const DEFAULT_SHORT_ANSWERS_ENDPOINT =
   'https://api.wolframalpha.com/v1/result'
 
-function getWolframAppId(): string {
-  const appId =
-    process.env.WOLFRAM_ALPHA_APP_ID ||
-    process.env.WOLFRAMALPHA_APP_ID ||
-    process.env.WOLFRAM_APP_ID
+async function getUserWolframAppIdFromCookie() {
+  try {
+    const cookieStore = await cookies()
+    return normalizeWolframAlphaAppId(
+      cookieStore.get(WOLFRAM_ALPHA_APP_ID_COOKIE)?.value
+    )
+  } catch {
+    return null
+  }
+}
 
-  if (!appId?.trim()) {
+async function getWolframAppId(): Promise<string> {
+  const appId =
+    (await getUserWolframAppIdFromCookie()) ||
+    getEnvironmentWolframAlphaAppId()
+
+  if (!appId) {
     throw new Error(
       'Wolfram|Alpha is not configured. Set WOLFRAM_ALPHA_APP_ID.'
     )
   }
 
-  return appId.trim()
+  return appId
 }
 
 function getUnitParam(units: WolframAlphaSchema['units'], mode: 'short' | 'full') {
@@ -153,7 +170,7 @@ export async function queryWolframAlpha({
   units,
   location
 }: WolframAlphaSchema): Promise<WolframAlphaResult> {
-  const appId = getWolframAppId()
+  const appId = await getWolframAppId()
 
   if (mode === 'short') {
     const endpoint = new URL(

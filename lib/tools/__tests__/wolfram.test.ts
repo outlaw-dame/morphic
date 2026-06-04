@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
+const cookieGetMock = vi.hoisted(() => vi.fn())
+
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(async () => ({
+    get: cookieGetMock
+  }))
+}))
+
 import { queryWolframAlpha } from '../wolfram'
 
 const originalFetch = globalThis.fetch
@@ -8,6 +16,7 @@ const originalAppId = process.env.WOLFRAM_ALPHA_APP_ID
 afterEach(() => {
   globalThis.fetch = originalFetch
   process.env.WOLFRAM_ALPHA_APP_ID = originalAppId
+  cookieGetMock.mockReset()
   vi.restoreAllMocks()
 })
 
@@ -93,6 +102,20 @@ describe('queryWolframAlpha', () => {
     expect(requestUrl.searchParams.get('units')).toBe('metric')
     expect(result.answer).toBe('3966 kilometers')
     expect(result.pods[0]?.id).toBe('ShortAnswer')
+  })
+
+  test('prefers a user AppID from the secure settings cookie', async () => {
+    process.env.WOLFRAM_ALPHA_APP_ID = 'environment-app-id'
+    cookieGetMock.mockReturnValue({ value: 'user-app-id' })
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('42', { status: 200 })
+    )
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+
+    await queryWolframAlpha({ query: 'meaning of life', mode: 'short' })
+
+    const requestUrl = new URL(String(fetchMock.mock.calls[0]?.[0]))
+    expect(requestUrl.searchParams.get('appid')).toBe('user-app-id')
   })
 
   test('fails closed when no AppID is configured', async () => {
