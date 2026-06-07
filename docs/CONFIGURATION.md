@@ -130,6 +130,20 @@ OPENAI_COMPATIBLE_MODELS=orcarouter/openai/gpt-5.5,orcarouter/anthropic/claude-o
 
 Morphic's research agents rely on tool calling, so make sure any model you select supports it. Restricting `OPENAI_COMPATIBLE_MODELS` to known tool-capable models (as above) is the simplest way to keep the selector clean and avoid hitting non-tool-capable upstreams.
 
+#### OpenRouter
+
+[OpenRouter](https://openrouter.ai/) provides a unified interface to access a wide variety of models.
+
+```bash
+OPENROUTER_API_KEY=[YOUR_OPENROUTER_API_KEY]
+```
+
+By default, Morphic will fetch available models from the OpenRouter models API. If you want to pin a custom whitelist of models to display in the UI and avoid calling their endpoint on startup, define the models statically:
+
+```bash
+OPENROUTER_MODELS=google/gemini-2.5-flash,meta-llama/llama-3.3-70b-instruct,deepseek/deepseek-chat
+```
+
 ## Search Providers
 
 ### SearXNG Configuration
@@ -144,6 +158,24 @@ SEARXNG_API_URL=http://localhost:8080
 SEARXNG_SECRET=""  # generate with: openssl rand -base64 32
 ```
 
+Qwant is the default search provider. To use Qwant without a Qwant API key, run SearXNG and select the Qwant-backed provider:
+
+```bash
+SEARCH_API=qwant
+SEARXNG_API_URL=http://localhost:8080
+```
+
+Qwant does not publish a supported public search API for application developers. Morphic's Qwant option routes searches through SearXNG's Qwant engine instead of scraping Qwant result pages directly.
+
+DuckDuckGo can be selected the same way:
+
+```bash
+SEARCH_API=duckduckgo
+SEARXNG_API_URL=http://localhost:8080
+```
+
+DuckDuckGo's official endpoint (`https://api.duckduckgo.com/`) is an Instant Answer API, not a full search-results API. Morphic's DuckDuckGo option routes searches through SearXNG's DuckDuckGo engine so the app can return normal result lists without adding DuckDuckGo page scraping to Morphic.
+
 #### Advanced Configuration
 
 ```bash
@@ -155,6 +187,7 @@ SEARXNG_TIME_RANGE=None  # day, week, month, year, or None
 SEARXNG_SAFESEARCH=0  # 0: off, 1: moderate, 2: strict
 
 # Server
+SEARXNG_HOST_PORT=8080
 SEARXNG_PORT=8080
 SEARXNG_BIND_ADDRESS=0.0.0.0
 SEARXNG_IMAGE_PROXY=true

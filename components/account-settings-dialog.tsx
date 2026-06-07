@@ -101,19 +101,19 @@ export function AccountSettingsDialog({
       }}
     >
       <DialogContent className="sm:max-w-md">
-        <DialogHeader className="space-y-2">
-          <DialogTitle className="text-xl tracking-tight">Account</DialogTitle>
+        <DialogHeader>
+          <DialogTitle>Account</DialogTitle>
           <DialogDescription>
             Manage your account preferences and data.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-5">
-          <section className="rounded-2xl border border-border/50 bg-muted/25 p-4">
+        <div className="grid gap-6">
+          <section className="grid gap-3">
             <div className="grid gap-1">
-              <h3 className="text-sm font-semibold">Profile</h3>
+              <h3 className="text-sm font-medium">Profile</h3>
               <div className="text-sm text-muted-foreground">
-                <p className="truncate font-medium text-foreground">{userName}</p>
+                <p className="truncate">{userName}</p>
                 <p className="truncate">{user.email}</p>
               </div>
             </div>
@@ -123,12 +123,12 @@ export function AccountSettingsDialog({
 
           <section className="grid gap-3">
             <div className="grid gap-1">
-              <h3 className="text-sm font-semibold">Theme</h3>
+              <h3 className="text-sm font-medium">Theme</h3>
               <p className="text-sm text-muted-foreground">
                 Choose how Morphic appears on this device.
               </p>
             </div>
-            <div className="grid grid-cols-3 gap-2 rounded-2xl border border-border/50 bg-muted/25 p-1.5">
+            <div className="grid grid-cols-3 gap-2">
               {themeOptions.map(option => {
                 const Icon = option.icon
                 const selected = activeTheme === option.value
@@ -137,8 +137,8 @@ export function AccountSettingsDialog({
                   <Button
                     key={option.value}
                     type="button"
-                    variant={selected ? 'secondary' : 'ghost'}
-                    className="h-16 flex-col gap-1.5 rounded-xl px-2"
+                    variant={selected ? 'secondary' : 'outline'}
+                    className="h-16 flex-col gap-1.5 px-2"
                     aria-pressed={selected}
                     onClick={() => setTheme(option.value)}
                   >
@@ -152,9 +152,9 @@ export function AccountSettingsDialog({
 
           <Separator />
 
-          <section className="grid gap-3 rounded-2xl border border-destructive/25 bg-destructive/5 p-4">
+          <section className="grid gap-3">
             <div className="grid gap-1">
-              <h3 className="text-sm font-semibold text-destructive">
+              <h3 className="text-sm font-medium text-destructive">
                 Delete account
               </h3>
               <p className="text-sm text-muted-foreground">
@@ -175,14 +175,14 @@ export function AccountSettingsDialog({
                 <Button
                   type="button"
                   variant="destructive"
-                  className="w-fit gap-2 rounded-full"
+                  className="w-fit gap-2"
                   disabled={isDeleting}
                 >
                   <Trash2 className="size-4" />
                   Delete account
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent className="rounded-[var(--native-radius-sheet)] border-border/60 bg-background/95 shadow-2xl backdrop-blur-xl">
+              <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete your account?</AlertDialogTitle>
                   <AlertDialogDescription>
@@ -191,7 +191,7 @@ export function AccountSettingsDialog({
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel className="rounded-full" disabled={isDeleting}>
+                  <AlertDialogCancel disabled={isDeleting}>
                     Cancel
                   </AlertDialogCancel>
                   <AlertDialogAction
@@ -200,7 +200,7 @@ export function AccountSettingsDialog({
                       event.preventDefault()
                       handleDeleteAccount()
                     }}
-                    className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
                     {isDeleting ? <Spinner /> : 'Delete account'}
                   </AlertDialogAction>

@@ -2,51 +2,49 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-import {
-  IconFileText as FileText,
-  IconHelpCircle as HelpCircle,
-  IconNews as Newspaper,
-  IconScale as Scale,
-  IconSearch as Search,
-  type TablerIcon
-} from '@tabler/icons-react'
-
+import type { NativeIconName } from '@/lib/native/icon-map'
 import { cn } from '@/lib/utils'
 
-import { Button } from './ui/button'
+import { NativeIcon } from '@/components/native/native-icon'
+import { NativePressable } from '@/components/native/native-pressable'
 
 // Constants for timing delays
 const FOCUS_OUT_DELAY_MS = 100 // Delay to ensure focus has actually moved
 
+const nativeButtonBaseClassName =
+  'inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-[background-color,border-color,color,box-shadow,transform] duration-[140ms] ease-[var(--motion-ease-out)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
+const nativeOutlineButtonClassName =
+  'border border-input bg-background hover:bg-accent hover:text-accent-foreground'
+
 interface ActionCategory {
-  icon: TablerIcon
+  icon: NativeIconName
   label: string
   key: string
 }
 
 const actionCategories: ActionCategory[] = [
   {
-    icon: Search,
+    icon: 'research',
     label: 'Research',
     key: 'research'
   },
   {
-    icon: Scale,
+    icon: 'compare',
     label: 'Compare',
     key: 'compare'
   },
   {
-    icon: Newspaper,
+    icon: 'latest',
     label: 'Latest',
     key: 'latest'
   },
   {
-    icon: FileText,
+    icon: 'summarize',
     label: 'Summarize',
     key: 'summarize'
   },
   {
-    icon: HelpCircle,
+    icon: 'explain',
     label: 'Explain',
     key: 'explain'
   }
@@ -180,22 +178,25 @@ export function ActionButtons({
         >
           <div className="flex flex-wrap justify-center gap-2 px-2">
             {actionCategories.map(category => {
-              const Icon = category.icon
               return (
-                <Button
+                <NativePressable
                   key={category.key}
                   type="button"
-                  variant="outline"
-                  size="sm"
+                  pressScale={0.96}
                   className={cn(
-                    'flex items-center gap-2 whitespace-nowrap rounded-full',
+                    nativeButtonBaseClassName,
+                    nativeOutlineButtonClassName,
+                    'h-9 gap-2 rounded-full whitespace-nowrap',
                     'text-xs sm:text-sm px-3 sm:px-4'
                   )}
                   onClick={() => handleCategoryClick(category)}
                 >
-                  <Icon className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <NativeIcon
+                    name={category.icon}
+                    className="h-3 w-3 sm:h-4 sm:w-4"
+                  />
                   <span>{category.label}</span>
-                </Button>
+                </NativePressable>
               )
             })}
           </div>
@@ -210,9 +211,10 @@ export function ActionButtons({
         >
           {activeCategory &&
             promptSamples[activeCategory]?.map((prompt, index) => (
-              <button
+              <NativePressable
                 key={index}
                 type="button"
+                pressScale={0.99}
                 className={cn(
                   'w-full rounded-md px-3 py-2 text-left text-sm',
                   'transition-colors duration-[140ms] ease-[var(--motion-ease-out)] hover:bg-muted',
@@ -220,9 +222,12 @@ export function ActionButtons({
                 )}
                 onClick={() => handlePromptClick(prompt)}
               >
-                <Search className="h-3 w-3 text-muted-foreground flex-shrink-0 group-hover:text-foreground" />
+                <NativeIcon
+                  name="search"
+                  className="h-3 w-3 text-muted-foreground flex-shrink-0 group-hover:text-foreground"
+                />
                 <span className="line-clamp-1">{prompt}</span>
-              </button>
+              </NativePressable>
             ))}
         </div>
       </div>

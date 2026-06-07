@@ -5,14 +5,17 @@ import { useRouter } from 'next/navigation'
 
 import type { User } from '@supabase/supabase-js'
 import {
-  IconLink as Link2,
-  IconLogout as LogOut,
-  IconUserCircle as UserRound
-} from '@tabler/icons-react'
+  Link as LinkIcon,
+  LogOut,
+  Message,
+  Settings,
+  UserCircle
+} from 'iconoir-react'
 
 import { createClient } from '@/lib/supabase/client'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { NativePressable } from '@/components/native/native-pressable'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,14 +30,14 @@ import {
 
 import { AccountSettingsDialog } from '@/components/account-settings-dialog'
 
-import { Button } from './ui/button'
 import { ExternalLinkItems } from './external-link-items'
 
 interface UserMenuProps {
   user: User
+  onFeedback: () => void
 }
 
-export default function UserMenu({ user }: UserMenuProps) {
+export default function UserMenu({ user, onFeedback }: UserMenuProps) {
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -69,29 +72,35 @@ export default function UserMenu({ user }: UserMenuProps) {
     window.setTimeout(() => setAccountOpen(true), 0)
   }
 
+  const handleFeedback = () => {
+    setMenuOpen(false)
+    window.setTimeout(onFeedback, 0)
+  }
+
   return (
     <>
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
         <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            className="relative size-9 rounded-full border border-border/50 bg-background/70 p-0 shadow-none backdrop-blur-md"
+          <NativePressable
+            type="button"
+            pressScale={0.94}
+            className="native-menu-trigger relative inline-flex size-9 items-center justify-center rounded-full text-muted-foreground transition-[background-color,color,box-shadow,transform] duration-[140ms] ease-[var(--motion-ease-out)] hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             <Avatar className="size-7">
               <AvatarImage src={avatarUrl} alt={userName} />
-              <AvatarFallback className="text-xs">
+              <AvatarFallback>
                 {getInitials(userName, user.email)}
               </AvatarFallback>
             </Avatar>
-          </Button>
+          </NativePressable>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-64" align="end" forceMount>
+        <DropdownMenuContent className="w-60" align="end" forceMount>
           <DropdownMenuLabel className="font-normal">
-            <div className="flex flex-col space-y-1 rounded-xl px-1 py-1">
-              <p className="truncate text-sm font-semibold leading-none">
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium leading-none truncate">
                 {userName}
               </p>
-              <p className="truncate text-xs leading-none text-muted-foreground">
+              <p className="text-xs leading-none text-muted-foreground truncate">
                 {user.email}
               </p>
             </div>
@@ -103,12 +112,30 @@ export default function UserMenu({ user }: UserMenuProps) {
               handleOpenAccount()
             }}
           >
-            <UserRound className="size-4" />
+            <UserCircle className="size-4" />
             <span>Account</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => {
+              setMenuOpen(false)
+              router.push('/settings')
+            }}
+          >
+            <Settings className="size-4" />
+            <span>Search Settings</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={event => {
+              event.preventDefault()
+              handleFeedback()
+            }}
+          >
+            <Message className="size-4" />
+            <span>Feedback</span>
           </DropdownMenuItem>
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
-              <Link2 className="size-4" />
+              <LinkIcon className="size-4" />
               <span>Links</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>

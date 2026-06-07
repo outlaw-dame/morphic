@@ -5,6 +5,10 @@ import {
   MODEL_SELECTION_COOKIE,
   parseModelSelectionCookie
 } from '@/lib/config/model-selection-cookie'
+import {
+  getSearchModelPreferenceScore,
+  isSearchCompatibleModel
+} from '@/lib/models/compatibility'
 import { fetchAvailableModels } from '@/lib/models/fetch-models'
 import { ModelSelectorData } from '@/lib/types/model-selector'
 import { Model } from '@/lib/types/models'
@@ -24,7 +28,13 @@ function pickFirstAvailableModel(
   )
 
   for (const provider of providers) {
-    const firstModel = modelsByProvider[provider]?.[0]
+    const firstModel = [...(modelsByProvider[provider] ?? [])]
+      .sort(
+        (a, b) =>
+          getSearchModelPreferenceScore(a.providerId, a.id) -
+          getSearchModelPreferenceScore(b.providerId, b.id)
+      )
+      .find(model => isSearchCompatibleModel(model.providerId, model.id))
     if (firstModel) {
       return firstModel
     }
@@ -48,7 +58,8 @@ function resolveSelectedModelKey(
     .some(
       model =>
         model.providerId === parsedCookie.providerId &&
-        model.id === parsedCookie.modelId
+        model.id === parsedCookie.modelId &&
+        isSearchCompatibleModel(model.providerId, model.id)
     )
 
   return matched
@@ -70,9 +81,9 @@ export async function getModelSelectorData(): Promise<ModelSelectorData> {
 
   const modelsByProvider = await fetchAvailableModels()
   const fallbackModel = pickFirstAvailableModel(modelsByProvider)
-  const hasAvailableModels =
-    fallbackModel !== null || isProviderEnabled(DEFAULT_MODEL.providerId)
   const cookieStore = await cookies()
+  const hasAvailableModels =
+    fallbackModel !== null || isProviderEnabled(DEFAULT_MODEL.providerId, cookieStore)
   const selectedModelKey = resolveSelectedModelKey(
     modelsByProvider,
     fallbackModel,

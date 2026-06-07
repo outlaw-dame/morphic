@@ -20,22 +20,19 @@ import { IconLogo } from './ui/icons'
 export default function AppSidebar() {
   return (
     <Sidebar side="left" variant="sidebar" collapsible="offcanvas">
-      <SidebarHeader className="flex flex-row items-center justify-between border-b border-border/40 bg-background/70 px-2 py-2 backdrop-blur-xl">
-        <Link
-          href="/"
-          className="flex min-h-10 items-center gap-2 rounded-full px-2.5 py-2 transition-colors hover:bg-muted/70"
-        >
+      <SidebarHeader className="flex flex-row justify-between items-center">
+        <Link href="/" className="flex items-center gap-2 px-2 py-3">
           <IconLogo className={cn('size-5')} />
-          <span className="text-sm font-semibold tracking-tight">Morphic</span>
+          <span className="font-semibold text-sm">Morphic</span>
         </Link>
-        <SidebarTrigger className="rounded-full" />
+        <SidebarTrigger />
       </SidebarHeader>
-      <SidebarContent className="flex h-full flex-col bg-background/70 px-2 py-4 backdrop-blur-xl">
-        <SidebarMenu className="rounded-2xl border border-border/50 bg-background/55 p-1 shadow-sm">
+      <SidebarContent className="flex flex-col px-2 py-4 h-full">
+        <SidebarMenu>
           <NewChatMenuItem />
         </SidebarMenu>
-        <div className="mt-3 flex-1 overflow-y-auto rounded-2xl border border-border/40 bg-background/45 p-1 shadow-sm">
-          <Suspense fallback={<ChatHistorySkeleton />}> 
+        <div className="flex-1 overflow-y-auto">
+          <Suspense fallback={<ChatHistorySkeleton />}>
             <ChatHistorySection />
           </Suspense>
         </div>

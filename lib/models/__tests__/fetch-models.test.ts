@@ -24,6 +24,9 @@ describe('fetch-models', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     delete process.env.OLLAMA_BASE_URL
+    delete process.env.NVIDIA_API_KEY
+    delete process.env.NVIDIA_API_BASE_URL
+    delete process.env.NVIDIA_MODELS
   })
 
   it('filters non-chat and snapshot OpenAI models', async () => {
@@ -349,6 +352,161 @@ describe('fetch-models', () => {
         'deepseek-reasoner'
       ])
       expect(models[0]?.provider).toBe('DeepSeek')
+    })
+  })
+
+  describe('fetchNvidiaModels', () => {
+    it('fetches NVIDIA NIM models from the OpenAI-compatible /v1/models endpoint', async () => {
+      mockIsProviderEnabled.mockImplementation(
+        providerId => providerId === 'nvidia'
+      )
+      process.env.NVIDIA_API_KEY = 'nvapi-test'
+
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: async () => ({
+          data: [
+            { id: 'meta/llama-3.1-8b-instruct' },
+            { id: 'nvidia/llama-3.1-nemotron-70b-instruct' },
+            { id: 'nvidia/ai-synthetic-video-detector' },
+            { id: 'microsoft/phi-4-multimodal-instruct' },
+            { id: 'nvidia/nv-embedqa-e5-v5' },
+            { id: 'nvidia/rerankqa-mistral-4b-v3' }
+          ]
+        })
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const models = await fetchModels.fetchNvidiaModels()
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://integrate.api.nvidia.com/v1/models',
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer nvapi-test' },
+          method: 'GET'
+        })
+      )
+      expect(models.map(model => model.id)).toEqual([
+        'meta/llama-3.1-8b-instruct',
+        'nvidia/llama-3.1-nemotron-70b-instruct'
+      ])
+      expect(models[0]).toMatchObject({
+        provider: 'NVIDIA NIM',
+        providerId: 'nvidia'
+      })
+    })
+
+    it('uses NVIDIA_MODELS static list when set', async () => {
+      mockIsProviderEnabled.mockImplementation(
+        providerId => providerId === 'nvidia'
+      )
+      process.env.NVIDIA_API_KEY = 'nvapi-test'
+      process.env.NVIDIA_MODELS =
+        'meta/llama-3.1-8b-instruct, microsoft/phi-4-multimodal-instruct, nvidia/llama-3.1-nemotron-70b-instruct'
+
+      const fetchMock = vi.fn()
+      vi.stubGlobal('fetch', fetchMock)
+
+      const models = await fetchModels.fetchNvidiaModels()
+
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(models.map(model => model.id)).toEqual([
+        'meta/llama-3.1-8b-instruct',
+        'nvidia/llama-3.1-nemotron-70b-instruct'
+      ])
+    })
+  })
+
+  describe('fetchOpenRouterModels', () => {
+    afterEach(() => {
+      delete process.env.OPENROUTER_API_KEY
+      delete process.env.OPENROUTER_MODELS
+    })
+
+    it('returns empty list when provider is not enabled', async () => {
+      mockIsProviderEnabled.mockImplementation(() => false)
+      const fetchMock = vi.fn()
+      vi.stubGlobal('fetch', fetchMock)
+
+      const models = await fetchModels.fetchOpenRouterModels()
+      expect(models).toEqual([])
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('fetches OpenRouter models, filters non-chat/moderation models, and sorts them', async () => {
+      mockIsProviderEnabled.mockImplementation(
+        providerId => providerId === 'openrouter'
+      )
+      process.env.OPENROUTER_API_KEY = 'or-test-key'
+
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: async () => ({
+          data: [
+            { id: 'google/gemini-2.5-flash', name: 'Google: Gemini 2.5 Flash' },
+            { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Meta: Llama 3.3 70B Instruct' },
+            { id: 'openai/text-embedding-3-small', name: 'OpenAI: Text Embedding' },
+            { id: 'meta-llama/llama-guard-3-8b', name: 'Meta: Llama Guard 3 8B (Moderation)' }
+          ]
+        })
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const models = await fetchModels.fetchOpenRouterModels()
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://openrouter.ai/api/v1/models',
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer or-test-key' },
+          method: 'GET'
+        })
+      )
+      expect(models.map(m => m.id)).toEqual([
+        'google/gemini-2.5-flash',
+        'meta-llama/llama-3.3-70b-instruct'
+      ])
+      expect(models[0]).toEqual({
+        id: 'google/gemini-2.5-flash',
+        name: 'Google: Gemini 2.5 Flash',
+        provider: 'OpenRouter',
+        providerId: 'openrouter'
+      })
+    })
+
+    it('falls back to default models if fetch fails', async () => {
+      mockIsProviderEnabled.mockImplementation(
+        providerId => providerId === 'openrouter'
+      )
+      process.env.OPENROUTER_API_KEY = 'or-test-key'
+
+      const fetchMock = vi.fn().mockRejectedValue(new Error('Network failure'))
+      vi.stubGlobal('fetch', fetchMock)
+
+      const models = await fetchModels.fetchOpenRouterModels()
+      expect(models.length).toBeGreaterThan(0)
+      expect(models[0].providerId).toBe('openrouter')
+    })
+
+    it('uses static list when OPENROUTER_MODELS is configured', async () => {
+      mockIsProviderEnabled.mockImplementation(
+        providerId => providerId === 'openrouter'
+      )
+      process.env.OPENROUTER_API_KEY = 'or-test-key'
+      process.env.OPENROUTER_MODELS = 'google/gemini-2.5-flash, deepseek/deepseek-chat'
+
+      const fetchMock = vi.fn()
+      vi.stubGlobal('fetch', fetchMock)
+
+      const models = await fetchModels.fetchOpenRouterModels()
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(models.map(m => m.id)).toEqual([
+        'deepseek/deepseek-chat',
+        'google/gemini-2.5-flash'
+      ])
     })
   })
 })

@@ -11,12 +11,6 @@ import Textarea from 'react-textarea-autosize'
 import { useRouter } from 'next/navigation'
 
 import { UseChatHelpers } from '@ai-sdk/react'
-import {
-  IconArrowUp as ArrowUp,
-  IconChevronDown as ChevronDown,
-  IconMessageCirclePlus as MessageCirclePlus,
-  IconSquare as Square
-} from '@tabler/icons-react'
 import { toast } from 'sonner'
 
 import { SHORTCUT_EVENTS } from '@/lib/keyboard-shortcuts'
@@ -36,6 +30,8 @@ import {
 } from '@/lib/utils/cookies'
 
 import { useArtifact } from './artifact/artifact-context'
+import { NativeIcon } from './native/native-icon'
+import { NativePressable } from './native/native-pressable'
 import { Button } from './ui/button'
 import { IconBlinkingLogo } from './ui/icons'
 import { ActionButtons } from './action-buttons'
@@ -185,7 +181,10 @@ export function ChatPanel({
 
     return (
       (lastPart?.type === 'tool-search' ||
+        lastPart?.type === 'tool-feedSearch' ||
         lastPart?.type === 'tool-fetch' ||
+        lastPart?.type === 'tool-researchSubtask' ||
+        lastPart?.type === 'tool-mapSearch' ||
         lastPart?.type === 'tool-askQuestion') &&
       ((lastPart as any)?.state === 'input-streaming' ||
         (lastPart as any)?.state === 'input-available')
@@ -275,16 +274,14 @@ export function ChatPanel({
                 : 'pointer-events-none opacity-0'
             )}
           >
-            <Button
+            <NativePressable
               type="button"
-              variant="outline"
-              size="icon"
-              className="absolute -top-10 right-0 z-20 size-8 rounded-full shadow-md"
+              className="absolute -top-10 right-0 z-20 flex size-8 items-center justify-center rounded-full border border-input bg-background shadow-md"
               onClick={handleScrollToBottom}
               title="Scroll to bottom"
             >
-              <ChevronDown size={16} />
-            </Button>
+              <NativeIcon name="scrollDown" size={16} />
+            </NativePressable>
           </div>
         )}
         {/* Message navigation dots */}
@@ -303,7 +300,7 @@ export function ChatPanel({
 
         <div
           className={cn(
-            'relative flex w-full flex-col gap-2 rounded-3xl border border-input bg-muted transition-[box-shadow] duration-[140ms] ease-[var(--motion-ease-out)]',
+            'native-composer-surface relative flex w-full flex-col gap-2 rounded-3xl border border-input bg-muted transition-[box-shadow] duration-[140ms] ease-[var(--motion-ease-out)]',
             isInputFocused &&
               'ring-1 ring-ring/20 ring-offset-1 ring-offset-background/50'
           )}
@@ -433,23 +430,25 @@ export function ChatPanel({
                 <ModelSelectorClient data={modelSelectorData} />
               )}
               {messages.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="icon"
+                <NativePressable
                   onClick={handleNewChat}
-                  className="shrink-0 size-8 md:size-10 rounded-full group"
+                  className="group flex size-8 shrink-0 items-center justify-center rounded-full border border-input bg-background md:size-10"
                   type="button"
                   disabled={isLoading}
                 >
-                  <MessageCirclePlus className="size-4 transition-transform duration-[140ms] ease-[var(--motion-ease-out)] group-hover:rotate-12" />
-                </Button>
+                  <NativeIcon
+                    name="newChat"
+                    className="size-4 transition-transform duration-[140ms] ease-[var(--motion-ease-out)] group-hover:rotate-12"
+                  />
+                </NativePressable>
               )}
-              <Button
+              <NativePressable
                 type={isLoading ? 'button' : 'submit'}
-                size={'icon'}
                 className={cn(
+                  'flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground md:size-10',
                   isLoading && 'animate-pulse',
-                  'size-8 md:size-10 rounded-full'
+                  ((input.length === 0 && !isLoading) || !hasAvailableModels) &&
+                    'pointer-events-none opacity-50'
                 )}
                 disabled={
                   (input.length === 0 && !isLoading) || !hasAvailableModels
@@ -462,11 +461,11 @@ export function ChatPanel({
                 }
               >
                 {isLoading ? (
-                  <Square className="size-4 md:size-5" />
+                  <NativeIcon name="stop" className="size-4 md:size-5" />
                 ) : (
-                  <ArrowUp className="size-4 md:size-5" />
+                  <NativeIcon name="send" className="size-4 md:size-5" />
                 )}
-              </Button>
+              </NativePressable>
             </div>
           </div>
         </div>

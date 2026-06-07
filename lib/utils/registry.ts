@@ -1,6 +1,10 @@
+import { ReadonlyRequestCookies } from 'next/dist/server/web/spec-extension/adapters/request-cookies'
+import { cookies } from 'next/headers'
+
 import { anthropic } from '@ai-sdk/anthropic'
 import { createGateway } from '@ai-sdk/gateway'
 import { google } from '@ai-sdk/google'
+import { mistral } from '@ai-sdk/mistral'
 import { createOpenAI, openai } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { createProviderRegistry, LanguageModel } from 'ai'
@@ -19,6 +23,7 @@ const providers: Record<string, any> = {
   openai,
   anthropic,
   google,
+  mistral,
   'openai-compatible': createOpenAICompatible({
     // Keep the SDK provider key stable. OPENAI_COMPATIBLE_PROVIDER_NAME is
     // only a UI label used by the model selector.
@@ -28,12 +33,46 @@ const providers: Record<string, any> = {
       process.env.OPENAI_COMPATIBLE_API_BASE_URL || ''
     )
   }),
+  nvidia: createOpenAICompatible({
+    name: 'nvidia',
+    apiKey: process.env.NVIDIA_API_KEY,
+    baseURL: normalizeOpenAICompatibleBaseURL(
+      process.env.NVIDIA_API_BASE_URL || 'https://integrate.api.nvidia.com'
+    )
+  }),
   gateway: createGateway({
     apiKey: process.env.AI_GATEWAY_API_KEY
   }),
   cloudflare: createOpenAI({
     apiKey: process.env.CLOUDFLARE_API_TOKEN,
     baseURL: `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/ai/v1`
+  }),
+  openrouter: createOpenAI({
+    baseURL: 'https://openrouter.ai/api/v1',
+    fetch: async (url, options) => {
+      let apiKey = process.env.OPENROUTER_API_KEY
+      try {
+        const cookieStore = await cookies()
+        const userKey = cookieStore.get('openrouter_api_key')?.value
+        if (userKey) {
+          apiKey = userKey
+        }
+      } catch (e) {
+        // cookies() might throw outside request context
+      }
+
+      const headers = new Headers(options?.headers)
+      if (apiKey) {
+        headers.set('Authorization', `Bearer ${apiKey}`)
+      }
+      headers.set('HTTP-Referer', 'https://github.com/outlaw-dame/morphic')
+      headers.set('X-Title', 'Morphic AI Research Client')
+
+      return fetch(url, {
+        ...options,
+        headers
+      })
+    }
   })
 }
 
@@ -71,7 +110,10 @@ export function getModel(model: string): LanguageModel {
   )
 }
 
-export function isProviderEnabled(providerId: string): boolean {
+export function isProviderEnabled(
+  providerId: string,
+  cookieStore?: ReadonlyRequestCookies
+): boolean {
   switch (providerId) {
     case 'openai':
       return !!process.env.OPENAI_API_KEY
@@ -89,7 +131,20 @@ export function isProviderEnabled(providerId: string): boolean {
     case 'ollama':
       return !!process.env.OLLAMA_BASE_URL
     case 'cloudflare':
-      return !!process.env.CLOUDFLARE_API_TOKEN && !!process.env.CLOUDFLARE_ACCOUNT_ID
+      return (
+        !!process.env.CLOUDFLARE_API_TOKEN &&
+        !!process.env.CLOUDFLARE_ACCOUNT_ID
+      )
+    case 'nvidia':
+      return !!process.env.NVIDIA_API_KEY
+    case 'mistral':
+      return !!process.env.MISTRAL_API_KEY
+    case 'openrouter': {
+      const hasCookie = cookieStore
+        ? !!cookieStore.get('openrouter_api_key')?.value
+        : false
+      return hasCookie || !!process.env.OPENROUTER_API_KEY
+    }
     default:
       return false
   }

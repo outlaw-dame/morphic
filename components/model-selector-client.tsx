@@ -1,12 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
-
-import {
-  IconCheck as Check,
-  IconChevronDown as ChevronDown
-} from '@tabler/icons-react'
 
 import {
   MODEL_SELECTION_COOKIE,
@@ -15,9 +10,10 @@ import {
 import { ModelSelectorData } from '@/lib/types/model-selector'
 import { Model } from '@/lib/types/models'
 import { cn } from '@/lib/utils'
-import { setCookie } from '@/lib/utils/cookies'
+import { getCookie, setCookie } from '@/lib/utils/cookies'
 
-import { Button } from './ui/button'
+import { NativeIcon } from './native/native-icon'
+import { NativePressable } from './native/native-pressable'
 import {
   Command,
   CommandEmpty,
@@ -38,7 +34,8 @@ const PROVIDER_LOGO_BY_ID: Record<string, string> = {
   google: '/providers/logos/google.svg',
   gateway: '/providers/logos/gateway.svg',
   'openai-compatible': '/providers/logos/openai-compatible.svg',
-  ollama: '/providers/logos/ollama.svg'
+  ollama: '/providers/logos/ollama.svg',
+  openrouter: '/providers/logos/openrouter.svg'
 }
 
 function ProviderLogo({ providerId }: { providerId: string }) {
@@ -91,22 +88,36 @@ export function ModelSelectorClient({ data }: ModelSelectorClientProps) {
 
   const selectedModel = selectableByKey[selectedModelKey]
 
+  useEffect(() => {
+    if (!data.enabled || !selectedModel) {
+      return
+    }
+
+    const serialized = serializeModelSelectionCookie({
+      providerId: selectedModel.providerId,
+      modelId: selectedModel.id
+    })
+
+    if (getCookie(MODEL_SELECTION_COOKIE) !== serialized) {
+      setCookie(MODEL_SELECTION_COOKIE, serialized)
+    }
+  }, [data.enabled, selectedModel])
+
   if (!data.enabled) {
     return null
   }
 
   if (!data.hasAvailableModels) {
     return (
-      <Button
-        variant="outline"
-        className="h-9 gap-1 rounded-full border-border/60 bg-background/70 px-3 py-2 text-sm shadow-none backdrop-blur-md transition-[background-color,color,box-shadow,transform]"
+      <NativePressable
+        className="flex h-auto items-center gap-1 rounded-full border-none bg-muted px-3 py-2 text-sm shadow-none transition-[background-color,color,box-shadow,transform] opacity-50 cursor-not-allowed"
         disabled
         title="No enabled models are available"
       >
-        <span className="max-w-52 truncate text-xs font-medium">
+        <span className="truncate max-w-52 text-xs font-medium">
           No enabled model available
         </span>
-      </Button>
+      </NativePressable>
     )
   }
 
@@ -117,30 +128,26 @@ export function ModelSelectorClient({ data }: ModelSelectorClientProps) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
+        <NativePressable
           role="combobox"
           aria-expanded={open}
-          className="h-9 gap-1 rounded-full border-border/60 bg-background/70 px-3 py-2 text-sm shadow-none backdrop-blur-md transition-[background-color,color,box-shadow,transform]"
+          className="flex h-auto items-center gap-1 rounded-full border-none bg-muted px-3 py-2 text-sm shadow-none transition-[background-color,color,box-shadow,transform]"
         >
           <ProviderLogo providerId={selectedModel.providerId} />
-          <span className="max-w-40 truncate text-xs font-medium">
+          <span className="truncate max-w-40 text-xs font-medium">
             {selectedModel.name}
           </span>
-          <ChevronDown
+          <NativeIcon
+            name="chevronDown"
             className={cn(
               'ml-0.5 h-3 w-3 opacity-50 transition-transform duration-[160ms] ease-[var(--motion-ease-out)]',
               open && 'rotate-180'
             )}
           />
-        </Button>
+        </NativePressable>
       </PopoverTrigger>
-      <PopoverContent
-        className="w-[300px] rounded-2xl border-border/60 bg-background/95 p-1 shadow-xl backdrop-blur-xl"
-        align="end"
-        sideOffset={8}
-      >
-        <Command className="rounded-xl bg-transparent">
+      <PopoverContent className="w-[300px] p-0" align="end" sideOffset={6}>
+        <Command>
           <CommandInput placeholder="Search models..." />
           <CommandList>
             <CommandEmpty>No model found.</CommandEmpty>
@@ -169,9 +176,10 @@ export function ModelSelectorClient({ data }: ModelSelectorClientProps) {
                         )
                         setOpen(false)
                       }}
-                      className="cursor-pointer rounded-xl"
+                      className="cursor-pointer"
                     >
-                      <Check
+                      <NativeIcon
+                        name="check"
                         className={cn(
                           'h-4 w-4',
                           isSelected ? 'opacity-100' : 'opacity-0'

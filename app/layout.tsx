@@ -10,7 +10,6 @@ import { hasSupabasePublicConfig } from '@/lib/supabase/keys'
 import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 
-import { PlatformProvider } from '@/components/platform/platform-provider'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
 
@@ -18,6 +17,9 @@ import AppSidebar from '@/components/app-sidebar'
 import ArtifactRoot from '@/components/artifact/artifact-root'
 import Header from '@/components/header'
 import { KeyboardShortcutHandler } from '@/components/keyboard-shortcut-handler'
+import { NativeEnvironmentProvider } from '@/components/native/native-environment-provider'
+import { ServiceWorkerRegister } from '@/components/native/service-worker-register'
+import { PlatformProvider } from '@/components/platform/platform-provider'
 import { ThemeProvider } from '@/components/theme-provider'
 
 import './globals.css'
@@ -40,7 +42,11 @@ export const metadata: Metadata = {
   applicationName: title,
   manifest: '/manifest.webmanifest',
   icons: {
-    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }]
+    icon: [
+      { url: '/icons/icon-any.svg', type: 'image/svg+xml' },
+      { url: '/icon.svg', type: 'image/svg+xml' }
+    ],
+    apple: [{ url: '/icons/icon-any.svg', type: 'image/svg+xml' }]
   },
   appleWebApp: {
     capable: true,
@@ -100,27 +106,30 @@ export default async function RootLayout({
         )}
       >
         <PlatformProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <UserProvider hasUser={!!userId}>
-              <SidebarProvider defaultOpen={false}>
-                {userId && <AppSidebar />}
-                <KeyboardShortcutHandler />
-                <div className="flex flex-col flex-1 min-w-0 native-app-frame">
-                  <Header user={user} />
-                  <main className="flex flex-1 min-h-0 min-w-0 overflow-hidden native-app-main">
-                    <ArtifactRoot>{children}</ArtifactRoot>
-                  </main>
-                </div>
-              </SidebarProvider>
-            </UserProvider>
-            <Toaster />
-            <Analytics />
-          </ThemeProvider>
+          <NativeEnvironmentProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <UserProvider hasUser={!!userId}>
+                <SidebarProvider defaultOpen={false}>
+                  {userId && <AppSidebar />}
+                  <KeyboardShortcutHandler />
+                  <ServiceWorkerRegister />
+                  <div className="flex flex-col flex-1 min-w-0 native-app-frame">
+                    <Header user={user} />
+                    <main className="flex flex-1 min-h-0 min-w-0 overflow-hidden native-app-main">
+                      <ArtifactRoot>{children}</ArtifactRoot>
+                    </main>
+                  </div>
+                </SidebarProvider>
+              </UserProvider>
+              <Toaster />
+              <Analytics />
+            </ThemeProvider>
+          </NativeEnvironmentProvider>
         </PlatformProvider>
       </body>
     </html>

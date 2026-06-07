@@ -3,10 +3,6 @@
 import * as React from 'react'
 
 import { Slot } from '@radix-ui/react-slot'
-import {
-  IconLayoutSidebar as SidebarIcon,
-  IconLayoutSidebarFilled as SidebarFilledIcon
-} from '@tabler/icons-react'
 import { cva, VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils/index'
@@ -30,6 +26,8 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from '@/components/ui/tooltip'
+
+import { NativeIcon } from '@/components/native/native-icon'
 
 const SIDEBAR_COOKIE_NAME = 'sidebar_state'
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -291,7 +289,6 @@ const SidebarTrigger = React.forwardRef<
 >(({ className, onClick, ...props }, ref) => {
   const { isMobile, open, openMobile, toggleSidebar } = useSidebar()
   const isSidebarOpen = isMobile ? openMobile : open
-  const Icon = isSidebarOpen ? SidebarFilledIcon : SidebarIcon
 
   return (
     <Button
@@ -306,7 +303,10 @@ const SidebarTrigger = React.forwardRef<
       }}
       {...props}
     >
-      <Icon size={18} />
+      <NativeIcon
+        name={isSidebarOpen ? 'sidebarOpen' : 'sidebarClosed'}
+        size={18}
+      />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )

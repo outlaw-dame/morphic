@@ -2,11 +2,6 @@
 
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
-import {
-  IconCheck as Check,
-  IconChevronDown as ChevronDown
-} from '@tabler/icons-react'
-
 import { SEARCH_MODE_CONFIGS } from '@/lib/config/search-modes'
 import { SearchMode } from '@/lib/types/search'
 import { cn } from '@/lib/utils'
@@ -16,6 +11,8 @@ import {
   subscribeToCookieChange
 } from '@/lib/utils/cookies'
 
+import { NativeIcon } from './native/native-icon'
+import { NativePressable } from './native/native-pressable'
 import { Button } from './ui/button'
 import {
   DropdownMenu,
@@ -89,7 +86,6 @@ export function SearchModeSelector({
   const selectedMode = SEARCH_MODE_CONFIGS.find(
     config => config.value === value
   )
-  const SelectedIcon = selectedMode?.icon
   const selectedIndex = Math.max(
     SEARCH_MODE_CONFIGS.findIndex(config => config.value === value),
     0
@@ -105,18 +101,20 @@ export function SearchModeSelector({
             <Button
               variant="outline"
               size="sm"
-              className="h-9 gap-1 rounded-full border-border/60 bg-background/75 px-3 text-xs shadow-none backdrop-blur-md transition-[background-color,color,box-shadow,transform]"
+              className="gap-1 rounded-full text-xs shadow-none transition-[background-color,color,box-shadow,transform]"
             >
-              {SelectedIcon && (
-                <SelectedIcon
+              {selectedMode && (
+                <NativeIcon
+                  name={selectedMode.icon}
                   className={cn(
                     'size-3.5 transition-colors',
-                    selectedMode?.color
+                    selectedMode.color
                   )}
                 />
               )}
               <span className="text-xs font-medium">{selectedMode?.label}</span>
-              <ChevronDown
+              <NativeIcon
+                name="chevronDown"
                 className={cn(
                   'ml-0.5 size-3 opacity-50 transition-transform duration-[160ms] ease-[var(--motion-ease-out)]',
                   dropdownOpen && 'rotate-180'
@@ -124,31 +122,30 @@ export function SearchModeSelector({
               />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            className="w-64"
-            sideOffset={8}
-          >
+          <DropdownMenuContent align="start" className="w-64" sideOffset={5}>
             {SEARCH_MODE_CONFIGS.map(config => {
-              const ModeIcon = config.icon
               const isSelected = value === config.value
               return (
                 <DropdownMenuItem
                   key={config.value}
                   onClick={() => handleModeSelect(config.value)}
-                  className="relative flex cursor-pointer flex-col items-start gap-1 py-2.5 pl-8 pr-2 focus:outline-none"
+                  className="relative flex flex-col items-start gap-1 py-2 pl-8 pr-2 cursor-pointer focus:outline-none"
                 >
                   {isSelected && (
-                    <Check className="absolute left-2 top-3 size-4" />
+                    <NativeIcon
+                      name="check"
+                      className="absolute left-2 top-2.5 size-4"
+                    />
                   )}
                   <div className="flex items-center gap-2">
-                    <ModeIcon
+                    <NativeIcon
+                      name={config.icon}
                       className={cn('size-4 transition-colors', config.color)}
                     />
                     <span className="text-sm font-medium">{config.label}</span>
                   </div>
-                  <div className="ml-6 flex flex-col gap-0.5">
-                    <span className="text-xs leading-snug text-muted-foreground">
+                  <div className="flex flex-col gap-0.5 ml-6">
+                    <span className="text-xs text-muted-foreground">
                       {config.description}
                     </span>
                   </div>
@@ -161,10 +158,10 @@ export function SearchModeSelector({
 
       {/* Desktop Toggle */}
       <div className="hidden sm:block">
-        <div className="relative inline-flex items-center rounded-full border border-border/60 bg-background/70 p-1 shadow-none backdrop-blur-md">
+        <div className="relative inline-flex items-center rounded-full bg-background border p-1">
           {/* Animated background indicator */}
           <div
-            className="absolute inset-1 rounded-full bg-muted/85 shadow-sm transition-[transform,width] duration-[180ms] ease-[var(--motion-ease-in-out)]"
+            className="absolute inset-1 rounded-full bg-muted transition-[transform,width] duration-[180ms] ease-[var(--motion-ease-in-out)]"
             style={{
               width: `calc(${100 / modeCount}% - 4px)`,
               transform: `translateX(${selectedIndex * 100}%)`
@@ -174,7 +171,6 @@ export function SearchModeSelector({
           {/* Mode buttons */}
           <div className="relative flex items-center">
             {SEARCH_MODE_CONFIGS.map(config => {
-              const Icon = config.icon
               const isSelected = value === config.value
 
               return (
@@ -190,11 +186,12 @@ export function SearchModeSelector({
                   closeDelay={50}
                 >
                   <HoverCardTrigger asChild>
-                    <button
+                    <NativePressable
                       type="button"
+                      pressScale={0.94}
                       onClick={() => handleModeSelect(config.value)}
                       className={cn(
-                        'relative z-10 flex min-h-8 flex-1 items-center justify-center rounded-full px-3 py-2 transition-colors duration-[140ms] ease-[var(--motion-ease-out)]',
+                        'relative z-10 flex-1 items-center justify-center rounded-full px-3 py-2 transition-colors duration-[140ms] ease-[var(--motion-ease-out)]',
                         isSelected
                           ? 'text-foreground'
                           : 'text-muted-foreground hover:text-foreground/80'
@@ -202,28 +199,32 @@ export function SearchModeSelector({
                       aria-label={`${config.label} mode`}
                       aria-pressed={isSelected}
                     >
-                      <Icon
+                      <NativeIcon
+                        name={config.icon}
                         className={cn(
                           'h-3.5 w-3.5 transition-colors',
                           isSelected ? config.color : ''
                         )}
                       />
-                    </button>
+                    </NativePressable>
                   </HoverCardTrigger>
 
                   <HoverCardContent
-                    className="w-72 rounded-2xl border-border/60 bg-background/95 shadow-xl backdrop-blur-xl"
+                    className="w-72"
                     align="center"
-                    sideOffset={10}
+                    sideOffset={8}
                   >
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <Icon className={cn('size-5', config.color)} />
+                        <NativeIcon
+                          name={config.icon}
+                          className={cn('size-5', config.color)}
+                        />
                         <h4 className="text-sm font-semibold">
                           {config.label}
                         </h4>
                       </div>
-                      <p className="text-xs leading-snug text-muted-foreground">
+                      <p className="text-xs text-muted-foreground leading-tight">
                         {config.description}
                       </p>
                     </div>
