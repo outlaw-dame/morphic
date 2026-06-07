@@ -85,11 +85,7 @@ export default function UserMenu({ user }: UserMenuProps) {
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent
-          className="w-64 rounded-2xl border-border/60 bg-background/95 p-1 shadow-xl backdrop-blur-xl"
-          align="end"
-          forceMount
-        >
+        <DropdownMenuContent className="w-64" align="end" forceMount>
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1 rounded-xl px-1 py-1">
               <p className="truncate text-sm font-semibold leading-none">
@@ -102,7 +98,6 @@ export default function UserMenu({ user }: UserMenuProps) {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            className="rounded-xl"
             onSelect={event => {
               event.preventDefault()
               handleOpenAccount()
@@ -112,16 +107,16 @@ export default function UserMenu({ user }: UserMenuProps) {
             <span>Account</span>
           </DropdownMenuItem>
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger className="rounded-xl">
+            <DropdownMenuSubTrigger>
               <Link2 className="size-4" />
               <span>Links</span>
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="rounded-2xl border-border/60 bg-background/95 p-1 shadow-xl backdrop-blur-xl">
+            <DropdownMenuSubContent>
               <ExternalLinkItems />
             </DropdownMenuSubContent>
           </DropdownMenuSub>
           <DropdownMenuSeparator />
-          <DropdownMenuItem className="rounded-xl" onClick={handleLogout}>
+          <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="size-4" />
             <span>Logout</span>
           </DropdownMenuItem>
