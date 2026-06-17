@@ -19,6 +19,44 @@ export function isCitationLabel(label: string): boolean {
 }
 
 /**
+ * Strip provider/router prefixes that some models incorrectly prepend when
+ * citing a tool call id. Exact matches are still preferred before this fallback.
+ */
+function stripToolCallPrefix(toolCallId: string): string {
+  return toolCallId.replace(/^(toolu_|call_|search-)/, '')
+}
+
+function resolveCitationMap(
+  toolCallId: string,
+  citationMaps: Record<string, Record<number, SearchResultItem>>
+): Record<number, SearchResultItem> | undefined {
+  const exactMatch = citationMaps[toolCallId]
+  if (exactMatch) return exactMatch
+
+  const normalizedId = stripToolCallPrefix(toolCallId)
+  const normalizedKey = Object.keys(citationMaps).find(
+    key => stripToolCallPrefix(key) === normalizedId
+  )
+
+  return normalizedKey ? citationMaps[normalizedKey] : undefined
+}
+
+function citationMapFromResults(
+  searchResults: SearchResults
+): Record<number, SearchResultItem> | undefined {
+  if (searchResults.citationMap) return searchResults.citationMap
+  if (!Array.isArray(searchResults.results)) return undefined
+
+  return searchResults.results.reduce<Record<number, SearchResultItem>>(
+    (citationMap, result, index) => {
+      citationMap[index + 1] = result
+      return citationMap
+    },
+    {}
+  )
+}
+
+/**
  * Extract citation maps from a message's tool parts
  * Returns a map of toolCallId to citation map
  */
@@ -38,9 +76,10 @@ export function extractCitationMaps(
       part.toolCallId
     ) {
       const searchResults = part.output as SearchResults
-      if (searchResults.citationMap) {
+      const citationMap = citationMapFromResults(searchResults)
+      if (citationMap) {
         // Store citation map with toolCallId as key
-        citationMaps[part.toolCallId] = searchResults.citationMap
+        citationMaps[part.toolCallId] = citationMap
       }
     }
   })
@@ -84,7 +123,7 @@ export function processCitations(
   // Replace [number](#toolCallId) or [number](#toolCallId] with [domain](actual-url)
   // Also handle cases with spaces: [ number ]
   return content.replace(
-    /\[\s*(\d+)\s*\]\(#([^)\]]+)[\)\]]/g,
+    /\[\s*(\d+)\s*\]\(#([^\)\]]+)[\)\]]/g,
     (_match, num, toolCallId) => {
       const citationNum = parseInt(num, 10)
 
@@ -93,8 +132,9 @@ export function processCitations(
         return '' // Return empty string for invalid citation numbers
       }
 
-      // Get the citation map for this toolCallId
-      const citationMap = citationMaps[toolCallId]
+      // Prefer exact toolCallId matches, then fall back to prefix-normalized ids
+      // for models that cite toolu_<id>, call_<id>, or search-<id>.
+      const citationMap = resolveCitationMap(toolCallId, citationMaps)
       if (!citationMap) {
         return '' // Return empty string if no citation map found
       }
