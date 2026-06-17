@@ -32,13 +32,33 @@ describe('context-window', () => {
       expect(maxTokens).toBe(98816)
     })
 
+    test('uses Gemini 3 model-specific context windows', () => {
+      const geminiFlash: Model = {
+        ...mockModel,
+        id: 'gemini-3-flash-preview',
+        name: 'Gemini 3 Flash Preview',
+        provider: 'Google',
+        providerId: 'google'
+      }
+      const geminiLite: Model = {
+        ...mockModel,
+        id: 'gemini-3.1-flash-lite',
+        name: 'Gemini 3.1 Flash Lite',
+        provider: 'Google',
+        providerId: 'google'
+      }
+
+      expect(getMaxAllowedTokens(geminiFlash)).toBe(878183)
+      expect(getMaxAllowedTokens(geminiLite)).toBe(878183)
+    })
+
     test('uses default values for unknown model', () => {
       const unknownModel: Model = {
         ...mockModel,
         id: 'unknown-model'
       }
       const maxTokens = getMaxAllowedTokens(unknownModel)
-      // Expected: (16384 - 4096) - (16384 * 0.1) = 12288 - 1638.4 = 10649.6 -> 10650
+      // Expected: (16384 - 4096) - floor(16384 * 0.1) = 12288 - 1638 = 10650
       expect(maxTokens).toBe(10650)
     })
 
