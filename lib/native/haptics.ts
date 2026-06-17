@@ -93,8 +93,7 @@ async function triggerCapacitorSelection(): Promise<boolean> {
     const haptics = getCapacitorHapticsPlugin()
     if (!haptics) return false
 
-    await haptics.selectionStart()
-    await haptics.selectionEnd()
+    await haptics.selectionChanged()
     return true
   } catch {
     return false

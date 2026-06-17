@@ -38,7 +38,7 @@ export function canShare(): boolean {
   if (typeof navigator === 'undefined') return false
 
   const runtime = getRuntime()
-  if (runtime.isCapacitor) return true
+  if (runtime.isCapacitor && getCapacitorSharePlugin()) return true
   if (typeof navigator.share === 'function') return true
   if (typeof navigator.clipboard?.writeText === 'function') return true
 
@@ -71,10 +71,10 @@ function getCapacitorSharePlugin(): any | null {
  * Attempt Capacitor Share plugin.
  */
 async function shareViaCapacitor(data: ShareData): Promise<ShareResult> {
-  try {
-    const share = getCapacitorSharePlugin()
-    if (!share) return { shared: false, method: 'none' }
+  const share = getCapacitorSharePlugin()
+  if (!share) return { shared: false, method: 'none' }
 
+  try {
     await share.share({
       title: data.title,
       text: data.text,
@@ -83,7 +83,8 @@ async function shareViaCapacitor(data: ShareData): Promise<ShareResult> {
     })
     return { shared: true, method: 'capacitor' }
   } catch {
-    return { shared: false, method: 'none' }
+    // User cancelled or non-fatal error — do not fall through to clipboard
+    return { shared: false, method: 'capacitor' }
   }
 }
 
