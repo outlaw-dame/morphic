@@ -12,7 +12,7 @@ import { enrichSearchResultsWithKnowledgeGraph } from '@/lib/entities/knowledge-
 import { getSearchSchemaForModel } from '@/lib/schema/search'
 import { getEffectiveSourcePreferencesForQuery } from '@/lib/sources/source-preference-profiles'
 import { applySourcePreferencesToSearchResults } from '@/lib/sources/source-preferences'
-import { SearchResultItem, SearchResults } from '@/lib/types'
+import { SearchResults } from '@/lib/types'
 import {
   getGeneralSearchProviderType,
   getSearchToolDescription
@@ -215,16 +215,8 @@ export function createSearchTool(fullModel: string) {
 
       searchResult = await enrichSearchResultsWithKnowledgeGraph(searchResult)
 
-      // Add citation mapping and toolCallId to search results
-      if (searchResult.results && searchResult.results.length > 0) {
-        const citationMap: Record<number, SearchResultItem> = {}
-        searchResult.results.forEach((result, index) => {
-          citationMap[index + 1] = result // Citation numbers start at 1
-        })
-        searchResult.citationMap = citationMap
-      }
-
-      // Add toolCallId from context
+      // Add toolCallId from context. Citation rendering derives the numbered
+      // lookup from results, with citationMap retained only for older messages.
       if (context?.toolCallId) {
         searchResult.toolCallId = context.toolCallId
       }
