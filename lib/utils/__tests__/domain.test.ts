@@ -31,6 +31,17 @@ describe('displayUrlName', () => {
     )
   })
 
+  it('handles compound country-code TLDs', () => {
+    expect(displayUrlName('https://www.example.com.au/news')).toBe('example')
+    expect(displayUrlName('https://docs.gov.uk/service')).toBe('docs')
+    expect(displayUrlName('https://www.saudiauto.com.sa/news')).toBe(
+      'saudiauto'
+    )
+    expect(displayUrlName('https://sub.domain.example.co.uk/path')).toBe(
+      'domain.example'
+    )
+  })
+
   it('returns fallback for invalid URLs', () => {
     expect(displayUrlName('not-a-url')).toBe('source')
     expect(displayUrlName('')).toBe('source')
