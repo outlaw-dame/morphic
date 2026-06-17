@@ -1,5 +1,15 @@
-import type { FilePart, TextPart } from '@ai-sdk/provider-utils'
 import { randomUUID } from 'crypto'
+
+type ModelTextPart = {
+  type: 'text'
+  text: string
+}
+
+type ModelFilePart = {
+  type: 'file'
+  data: string | URL
+  mediaType: string
+}
 
 /**
  * Maps user-authored data parts into model input for
@@ -13,7 +23,7 @@ import { randomUUID } from 'crypto'
 export function convertDataPart(part: {
   type: string
   data?: unknown
-}): TextPart | FilePart | undefined {
+}): ModelTextPart | ModelFilePart | undefined {
   if (part.type === 'data-pastedContent') {
     const data = part.data as { text?: unknown } | undefined
     const text = typeof data?.text === 'string' ? data.text : ''
