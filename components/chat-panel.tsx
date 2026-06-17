@@ -201,7 +201,7 @@ export function ChatPanel({
 
       append({
         role: 'user',
-        content: query
+        parts: [{ type: 'text', text: query }]
       })
       isFirstRender.current = false
     }
@@ -258,246 +258,131 @@ export function ChatPanel({
             return
           }
           handleSubmit(e)
-          // Reset focus state after submission
-          setIsInputFocused(false)
-          inputRef.current?.blur()
         }}
-        className={cn('max-w-full md:max-w-3xl w-full mx-auto relative')}
+        className={cn(
+          'relative w-full max-w-3xl mx-auto flex flex-col gap-2 p-3 rounded-[28px] border border-border bg-muted/50 shadow-lg',
+          messages.length > 0 ? 'md:max-w-4xl' : '',
+          isInputFocused ? 'ring-2 ring-ring/40' : ''
+        )}
       >
-        {/* Scroll to bottom button */}
-        {messages.length > 0 && (
-          <div
-            className={cn(
-              'transition-opacity duration-[120ms] ease-[var(--motion-ease-out)]',
-              showScrollToBottomButton
-                ? 'opacity-100'
-                : 'pointer-events-none opacity-0'
-            )}
-          >
-            <NativePressable
-              type="button"
-              className="absolute -top-10 right-0 z-20 flex size-8 items-center justify-center rounded-full border border-input bg-background shadow-md"
-              onClick={handleScrollToBottom}
-              title="Scroll to bottom"
-            >
-              <NativeIcon name="scrollDown" size={16} />
-            </NativePressable>
-          </div>
-        )}
-        {/* Message navigation dots */}
-        {sections.length > 0 && (
-          <div
-            className={cn(
-              'transition-opacity duration-[120ms] ease-[var(--motion-ease-out)]',
-              !showScrollToBottomButton && status === 'ready'
-                ? 'opacity-100'
-                : 'pointer-events-none opacity-0'
-            )}
-          >
-            <MessageNavigationDots sections={sections} />
-          </div>
-        )}
-
-        <div
-          className={cn(
-            'native-composer-surface relative flex w-full flex-col gap-2 rounded-3xl border border-input bg-muted transition-[box-shadow] duration-[140ms] ease-[var(--motion-ease-out)]',
-            isInputFocused &&
-              'ring-1 ring-ring/20 ring-offset-1 ring-offset-background/50'
-          )}
-        >
-          <Textarea
-            ref={inputRef}
-            name="input"
-            rows={2}
-            maxRows={5}
-            tabIndex={0}
-            onCompositionStart={handleCompositionStart}
-            onCompositionEnd={handleCompositionEnd}
-            onFocus={() => setIsInputFocused(true)}
-            onBlur={() => setIsInputFocused(false)}
-            placeholder={messages.length > 0 ? 'Reply...' : 'Ask anything...'}
-            spellCheck={false}
-            value={input}
-            disabled={isLoading || isToolInvocationInProgress()}
-            className="resize-none w-full min-h-12 bg-transparent border-0 p-3 md:p-4 text-sm placeholder:text-muted-foreground focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50"
-            onChange={handleInputChange}
-            onKeyDown={e => {
-              // e.nativeEvent.isComposing stays true on the keydown that
-              // confirms an IME candidate, even after React-level
-              // isComposing has flipped.
-              if (
-                e.key !== 'Enter' ||
-                isComposing ||
-                (e.nativeEvent as KeyboardEvent).isComposing ||
-                enterDisabled
-              ) {
+        <Textarea
+          ref={inputRef}
+          name="input"
+          rows={1}
+          maxRows={8}
+          tabIndex={0}
+          autoFocus
+          placeholder="Ask anything…"
+          spellCheck={false}
+          value={input}
+          onChange={handleInputChange}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
+          onFocus={() => setIsInputFocused(true)}
+          onBlur={() => setIsInputFocused(false)}
+          className="resize-none bg-transparent w-full px-2 py-2 outline-none text-base text-foreground placeholder:text-muted-foreground"
+          onKeyDown={e => {
+            if (
+              e.key === 'Enter' &&
+              !e.shiftKey &&
+              !isComposing &&
+              !enterDisabled
+            ) {
+              if (isToolInvocationInProgress()) {
+                e.preventDefault()
+                toast.info('Waiting for the current tool call to finish…')
                 return
               }
-
-              // Plain Enter (no modifiers) → submit
-              if (!e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
-                if (input.trim().length === 0) {
-                  e.preventDefault()
-                  return
-                }
-                e.preventDefault()
-                const textarea = e.target as HTMLTextAreaElement
-                textarea.form?.requestSubmit()
-                setIsInputFocused(false)
-                textarea.blur()
-                return
+              e.preventDefault()
+              const form = e.currentTarget.form
+              if (form) {
+                setTimeout(() => {
+                  form.requestSubmit()
+                }, INPUT_UPDATE_DELAY_MS)
               }
+            }
+          }}
+        />
 
-              // Shift+Enter falls through to textarea default (inserts \n).
-              // Alt/Option+Enter on macOS does NOT insert \n by default,
-              // so insert it manually to match user expectation.
-              if (e.altKey && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
-                e.preventDefault()
-                const textarea = e.target as HTMLTextAreaElement
-                const start = textarea.selectionStart ?? input.length
-                const end = textarea.selectionEnd ?? input.length
-                const next = input.slice(0, start) + '\n' + input.slice(end)
-                handleInputChange({
-                  target: { value: next }
-                } as React.ChangeEvent<HTMLTextAreaElement>)
-                requestAnimationFrame(() => {
-                  textarea.selectionStart = textarea.selectionEnd = start + 1
-                })
-              }
-            }}
-          />
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
+            <FileUploadButton disabled={isGuest || isLoading} />
+            <ActionButtons
+              disabled={isLoading}
+              isUserAuthenticated={!isGuest}
+              isCloudDeployment={isCloudDeployment}
+            />
+            <SearchModeSelector disabled={isLoading} />
+            <ModelSelectorClient
+              modelSelectorData={modelSelectorData}
+              isGuest={isGuest}
+              isCloudDeployment={isCloudDeployment}
+            />
+          </div>
 
-          {/* Bottom menu area */}
-          <div className="flex items-center justify-between p-2 md:p-3">
-            <div className="flex items-center gap-2">
-              {!isGuest && (
-                <FileUploadButton
-                  onFileSelect={async files => {
-                    const newFiles: UploadedFile[] = files.map(file => ({
-                      file,
-                      status: 'uploading'
-                    }))
-                    setUploadedFiles(prev => [...prev, ...newFiles])
-                    await Promise.all(
-                      newFiles.map(async uf => {
-                        const formData = new FormData()
-                        formData.append('file', uf.file)
-                        formData.append('chatId', chatId)
-                        try {
-                          const res = await fetch('/api/upload', {
-                            method: 'POST',
-                            body: formData
-                          })
-
-                          if (!res.ok) {
-                            throw new Error('Upload failed')
-                          }
-
-                          const { file: uploaded } = await res.json()
-                          setUploadedFiles(prev =>
-                            prev.map(f =>
-                              f.file === uf.file
-                                ? {
-                                    ...f,
-                                    status: 'uploaded',
-                                    url: uploaded.url,
-                                    name: uploaded.filename,
-                                    key: uploaded.key
-                                  }
-                                : f
-                            )
-                          )
-                        } catch (e) {
-                          toast.error(`Failed to upload ${uf.file.name}`)
-                          setUploadedFiles(prev =>
-                            prev.map(f =>
-                              f.file === uf.file ? { ...f, status: 'error' } : f
-                            )
-                          )
-                        }
-                      })
-                    )
-                  }}
-                />
-              )}
-              <SearchModeSelector
-                isAdaptiveAuthRequired={isAdaptiveAuthRequired}
-                onAdaptiveAuthRequired={onAdaptiveModeAuthRequired}
+          <div className="flex items-center gap-1">
+            {sections.length > 0 && (
+              <MessageNavigationDots
+                sections={sections}
+                scrollContainerRef={scrollContainerRef}
               />
-            </div>
-            <div className="flex items-center gap-2">
-              {!isCloudDeployment && modelSelectorData && (
-                <ModelSelectorClient data={modelSelectorData} />
-              )}
-              {messages.length > 0 && (
-                <NativePressable
-                  onClick={handleNewChat}
-                  className="group flex size-8 shrink-0 items-center justify-center rounded-full border border-input bg-background md:size-10"
-                  type="button"
-                  disabled={isLoading}
-                >
-                  <NativeIcon
-                    name="newChat"
-                    className="size-4 transition-transform duration-[140ms] ease-[var(--motion-ease-out)] group-hover:rotate-12"
-                  />
-                </NativePressable>
-              )}
+            )}
+            {messages.length > 0 && showScrollToBottomButton && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={handleScrollToBottom}
+                aria-label="Scroll to bottom"
+              >
+                <NativeIcon name="arrowDown" className="size-4" />
+              </Button>
+            )}
+            {isLoading ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={stop}
+                aria-label="Stop generating"
+              >
+                <NativeIcon name="stop" className="size-4" />
+              </Button>
+            ) : (
               <NativePressable
-                type={isLoading ? 'button' : 'submit'}
-                className={cn(
-                  'flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground md:size-10',
-                  isLoading && 'animate-pulse',
-                  ((input.length === 0 && !isLoading) || !hasAvailableModels) &&
-                    'pointer-events-none opacity-50'
-                )}
+                asChild
+                haptic="light"
+                className="rounded-full"
                 disabled={
-                  (input.length === 0 && !isLoading) || !hasAvailableModels
-                }
-                onClick={isLoading ? stop : undefined}
-                title={
-                  hasAvailableModels
-                    ? undefined
-                    : 'No enabled model is available'
+                  (!input.trim() && uploadedFiles.length === 0) ||
+                  adaptiveModeSubmitBlocked ||
+                  !hasAvailableModels
                 }
               >
-                {isLoading ? (
-                  <NativeIcon name="stop" className="size-4 md:size-5" />
-                ) : (
-                  <NativeIcon name="send" className="size-4 md:size-5" />
-                )}
+                <Button
+                  type="submit"
+                  size="icon"
+                  aria-label={
+                    adaptiveModeSubmitBlocked
+                      ? isAdaptiveAuthRequired
+                        ? 'Sign in to use Adaptive mode'
+                        : 'Adaptive mode unavailable'
+                      : !hasAvailableModels
+                        ? 'No enabled model is available'
+                        : 'Send message'
+                  }
+                  disabled={
+                    (!input.trim() && uploadedFiles.length === 0) ||
+                    adaptiveModeSubmitBlocked ||
+                    !hasAvailableModels
+                  }
+                >
+                  <NativeIcon name="arrowUp" className="size-4" />
+                </Button>
               </NativePressable>
-            </div>
+            )}
           </div>
         </div>
-
-        {/* Action buttons for prompt suggestions */}
-        {messages.length === 0 && (
-          <ActionButtons
-            onSelectPrompt={message => {
-              // Set the input value and submit
-              handleInputChange({
-                target: { value: message }
-              } as React.ChangeEvent<HTMLTextAreaElement>)
-              // Submit the form after a small delay to ensure the input is updated
-              setTimeout(() => {
-                inputRef.current?.form?.requestSubmit()
-                // Reset focus state after action button submission
-                setIsInputFocused(false)
-                inputRef.current?.blur()
-              }, INPUT_UPDATE_DELAY_MS)
-            }}
-            onCategoryClick={category => {
-              // Set the category in the input
-              handleInputChange({
-                target: { value: category }
-              } as React.ChangeEvent<HTMLTextAreaElement>)
-              // Focus the input
-              inputRef.current?.focus()
-            }}
-            inputRef={inputRef}
-            className="mt-2 hidden md:block"
-          />
-        )}
       </form>
     </div>
   )
