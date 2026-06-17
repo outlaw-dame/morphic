@@ -21,6 +21,7 @@ import {
   truncateMessages
 } from '../utils/context-window'
 
+import { convertDataPart } from './helpers/convert-data-part'
 import { stripReasoningParts } from './helpers/strip-reasoning-parts'
 import { stripSpecFromMessages } from './helpers/strip-spec-from-messages'
 import { BaseStreamConfig } from './types'
@@ -73,7 +74,9 @@ export async function createEphemeralChatStreamResponse(
       ? stripReasoningParts(messagesWithoutSpec)
       : messagesWithoutSpec
 
-    let modelMessages = await convertToModelMessages(messagesToConvert)
+    let modelMessages = await convertToModelMessages(messagesToConvert, {
+      convertDataPart
+    })
 
     modelMessages = pruneMessages({
       messages: modelMessages,
