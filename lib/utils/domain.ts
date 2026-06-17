@@ -6,18 +6,50 @@
  * @example
  * displayUrlName("https://www.google.com") // "google"
  * displayUrlName("https://docs.github.com") // "github"
- * displayUrlName("https://en.wikipedia.org") // "wikipedia"
+ * displayUrlName("https://news.example.com.au") // "example"
  */
+const COMMON_COMPOUND_TLD_PREFIXES = new Set([
+  'ac',
+  'co',
+  'com',
+  'edu',
+  'gov',
+  'net',
+  'org'
+])
+
+function stripLeadingWww(labels: string[]): string[] {
+  return labels[0] === 'www' ? labels.slice(1) : labels
+}
+
+function getRegistrableLabels(hostname: string): string[] {
+  const labels = stripLeadingWww(hostname.toLowerCase().split('.').filter(Boolean))
+
+  if (labels.length <= 1) return labels
+
+  const last = labels.at(-1) ?? ''
+  const secondLast = labels.at(-2) ?? ''
+  const hasCompoundTld =
+    labels.length >= 3 &&
+    last.length === 2 &&
+    COMMON_COMPOUND_TLD_PREFIXES.has(secondLast)
+
+  if (hasCompoundTld) {
+    return labels.slice(0, -2)
+  }
+
+  return labels.slice(0, -1)
+}
+
 export const displayUrlName = (url: string): string => {
   try {
     const hostname = new URL(url).hostname
-    const parts = hostname.split('.')
+    const labels = getRegistrableLabels(hostname)
 
-    // For hostnames like "www.google.com" or "docs.github.com"
-    // Extract the main domain name (second-to-last part)
-    // parts.length > 2: ["www", "google", "com"] -> "google"
-    // parts.length <= 2: ["localhost"] or ["example", "com"] -> "example"
-    return parts.length > 2 ? parts.slice(1, -1).join('.') : parts[0]
+    if (labels.length === 0) return 'source'
+    if (labels.length === 1) return labels[0]
+
+    return labels.slice(1).join('.')
   } catch {
     // Fallback for invalid URLs
     return 'source'
