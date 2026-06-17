@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { SearchResultItem } from '@/lib/types'
 
-import { isCitationLabel, processCitations } from '../citation'
+import { extractCitationMaps, isCitationLabel, processCitations } from '../citation'
 
 describe('processCitations', () => {
   const mockCitationMaps = {
@@ -39,6 +39,41 @@ describe('processCitations', () => {
     const result = processCitations(content, mockCitationMaps)
 
     expect(result).toBe('See [google](https://www.google.com) for details')
+  })
+
+  it('resolves citations where the model prepended a toolu_ prefix', () => {
+    const content = 'See [1](#toolu_toolCall1) and [2](#toolu_toolCall1)'
+    const result = processCitations(content, mockCitationMaps)
+
+    expect(result).toBe(
+      'See [google](https://www.google.com) and [github](https://docs.github.com)'
+    )
+  })
+
+  it('resolves citations where the model prepended call_ or search- prefixes', () => {
+    expect(processCitations('See [1](#call_toolCall1)', mockCitationMaps)).toBe(
+      'See [google](https://www.google.com)'
+    )
+    expect(processCitations('See [2](#search-toolCall1)', mockCitationMaps)).toBe(
+      'See [github](https://docs.github.com)'
+    )
+  })
+
+  it('still prefers an exact toolCallId match over a normalized one', () => {
+    const citationMaps = {
+      toolCall1: mockCitationMaps.toolCall1,
+      toolu_toolCall1: {
+        1: {
+          title: 'Exact',
+          url: 'https://exact.example.com',
+          content: 'Exact match'
+        }
+      } as Record<number, SearchResultItem>
+    }
+
+    expect(processCitations('See [1](#toolu_toolCall1)', citationMaps)).toBe(
+      'See [exact.example](https://exact.example.com)'
+    )
   })
 
   it('handles multiple citations from same domain', () => {
@@ -180,6 +215,39 @@ describe('processCitations', () => {
     // 0 and 101 are out of bounds (1-100), so they're replaced with empty string
     // -1 doesn't match the regex pattern \d+, so it remains unchanged
     expect(result).toBe('Edge cases:   [-1](#toolCall1)')
+  })
+
+  it('derives citation maps from results when citationMap is omitted', () => {
+    const message = {
+      id: 'msg1',
+      role: 'assistant',
+      parts: [
+        {
+          type: 'tool-search',
+          state: 'output-available',
+          toolCallId: 'toolCall1',
+          output: {
+            results: [
+              {
+                title: 'Google',
+                url: 'https://www.google.com',
+                content: 'Search engine'
+              }
+            ]
+          }
+        }
+      ]
+    } as any
+
+    expect(extractCitationMaps(message)).toEqual({
+      toolCall1: {
+        1: {
+          title: 'Google',
+          url: 'https://www.google.com',
+          content: 'Search engine'
+        }
+      }
+    })
   })
 
   describe('isCitationLabel', () => {
