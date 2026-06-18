@@ -14,20 +14,24 @@ vi.mock('next/navigation', () => ({
 }))
 
 // Mock the overlay stack
-const mockPop = vi.fn()
 let mockOverlaySize = 0
 vi.mock('../use-overlay-stack', () => ({
   useOverlayStack: () => ({
     push: vi.fn(),
-    pop: mockPop,
+    pop: vi.fn(),
     peek: vi.fn(() => null),
     get size() {
       return mockOverlaySize
     }
-  })
+  }),
+  OverlayStackProvider: ({ children }: any) => children
 }))
 
-import { _resetBackButtonGlobals, useBackButton } from '../use-back-button'
+import { NavigationDepthProvider, useBackButton } from '../use-back-button'
+
+const wrapper = ({ children }: { children: React.ReactNode }) => (
+  <NavigationDepthProvider>{children}</NavigationDepthProvider>
+)
 
 describe('useBackButton', () => {
   let mockHistoryBack: ReturnType<typeof vi.fn>
@@ -36,10 +40,10 @@ describe('useBackButton', () => {
     mockOverlaySize = 0
     mockPathname = '/'
     mockHistoryBack = vi.fn()
-    _resetBackButtonGlobals()
     vi.stubGlobal('window', {
       ...window,
       history: { ...window.history, back: mockHistoryBack },
+      location: { pathname: '/' },
       addEventListener: vi.fn(),
       removeEventListener: vi.fn()
     })
@@ -52,7 +56,7 @@ describe('useBackButton', () => {
 
   it('uses history.back() when overlays are open', () => {
     mockOverlaySize = 2
-    const { result } = renderHook(() => useBackButton())
+    const { result } = renderHook(() => useBackButton(), { wrapper })
 
     result.current.handleBack()
 
@@ -60,9 +64,9 @@ describe('useBackButton', () => {
     expect(mockBack).not.toHaveBeenCalled()
   })
 
-  it('navigates to root when at top of app stack (no prior navigation)', () => {
+  it('navigates to root when at top of app stack (depth = 0)', () => {
     mockOverlaySize = 0
-    const { result } = renderHook(() => useBackButton())
+    const { result } = renderHook(() => useBackButton(), { wrapper })
 
     result.current.handleBack()
 
@@ -73,8 +77,9 @@ describe('useBackButton', () => {
   it('calls custom onBack handler when provided and no overlays', () => {
     mockOverlaySize = 0
     const customHandler = vi.fn()
-    const { result } = renderHook(() =>
-      useBackButton({ onBack: customHandler })
+    const { result } = renderHook(
+      () => useBackButton({ onBack: customHandler }),
+      { wrapper }
     )
 
     result.current.handleBack()
@@ -86,8 +91,9 @@ describe('useBackButton', () => {
   it('prefers overlay close over custom handler', () => {
     mockOverlaySize = 1
     const customHandler = vi.fn()
-    const { result } = renderHook(() =>
-      useBackButton({ onBack: customHandler })
+    const { result } = renderHook(
+      () => useBackButton({ onBack: customHandler }),
+      { wrapper }
     )
 
     result.current.handleBack()

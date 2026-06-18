@@ -1,7 +1,11 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { useOverlayStack } from '../use-overlay-stack'
+import { OverlayStackProvider, useOverlayStack } from '../use-overlay-stack'
+
+const wrapper = ({ children }: { children: React.ReactNode }) => (
+  <OverlayStackProvider>{children}</OverlayStackProvider>
+)
 
 describe('useOverlayStack', () => {
   let pushStateSpy: ReturnType<typeof vi.fn>
@@ -25,13 +29,13 @@ describe('useOverlayStack', () => {
   })
 
   it('starts with empty stack', () => {
-    const { result } = renderHook(() => useOverlayStack())
+    const { result } = renderHook(() => useOverlayStack(), { wrapper })
     expect(result.current.size).toBe(0)
     expect(result.current.peek()).toBeNull()
   })
 
   it('push adds entry and calls pushState', () => {
-    const { result } = renderHook(() => useOverlayStack())
+    const { result } = renderHook(() => useOverlayStack(), { wrapper })
     const close = vi.fn()
 
     act(() => {
@@ -47,7 +51,7 @@ describe('useOverlayStack', () => {
   })
 
   it('pop removes topmost entry and calls its close function', () => {
-    const { result } = renderHook(() => useOverlayStack())
+    const { result } = renderHook(() => useOverlayStack(), { wrapper })
     const close1 = vi.fn()
     const close2 = vi.fn()
 
@@ -69,7 +73,7 @@ describe('useOverlayStack', () => {
   })
 
   it('maintains LIFO ordering', () => {
-    const { result } = renderHook(() => useOverlayStack())
+    const { result } = renderHook(() => useOverlayStack(), { wrapper })
     const close1 = vi.fn()
     const close2 = vi.fn()
     const close3 = vi.fn()
@@ -93,9 +97,8 @@ describe('useOverlayStack', () => {
   })
 
   it('pop is a no-op when stack is empty', () => {
-    const { result } = renderHook(() => useOverlayStack())
+    const { result } = renderHook(() => useOverlayStack(), { wrapper })
 
-    // Should not throw
     expect(() => {
       act(() => result.current.pop())
     }).not.toThrow()
@@ -103,8 +106,15 @@ describe('useOverlayStack', () => {
     expect(result.current.size).toBe(0)
   })
 
-  it('peek returns null when stack is empty', () => {
+  it('returns no-op fallback when used without provider', () => {
     const { result } = renderHook(() => useOverlayStack())
+
+    expect(result.current.size).toBe(0)
     expect(result.current.peek()).toBeNull()
+    // Should not throw
+    expect(() => {
+      act(() => result.current.push({ id: 'x', type: 'sheet', close: vi.fn() }))
+      act(() => result.current.pop())
+    }).not.toThrow()
   })
 })

@@ -1,6 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef
+} from 'react'
 
 export interface OverlayEntry {
   /** Unique identifier for this overlay instance */
@@ -24,21 +30,24 @@ export interface OverlayStackAPI {
 
 const OVERLAY_STATE_KEY = '__morphic_overlay__'
 
+const OverlayStackContext = createContext<OverlayStackAPI | null>(null)
+
 /**
- * Manages a LIFO overlay stack that integrates with the browser History API.
+ * Provider that manages a shared, centralized LIFO overlay stack.
  *
- * - Each overlay pushed adds one history entry via `history.pushState()`
- * - Back button (popstate) closes the topmost overlay without navigating
- * - Closing an overlay removes its corresponding history entry
- * - Repeated open/close does not accumulate extra history entries
- * - Gracefully handles orphan popstate events (no-op if stack is empty)
+ * Must be placed once at the root of the application (inside layout providers).
+ * All overlay components (ShellSheet, ShellPanel, dialogs) share this single stack
+ * and a single popstate listener handles back-button behavior in LIFO order.
  */
-export function useOverlayStack(): OverlayStackAPI {
+export function OverlayStackProvider({
+  children
+}: {
+  children: React.ReactNode
+}) {
   const stackRef = useRef<OverlayEntry[]>([])
 
   const push = useCallback((entry: OverlayEntry) => {
     stackRef.current = [...stackRef.current, entry]
-
     if (typeof window !== 'undefined') {
       window.history.pushState({ [OVERLAY_STATE_KEY]: entry.id }, '')
     }
@@ -47,7 +56,6 @@ export function useOverlayStack(): OverlayStackAPI {
   const pop = useCallback(() => {
     const stack = stackRef.current
     if (stack.length === 0) return
-
     const topmost = stack[stack.length - 1]
     stackRef.current = stack.slice(0, -1)
     topmost.close()
@@ -58,25 +66,19 @@ export function useOverlayStack(): OverlayStackAPI {
     return stack.length > 0 ? stack[stack.length - 1] : null
   }, [])
 
-  // Handle popstate (back button)
+  // Single popstate listener for the entire app
   useEffect(() => {
     if (typeof window === 'undefined') return
 
     const handlePopState = (event: PopStateEvent) => {
-      // Only handle if our stack has entries
       if (stackRef.current.length === 0) return
 
-      // Check if this popstate corresponds to one of our overlay entries
       const state = event.state
-      if (state && typeof state === 'object' && OVERLAY_STATE_KEY in state) {
-        // Browser navigated back through an overlay entry — close topmost
-        const topmost = stackRef.current[stackRef.current.length - 1]
-        stackRef.current = stackRef.current.slice(0, -1)
-        topmost.close()
-      } else if (stackRef.current.length > 0) {
-        // Popstate without our marker but we have overlays —
-        // this can happen if user navigated before overlay was tracked.
-        // Close topmost as defensive behavior.
+      // Our overlay marker is present, or we have overlays and any back was triggered
+      if (
+        (state && typeof state === 'object' && OVERLAY_STATE_KEY in state) ||
+        stackRef.current.length > 0
+      ) {
         const topmost = stackRef.current[stackRef.current.length - 1]
         stackRef.current = stackRef.current.slice(0, -1)
         topmost.close()
@@ -87,13 +89,38 @@ export function useOverlayStack(): OverlayStackAPI {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  return {
+  const api: OverlayStackAPI = {
     push,
     pop,
     peek,
     get size() {
       return stackRef.current.length
     }
+  }
+
+  return (
+    <OverlayStackContext.Provider value={api}>
+      {children}
+    </OverlayStackContext.Provider>
+  )
+}
+
+/**
+ * Access the shared overlay stack.
+ *
+ * Falls back to a no-op API if used outside the provider (e.g., during SSR or in tests
+ * that don't wrap with the provider). This ensures shell components don't crash.
+ */
+export function useOverlayStack(): OverlayStackAPI {
+  const ctx = useContext(OverlayStackContext)
+  if (ctx) return ctx
+
+  // Fallback for SSR or missing provider — no-op behavior
+  return {
+    push: () => {},
+    pop: () => {},
+    peek: () => null,
+    size: 0
   }
 }
 
