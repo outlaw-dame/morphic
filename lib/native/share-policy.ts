@@ -1,0 +1,136 @@
+/**
+ * Share content policy — defines what can and cannot be shared.
+ *
+ * Rules:
+ * - Share result links (safe, public URLs)
+ * - Share search/session links only when safe (no private query dump)
+ * - Never share raw auth tokens, API keys, or private content
+ * - Validate share content before passing to native share sheet
+ */
+
+import { isInternalUrl } from './open-url'
+
+export interface ShareContentValidation {
+  allowed: boolean
+  reason?: string
+  sanitizedData?: { title?: string; text?: string; url?: string }
+}
+
+/** Maximum length for shared text to prevent accidental large data dumps */
+const MAX_SHARE_TEXT_LENGTH = 2000
+
+/** Patterns that should never appear in shared content */
+const FORBIDDEN_PATTERNS = [
+  /sk-[a-zA-Z0-9]{20,}/, // OpenAI API keys
+  /key-[a-zA-Z0-9]{20,}/, // Generic API keys
+  /Bearer\s+[a-zA-Z0-9._-]+/, // Auth tokens
+  /password[=:]\s*\S+/i, // Password values
+  /secret[=:]\s*\S+/i // Secret values
+]
+
+/**
+ * Validate and sanitize content before sharing.
+ *
+ * Ensures no sensitive data leaks through the share sheet.
+ */
+export function validateShareContent(data: {
+  title?: string
+  text?: string
+  url?: string
+}): ShareContentValidation {
+  // URL must be internal or a safe https URL
+  if (data.url) {
+    if (!isValidShareUrl(data.url)) {
+      return { allowed: false, reason: 'Cannot share this URL' }
+    }
+  }
+
+  // Check text for forbidden patterns
+  const textToCheck = [data.title, data.text].filter(Boolean).join(' ')
+  for (const pattern of FORBIDDEN_PATTERNS) {
+    if (pattern.test(textToCheck)) {
+      return { allowed: false, reason: 'Content contains sensitive data' }
+    }
+  }
+
+  // Truncate overly long text
+  const sanitizedText = data.text
+    ? data.text.slice(0, MAX_SHARE_TEXT_LENGTH)
+    : undefined
+
+  const sanitizedTitle = data.title ? data.title.slice(0, 200) : undefined
+
+  return {
+    allowed: true,
+    sanitizedData: {
+      title: sanitizedTitle,
+      text: sanitizedText,
+      url: data.url
+    }
+  }
+}
+
+/**
+ * Check if a URL is safe to share.
+ *
+ * Allows:
+ * - Internal app URLs (morphic.sh)
+ * - HTTPS external URLs
+ *
+ * Rejects:
+ * - Non-HTTPS URLs
+ * - javascript:, data:, file: schemes
+ * - URLs with auth tokens in query params
+ */
+function isValidShareUrl(url: string): boolean {
+  // Internal URLs are always shareable
+  if (isInternalUrl(url)) return true
+
+  try {
+    const parsed = new URL(url)
+
+    // Only HTTPS is shareable
+    if (parsed.protocol !== 'https:') return false
+
+    // Reject URLs with sensitive query params
+    const sensitiveParams = [
+      'token',
+      'access_token',
+      'api_key',
+      'secret',
+      'password'
+    ]
+    for (const param of sensitiveParams) {
+      if (parsed.searchParams.has(param)) return false
+    }
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Build a safe share URL for a search result.
+ *
+ * Always uses the public app URL, never includes session-specific params.
+ */
+export function buildSearchShareUrl(searchId: string): string {
+  return `https://morphic.sh/search/${encodeURIComponent(searchId)}`
+}
+
+/**
+ * Build safe share data for a search result.
+ */
+export function buildSearchShareData(
+  searchId: string,
+  title?: string
+): {
+  title: string
+  url: string
+} {
+  return {
+    title: title || 'Check out this search on Morphic',
+    url: buildSearchShareUrl(searchId)
+  }
+}
