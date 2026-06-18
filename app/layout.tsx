@@ -10,6 +10,9 @@ import { hasSupabasePublicConfig } from '@/lib/supabase/keys'
 import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 
+import { NavigationDepthProvider } from '@/hooks/use-back-button'
+import { OverlayStackProvider } from '@/hooks/use-overlay-stack'
+
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
 
@@ -113,13 +116,17 @@ export default async function RootLayout({
               disableTransitionOnChange
             >
               <UserProvider hasUser={!!userId}>
-                <SidebarProvider defaultOpen={false}>
-                  <KeyboardShortcutHandler />
-                  <ServiceWorkerRegister />
-                  <ShellLayout user={user} showSidebar={!!userId}>
-                    <ArtifactRoot>{children}</ArtifactRoot>
-                  </ShellLayout>
-                </SidebarProvider>
+                <NavigationDepthProvider>
+                  <OverlayStackProvider>
+                    <SidebarProvider defaultOpen={false}>
+                      <KeyboardShortcutHandler />
+                      <ServiceWorkerRegister />
+                      <ShellLayout user={user} showSidebar={!!userId}>
+                        <ArtifactRoot>{children}</ArtifactRoot>
+                      </ShellLayout>
+                    </SidebarProvider>
+                  </OverlayStackProvider>
+                </NavigationDepthProvider>
               </UserProvider>
               <Toaster />
               <Analytics />
