@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
 import { useOverlayStack } from './use-overlay-stack'
@@ -8,6 +8,23 @@ import { useOverlayStack } from './use-overlay-stack'
 export interface UseBackButtonOptions {
   /** Custom back handler. If provided, overrides default behavior. */
   onBack?: () => void
+}
+
+/**
+ * Module-scoped navigation depth tracking.
+ * Survives component remounts during page transitions.
+ */
+let globalDepth = 0
+let globalPrevPathname: string | null = null
+let isBackNavigation = false
+
+/**
+ * Reset globals for testing. Call in test beforeEach to prevent pollution.
+ */
+export function _resetBackButtonGlobals(): void {
+  globalDepth = 0
+  globalPrevPathname = null
+  isBackNavigation = false
 }
 
 /**
@@ -19,8 +36,8 @@ export interface UseBackButtonOptions {
  * 3. If app-local navigation depth > 0 → router.back()
  * 4. Otherwise → navigate to root route '/'
  *
- * Uses an app-local navigation depth counter instead of window.history.length
- * to avoid navigating out of the app when arriving from an external page.
+ * Uses module-scoped navigation depth counter (not component-local refs)
+ * to survive remounts during page transitions.
  */
 export function useBackButton(options?: UseBackButtonOptions): {
   handleBack: () => void
@@ -28,31 +45,35 @@ export function useBackButton(options?: UseBackButtonOptions): {
   const router = useRouter()
   const pathname = usePathname()
   const overlayStack = useOverlayStack()
-  const appDepthRef = useRef(0)
-  const prevPathnameRef = useRef<string | null>(null)
 
   // Track app-local navigation depth
   useEffect(() => {
-    if (prevPathnameRef.current === null) {
+    if (globalPrevPathname === null) {
       // First render — initial page, depth 0
-      prevPathnameRef.current = pathname
+      globalPrevPathname = pathname
       return
     }
 
-    if (prevPathnameRef.current !== pathname) {
-      appDepthRef.current++
-      prevPathnameRef.current = pathname
+    if (globalPrevPathname !== pathname) {
+      // Only increment for forward navigation, not back navigation
+      if (!isBackNavigation) {
+        globalDepth++
+      }
+      isBackNavigation = false
+      globalPrevPathname = pathname
     }
   }, [pathname])
 
-  // Listen for popstate to decrement depth on browser back
+  // Listen for popstate to decrement depth on browser/Android back
   useEffect(() => {
     if (typeof window === 'undefined') return
 
     const handlePopState = () => {
-      if (appDepthRef.current > 0) {
-        appDepthRef.current--
+      if (globalDepth > 0) {
+        globalDepth--
       }
+      // Mark the next pathname change as a back navigation
+      isBackNavigation = true
     }
 
     window.addEventListener('popstate', handlePopState)
@@ -74,7 +95,7 @@ export function useBackButton(options?: UseBackButtonOptions): {
     }
 
     // Navigate back within the app, or go to root if at top of app stack
-    if (appDepthRef.current > 0) {
+    if (globalDepth > 0) {
       router.back()
     } else {
       router.push('/')

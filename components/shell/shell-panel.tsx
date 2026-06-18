@@ -59,10 +59,13 @@ export function ShellPanel({
       }
     } else if (!open && pushedRef.current) {
       pushedRef.current = false
-      // Unwind the overlay history entry on programmatic dismiss
-      // (e.g., backdrop tap, close button, sidebar link)
-      // Use history.back() to trigger popstate and clean up the overlay stack
-      if (typeof window !== 'undefined') {
+      // Only unwind history if this was a programmatic dismiss (not triggered by back button).
+      // If the user pressed back, the overlay stack's popstate handler already consumed
+      // the history entry. Check if our entry is still at the top of the stack.
+      if (
+        typeof window !== 'undefined' &&
+        overlayStack.peek()?.id === overlayId
+      ) {
         window.history.back()
       }
       // Return focus
