@@ -113,6 +113,20 @@ describe('validateShareContent', () => {
     })
     expect(result.allowed).toBe(false)
   })
+
+  it('rejects SPA hash routing URLs with sensitive params', () => {
+    const result = validateShareContent({
+      url: 'https://morphic.sh/#/callback?access_token=xyz'
+    })
+    expect(result.allowed).toBe(false)
+  })
+
+  it('rejects hash routing with token as first param after path', () => {
+    const result = validateShareContent({
+      url: 'https://morphic.sh/login#/auth/callback?access_token=leaked'
+    })
+    expect(result.allowed).toBe(false)
+  })
 })
 
 describe('buildSearchShareUrl', () => {
