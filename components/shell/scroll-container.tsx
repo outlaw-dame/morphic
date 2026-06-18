@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef } from 'react'
 
 import { cn } from '@/lib/utils'
 
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration'
+
 export interface ScrollContainerProps {
   children: React.ReactNode
   className?: string
@@ -29,6 +31,9 @@ export function ScrollContainer({
   const containerRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number | null>(null)
   const tickingRef = useRef(false)
+
+  // Integrate scroll restoration for route-based position save/restore
+  useScrollRestoration({ containerRef })
 
   // rAF-throttled scroll tracking
   const handleScroll = useCallback(() => {

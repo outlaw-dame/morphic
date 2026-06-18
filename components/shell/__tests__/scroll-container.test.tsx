@@ -1,6 +1,11 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
+// Mock useScrollRestoration so it doesn't try to use next/navigation
+vi.mock('@/hooks/use-scroll-restoration', () => ({
+  useScrollRestoration: () => ({ scrollOffset: 0, scrollToTop: vi.fn() })
+}))
+
 import { ScrollContainer } from '../scroll-container'
 
 describe('ScrollContainer', () => {
