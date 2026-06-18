@@ -1,7 +1,7 @@
 'use client'
 
-import { Suspense } from 'react'
 import Link from 'next/link'
+import { Suspense, useCallback } from 'react'
 
 import { cn } from '@/lib/utils'
 
@@ -27,11 +27,18 @@ export function ShellSidebarAdapter() {
 
   // Use mobile state on mobile, desktop state on desktop
   const isOpen = isMobile ? openMobile : open
-  const setIsOpen = isMobile
-    ? (value: boolean) => setOpenMobile(value)
-    : (value: boolean) => setOpen(value)
+  const setIsOpen = useCallback(
+    (value: boolean) => {
+      if (isMobile) {
+        setOpenMobile(value)
+      } else {
+        setOpen(value)
+      }
+    },
+    [isMobile, setOpenMobile, setOpen]
+  )
 
-  const handleClose = () => setIsOpen(false)
+  const handleClose = useCallback(() => setIsOpen(false), [setIsOpen])
 
   return (
     <ShellPanel open={isOpen} onOpenChange={setIsOpen} side="left">

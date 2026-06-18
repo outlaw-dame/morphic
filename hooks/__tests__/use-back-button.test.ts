@@ -27,7 +27,7 @@ vi.mock('../use-overlay-stack', () => ({
   })
 }))
 
-import { useBackButton } from '../use-back-button'
+import { _resetBackButtonGlobals, useBackButton } from '../use-back-button'
 
 describe('useBackButton', () => {
   let mockHistoryBack: ReturnType<typeof vi.fn>
@@ -36,6 +36,7 @@ describe('useBackButton', () => {
     mockOverlaySize = 0
     mockPathname = '/'
     mockHistoryBack = vi.fn()
+    _resetBackButtonGlobals()
     vi.stubGlobal('window', {
       ...window,
       history: { ...window.history, back: mockHistoryBack },
@@ -61,7 +62,6 @@ describe('useBackButton', () => {
 
   it('navigates to root when at top of app stack (no prior navigation)', () => {
     mockOverlaySize = 0
-    // No pathname changes = depth is 0
     const { result } = renderHook(() => useBackButton())
 
     result.current.handleBack()
