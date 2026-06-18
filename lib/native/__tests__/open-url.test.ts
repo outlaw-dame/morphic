@@ -18,6 +18,11 @@ describe('isInternalUrl', () => {
     expect(isInternalUrl('https://google.com')).toBe(false)
     expect(isInternalUrl('https://evil.com/morphic.sh')).toBe(false)
   })
+
+  it('rejects protocol-relative URLs (//evil.com)', () => {
+    expect(isInternalUrl('//evil.com')).toBe(false)
+    expect(isInternalUrl('//evil.com/path')).toBe(false)
+  })
 })
 
 describe('isAllowedAuthRedirect', () => {
@@ -34,6 +39,11 @@ describe('isAllowedAuthRedirect', () => {
   it('rejects external origins', () => {
     expect(isAllowedAuthRedirect('https://evil.com/steal-token')).toBe(false)
     expect(isAllowedAuthRedirect('https://morphic.sh.evil.com/')).toBe(false)
+  })
+
+  it('rejects protocol-relative URLs (//evil.com)', () => {
+    expect(isAllowedAuthRedirect('//evil.com')).toBe(false)
+    expect(isAllowedAuthRedirect('//evil.com/auth')).toBe(false)
   })
 })
 

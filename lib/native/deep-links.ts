@@ -49,7 +49,8 @@ const ROUTE_MAP: Array<{
   { pattern: /^\/settings$/, requiresAuth: true, description: 'Settings' },
   { pattern: /^\/reader$/, requiresAuth: false, description: 'Reader' },
   {
-    pattern: /^\/auth\/(login|sign-up|forgot-password|update-password)$/,
+    pattern:
+      /^\/auth\/(login|sign-up|forgot-password|update-password|oauth|confirm)$/,
     requiresAuth: false,
     description: 'Auth pages'
   }
@@ -123,7 +124,7 @@ export function parseDeepLink(url: string): DeepLinkParseResult {
   const cleanParams = new URLSearchParams()
   for (const [key, value] of parsed.searchParams) {
     if (!UNSAFE_PARAMS.includes(key.toLowerCase())) {
-      cleanParams.set(key, value)
+      cleanParams.append(key, value)
     }
   }
 
@@ -169,9 +170,6 @@ export function resolveDeepLink(
   const result = parseDeepLink(url)
 
   if (!result.valid) {
-    if (result.fallback === 'not-found') {
-      return { navigate: '/', reason: result.reason }
-    }
     return { navigate: '/', reason: result.reason }
   }
 
