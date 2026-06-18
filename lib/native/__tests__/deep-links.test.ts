@@ -101,6 +101,23 @@ describe('parseDeepLink', () => {
     expect(result.valid).toBe(true)
     expect(result.requiresAuth).toBe(false)
   })
+
+  it('preserves valid next param on auth callback routes', () => {
+    const result = parseDeepLink(
+      'https://morphic.sh/auth/oauth?code=abc123&next=/library'
+    )
+    expect(result.valid).toBe(true)
+    expect(result.path).toContain('code=abc123')
+    expect(result.path).toContain('next=%2Flibrary')
+  })
+
+  it('strips unsafe next param with external URL on auth routes', () => {
+    const result = parseDeepLink(
+      'https://morphic.sh/auth/oauth?code=abc&next=//evil.com'
+    )
+    expect(result.valid).toBe(true)
+    expect(result.path).not.toContain('evil.com')
+  })
 })
 
 describe('resolveDeepLink', () => {

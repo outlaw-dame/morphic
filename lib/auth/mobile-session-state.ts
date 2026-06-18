@@ -53,7 +53,9 @@ export function assessMobileSessionState(options: {
   }
 
   const { hasUser } = options
-  const isOnline = options.isOnline ?? navigator.onLine
+  const isOnline =
+    options.isOnline ??
+    (typeof navigator !== 'undefined' ? navigator.onLine : true)
 
   if (!isOnline) {
     return {

@@ -110,7 +110,7 @@ When a push delivery fails:
 CREATE TABLE push_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-  token TEXT NOT NULL,
+  token TEXT NOT NULL UNIQUE, -- globally unique: prevents cross-user token leakage
   platform TEXT NOT NULL CHECK (platform IN ('ios', 'android', 'web')),
   device_id TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

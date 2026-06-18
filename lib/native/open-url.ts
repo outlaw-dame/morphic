@@ -34,8 +34,9 @@ export function isInternalUrl(url: string): boolean {
     const parsed = new URL(url)
     return APP_ORIGINS.includes(parsed.origin)
   } catch {
-    // Relative URLs are internal, but reject protocol-relative URLs (//evil.com)
-    return url.startsWith('/') && !url.startsWith('//')
+    // Relative URLs are internal, but reject protocol-relative and backslash variants
+    // Browsers normalize /\ to //, so both must be rejected
+    return /^\/(?![/\\])/.test(url)
   }
 }
 
@@ -105,7 +106,9 @@ export async function openUrl(url: string): Promise<OpenUrlResult> {
 
   // Web fallback: open in new tab (or current window for mailto/tel to avoid blank tabs)
   try {
-    const isMailOrTel = url.startsWith('mailto:') || url.startsWith('tel:')
+    const lowerUrl = url.toLowerCase().trim()
+    const isMailOrTel =
+      lowerUrl.startsWith('mailto:') || lowerUrl.startsWith('tel:')
     window.open(url, isMailOrTel ? '_self' : '_blank', 'noopener,noreferrer')
     return { opened: true, method: isMailOrTel ? 'in-app' : 'new-tab' }
   } catch {
@@ -124,7 +127,9 @@ export function isAllowedAuthRedirect(redirectUrl: string): boolean {
     const parsed = new URL(redirectUrl)
     return APP_ORIGINS.includes(parsed.origin)
   } catch {
-    // Relative paths are fine, but reject protocol-relative URLs
-    return redirectUrl.startsWith('/') && !redirectUrl.startsWith('//')
+    // Relative paths starting with single / are fine.
+    // Reject protocol-relative (//) and backslash variants (/\) which
+    // browsers normalize to // and resolve as external origins.
+    return /^\/(?![/\\])/.test(redirectUrl)
   }
 }
