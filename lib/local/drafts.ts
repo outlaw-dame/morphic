@@ -26,20 +26,22 @@ export interface DraftEntry {
  */
 export function saveDraft(key: string, content: string): boolean {
   if (typeof localStorage === 'undefined') return false
-  if (classifyKey(key) !== 'user_draft') return false
+  // Normalize key: strip draft: prefix if already present
+  const cleanKey = key.startsWith('draft:') ? key.slice(6) : key
+  if (classifyKey(cleanKey) !== 'user_draft') return false
   if (typeof content !== 'string' || !content.trim()) {
     // Empty or invalid content → delete the draft
-    deleteDraft(key)
+    deleteDraft(cleanKey)
     return true
   }
 
   try {
     const entry: DraftEntry = {
-      key,
+      key: cleanKey,
       content,
       savedAt: Date.now()
     }
-    localStorage.setItem(`draft:${key}`, JSON.stringify(entry))
+    localStorage.setItem(`draft:${cleanKey}`, JSON.stringify(entry))
     return true
   } catch {
     return false
@@ -53,10 +55,11 @@ export function saveDraft(key: string, content: string): boolean {
  */
 export function loadDraft(key: string): DraftEntry | null {
   if (typeof localStorage === 'undefined') return null
-  if (classifyKey(key) !== 'user_draft') return null
+  const cleanKey = key.startsWith('draft:') ? key.slice(6) : key
+  if (classifyKey(cleanKey) !== 'user_draft') return null
 
   try {
-    const raw = localStorage.getItem(`draft:${key}`)
+    const raw = localStorage.getItem(`draft:${cleanKey}`)
     if (!raw) return null
     const entry = JSON.parse(raw) as DraftEntry
     return entry
@@ -70,8 +73,9 @@ export function loadDraft(key: string): DraftEntry | null {
  */
 export function deleteDraft(key: string): void {
   if (typeof localStorage === 'undefined') return
+  const cleanKey = key.startsWith('draft:') ? key.slice(6) : key
   try {
-    localStorage.removeItem(`draft:${key}`)
+    localStorage.removeItem(`draft:${cleanKey}`)
   } catch {
     // Ignore storage errors
   }
@@ -114,7 +118,7 @@ export function listDrafts(): DraftEntry[] {
             const parsed = JSON.parse(raw)
             if (parsed && typeof parsed.content === 'string') {
               drafts.push({
-                key: parsed.key || storageKey.replace(/^draft:/, ''),
+                key: (parsed.key || storageKey).replace(/^draft:/, ''),
                 content: parsed.content,
                 savedAt: typeof parsed.savedAt === 'number' ? parsed.savedAt : 0
               })
@@ -136,5 +140,6 @@ export function listDrafts(): DraftEntry[] {
  */
 export function hasDraft(key: string): boolean {
   if (typeof localStorage === 'undefined') return false
-  return localStorage.getItem(`draft:${key}`) !== null
+  const cleanKey = key.startsWith('draft:') ? key.slice(6) : key
+  return localStorage.getItem(`draft:${cleanKey}`) !== null
 }

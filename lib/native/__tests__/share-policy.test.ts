@@ -99,6 +99,20 @@ describe('validateShareContent', () => {
     })
     expect(result.allowed).toBe(true)
   })
+
+  it('allows relative internal URLs', () => {
+    const result = validateShareContent({
+      url: '/search/abc123'
+    })
+    expect(result.allowed).toBe(true)
+  })
+
+  it('rejects internal URLs with case-varied sensitive params', () => {
+    const result = validateShareContent({
+      url: 'https://morphic.sh/page?Access_Token=xyz'
+    })
+    expect(result.allowed).toBe(false)
+  })
 })
 
 describe('buildSearchShareUrl', () => {
