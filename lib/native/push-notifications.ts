@@ -99,11 +99,13 @@ export async function deletePushToken(): Promise<boolean> {
  * Handle a received notification (while app is in foreground).
  *
  * Checks notification preferences before displaying in-app notification.
+ * Accepts optional deepLinkUrl for in-app banner tap navigation.
  */
 export function handleNotificationReceived(
   _category: NotificationCategory,
   _title: string,
-  _body: string
+  _body: string,
+  _deepLinkUrl?: string
 ): void {
   // Stub: will check preferences and show in-app notification when implemented
 }
@@ -112,9 +114,13 @@ export function handleNotificationReceived(
  * Handle a notification tap (app opened from notification).
  *
  * Routes through the deep link parser for safe navigation.
+ * Requires authentication status to resolve auth-gated routes.
  */
-export function handleNotificationTap(_deepLinkUrl: string): void {
-  // Stub: will call resolveDeepLink() and navigate when implemented
+export function handleNotificationTap(
+  _deepLinkUrl: string,
+  _options: { isAuthenticated: boolean }
+): void {
+  // Stub: will call resolveDeepLink(url, { isAuthenticated }) and navigate when implemented
 }
 
 /**

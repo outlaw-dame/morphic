@@ -120,10 +120,24 @@ export function parseDeepLink(url: string): DeepLinkParseResult {
     path = path.slice(0, -1)
   }
 
-  // Strip unsafe redirect parameters
+  // Strip unsafe redirect parameters (except on auth callback routes where 'next' is needed)
+  const isAuthCallback = path.startsWith('/auth/')
   const cleanParams = new URLSearchParams()
   for (const [key, value] of parsed.searchParams) {
-    if (!UNSAFE_PARAMS.includes(key.toLowerCase())) {
+    const lowerKey = key.toLowerCase()
+    // Allow 'next' on auth routes (needed for OAuth/confirm post-login redirect)
+    if (isAuthCallback && lowerKey === 'next') {
+      // Validate that 'next' points to an internal path
+      if (
+        value.startsWith('/') &&
+        !value.startsWith('//') &&
+        !/^\/[\\]/.test(value)
+      ) {
+        cleanParams.append(key, value)
+      }
+      continue
+    }
+    if (!UNSAFE_PARAMS.includes(lowerKey)) {
       cleanParams.append(key, value)
     }
   }

@@ -23,6 +23,10 @@ describe('isInternalUrl', () => {
     expect(isInternalUrl('//evil.com')).toBe(false)
     expect(isInternalUrl('//evil.com/path')).toBe(false)
   })
+
+  it('rejects backslash protocol-relative URLs (/\\evil.com)', () => {
+    expect(isInternalUrl('/\\evil.com')).toBe(false)
+  })
 })
 
 describe('isAllowedAuthRedirect', () => {
@@ -44,6 +48,10 @@ describe('isAllowedAuthRedirect', () => {
   it('rejects protocol-relative URLs (//evil.com)', () => {
     expect(isAllowedAuthRedirect('//evil.com')).toBe(false)
     expect(isAllowedAuthRedirect('//evil.com/auth')).toBe(false)
+  })
+
+  it('rejects backslash protocol-relative URLs (/\\evil.com)', () => {
+    expect(isAllowedAuthRedirect('/\\evil.com')).toBe(false)
   })
 })
 
