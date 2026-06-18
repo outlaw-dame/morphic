@@ -8,8 +8,6 @@
  * - Validate share content before passing to native share sheet
  */
 
-import { isInternalUrl } from './open-url'
-
 export interface ShareContentValidation {
   allowed: boolean
   reason?: string
@@ -83,16 +81,13 @@ export function validateShareContent(data: {
  * - URLs with auth tokens in query params
  */
 function isValidShareUrl(url: string): boolean {
-  // Internal URLs are always shareable
-  if (isInternalUrl(url)) return true
-
   try {
     const parsed = new URL(url)
 
     // Only HTTPS is shareable
     if (parsed.protocol !== 'https:') return false
 
-    // Reject URLs with sensitive query params
+    // Reject URLs with sensitive query params (applies to ALL URLs including internal)
     const sensitiveParams = [
       'token',
       'access_token',
@@ -103,6 +98,10 @@ function isValidShareUrl(url: string): boolean {
     for (const param of sensitiveParams) {
       if (parsed.searchParams.has(param)) return false
     }
+
+    // Reject URLs with sensitive data in hash/fragment
+    const hash = parsed.hash.toLowerCase()
+    if (sensitiveParams.some(p => hash.includes(p + '='))) return false
 
     return true
   } catch {

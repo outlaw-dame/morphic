@@ -63,13 +63,13 @@ describe('isCacheStale', () => {
 })
 
 describe('getLogoutClearKeys', () => {
-  it('includes user_draft keys', () => {
+  it('includes user_draft keys with draft: prefix', () => {
     const keys = getLogoutClearKeys()
-    expect(keys).toContain('search-draft')
-    expect(keys).toContain('feedback-draft')
+    expect(keys).toContain('draft:search-draft')
+    expect(keys).toContain('draft:feedback-draft')
   })
 
-  it('includes cacheable_metadata keys', () => {
+  it('includes cacheable_metadata keys without prefix', () => {
     const keys = getLogoutClearKeys()
     expect(keys).toContain('models-cache')
     expect(keys).toContain('discovery-cache')

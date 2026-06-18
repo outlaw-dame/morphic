@@ -27,8 +27,8 @@ export interface DraftEntry {
 export function saveDraft(key: string, content: string): boolean {
   if (typeof localStorage === 'undefined') return false
   if (classifyKey(key) !== 'user_draft') return false
-  if (!content.trim()) {
-    // Empty content → delete the draft
+  if (typeof content !== 'string' || !content.trim()) {
+    // Empty or invalid content → delete the draft
     deleteDraft(key)
     return true
   }
@@ -111,7 +111,14 @@ export function listDrafts(): DraftEntry[] {
         const raw = localStorage.getItem(storageKey)
         if (raw) {
           try {
-            drafts.push(JSON.parse(raw) as DraftEntry)
+            const parsed = JSON.parse(raw)
+            if (parsed && typeof parsed.content === 'string') {
+              drafts.push({
+                key: parsed.key || storageKey.replace(/^draft:/, ''),
+                content: parsed.content,
+                savedAt: typeof parsed.savedAt === 'number' ? parsed.savedAt : 0
+              })
+            }
           } catch {
             // Skip malformed entries
           }

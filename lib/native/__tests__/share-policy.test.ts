@@ -64,6 +64,20 @@ describe('validateShareContent', () => {
     expect(result.allowed).toBe(false)
   })
 
+  it('rejects internal URLs with sensitive query params', () => {
+    const result = validateShareContent({
+      url: 'https://morphic.sh/auth/callback?access_token=xyz'
+    })
+    expect(result.allowed).toBe(false)
+  })
+
+  it('rejects URLs with sensitive hash fragments', () => {
+    const result = validateShareContent({
+      url: 'https://morphic.sh/login#access_token=leaked'
+    })
+    expect(result.allowed).toBe(false)
+  })
+
   it('truncates overly long text', () => {
     const longText = 'a'.repeat(5000)
     const result = validateShareContent({ text: longText })

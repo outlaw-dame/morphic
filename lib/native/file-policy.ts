@@ -82,8 +82,13 @@ export function validateFile(file: {
     return { valid: false, reason: `File type not allowed: ${file.type}` }
   }
 
+  // Reject empty/missing MIME types (deny-by-default)
+  if (!mimeType) {
+    return { valid: false, reason: 'File type could not be determined' }
+  }
+
   // Check allowed types
-  if (mimeType && !ALLOWED_MIME_TYPES.includes(mimeType as AllowedMimeType)) {
+  if (!ALLOWED_MIME_TYPES.includes(mimeType as AllowedMimeType)) {
     return { valid: false, reason: `Unsupported file type: ${file.type}` }
   }
 
