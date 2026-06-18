@@ -13,13 +13,12 @@ import { cn } from '@/lib/utils'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
 
-import AppSidebar from '@/components/app-sidebar'
 import ArtifactRoot from '@/components/artifact/artifact-root'
-import Header from '@/components/header'
 import { KeyboardShortcutHandler } from '@/components/keyboard-shortcut-handler'
 import { NativeEnvironmentProvider } from '@/components/native/native-environment-provider'
 import { ServiceWorkerRegister } from '@/components/native/service-worker-register'
 import { PlatformProvider } from '@/components/platform/platform-provider'
+import { ShellLayout } from '@/components/shell/shell-layout'
 import { ThemeProvider } from '@/components/theme-provider'
 
 import './globals.css'
@@ -115,15 +114,11 @@ export default async function RootLayout({
             >
               <UserProvider hasUser={!!userId}>
                 <SidebarProvider defaultOpen={false}>
-                  {userId && <AppSidebar />}
                   <KeyboardShortcutHandler />
                   <ServiceWorkerRegister />
-                  <div className="flex flex-col flex-1 min-w-0 native-app-frame">
-                    <Header user={user} />
-                    <main className="flex flex-1 min-h-0 min-w-0 overflow-hidden native-app-main">
-                      <ArtifactRoot>{children}</ArtifactRoot>
-                    </main>
-                  </div>
+                  <ShellLayout user={user} showSidebar={!!userId}>
+                    <ArtifactRoot>{children}</ArtifactRoot>
+                  </ShellLayout>
                 </SidebarProvider>
               </UserProvider>
               <Toaster />
