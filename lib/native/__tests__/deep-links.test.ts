@@ -88,6 +88,19 @@ describe('parseDeepLink', () => {
     expect(result.valid).toBe(true)
     expect(result.path).toBe('/search')
   })
+
+  it('accepts auth/oauth callback route', () => {
+    const result = parseDeepLink('https://morphic.sh/auth/oauth')
+    expect(result.valid).toBe(true)
+    expect(result.path).toBe('/auth/oauth')
+    expect(result.requiresAuth).toBe(false)
+  })
+
+  it('accepts auth/confirm route', () => {
+    const result = parseDeepLink('https://morphic.sh/auth/confirm')
+    expect(result.valid).toBe(true)
+    expect(result.requiresAuth).toBe(false)
+  })
 })
 
 describe('resolveDeepLink', () => {

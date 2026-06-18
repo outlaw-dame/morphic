@@ -42,10 +42,18 @@ export function assessMobileSessionState(options: {
   hasUser: boolean
   isOnline?: boolean
 }): MobileSessionInfo {
+  // SSR: return unknown state
+  if (typeof window === 'undefined') {
+    return {
+      state: 'unknown',
+      isOnline: true,
+      canRetry: false,
+      message: ''
+    }
+  }
+
   const { hasUser } = options
-  const isOnline =
-    options.isOnline ??
-    (typeof navigator !== 'undefined' ? navigator.onLine : true)
+  const isOnline = options.isOnline ?? navigator.onLine
 
   if (!isOnline) {
     return {
