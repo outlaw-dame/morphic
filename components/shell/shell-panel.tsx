@@ -49,7 +49,6 @@ export function ShellPanel({
   useEffect(() => {
     if (open && !pushedRef.current) {
       // Only push history for mobile overlay mode
-      // We check viewport width; on desktop this is a no-op
       if (typeof window !== 'undefined' && window.innerWidth < 768) {
         pushedRef.current = true
         overlayStack.push({
@@ -60,6 +59,12 @@ export function ShellPanel({
       }
     } else if (!open && pushedRef.current) {
       pushedRef.current = false
+      // Unwind the overlay history entry on programmatic dismiss
+      // (e.g., backdrop tap, close button, sidebar link)
+      // Use history.back() to trigger popstate and clean up the overlay stack
+      if (typeof window !== 'undefined') {
+        window.history.back()
+      }
       // Return focus
       previousFocusRef.current?.focus()
     }

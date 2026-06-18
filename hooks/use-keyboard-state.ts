@@ -30,15 +30,26 @@ const KEYBOARD_THRESHOLD = 150
 export function useKeyboardState(): KeyboardState {
   const [state, setState] = useState<KeyboardState>(DEFAULT_STATE)
   const initialHeightRef = useRef<number>(0)
+  const initialWidthRef = useRef<number>(0)
 
   const handleResize = useCallback(() => {
     if (typeof window === 'undefined') return
 
     const viewport = window.visualViewport
     const currentHeight = viewport ? viewport.height : window.innerHeight
+    const currentWidth = viewport ? viewport.width : window.innerWidth
 
     if (initialHeightRef.current === 0) {
       initialHeightRef.current = currentHeight
+      initialWidthRef.current = currentWidth
+      return
+    }
+
+    // Width changed → orientation change or window resize, not keyboard
+    if (initialWidthRef.current !== currentWidth) {
+      initialWidthRef.current = currentWidth
+      initialHeightRef.current = currentHeight
+      setState(DEFAULT_STATE)
       return
     }
 
@@ -56,8 +67,9 @@ export function useKeyboardState(): KeyboardState {
 
     const viewport = window.visualViewport
 
-    // Capture initial height
+    // Capture initial height and width
     initialHeightRef.current = viewport ? viewport.height : window.innerHeight
+    initialWidthRef.current = viewport ? viewport.width : window.innerWidth
 
     if (viewport) {
       viewport.addEventListener('resize', handleResize)

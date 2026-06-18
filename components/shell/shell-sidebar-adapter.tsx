@@ -23,10 +23,18 @@ import { ShellPanel } from './shell-panel'
  * - Back button on mobile dismisses via useOverlayStack integration
  */
 export function ShellSidebarAdapter() {
-  const { open, setOpen } = useSidebar()
+  const { open, setOpen, openMobile, setOpenMobile, isMobile } = useSidebar()
+
+  // Use mobile state on mobile, desktop state on desktop
+  const isOpen = isMobile ? openMobile : open
+  const setIsOpen = isMobile
+    ? (value: boolean) => setOpenMobile(value)
+    : (value: boolean) => setOpen(value)
+
+  const handleClose = () => setIsOpen(false)
 
   return (
-    <ShellPanel open={open} onOpenChange={setOpen} side="left">
+    <ShellPanel open={isOpen} onOpenChange={setIsOpen} side="left">
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b">
@@ -36,7 +44,7 @@ export function ShellSidebarAdapter() {
           </Link>
           <button
             type="button"
-            onClick={() => setOpen(false)}
+            onClick={handleClose}
             className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:text-foreground"
             style={{
               minWidth: 'var(--native-min-touch-target)',
@@ -54,19 +62,19 @@ export function ShellSidebarAdapter() {
             href="/"
             icon="newChat"
             label="New Chat"
-            onClick={() => setOpen(false)}
+            onClick={handleClose}
           />
           <SidebarLink
             href="/discovery"
             icon="discover"
             label="Discovery"
-            onClick={() => setOpen(false)}
+            onClick={handleClose}
           />
           <SidebarLink
             href="/library"
             icon="library"
             label="Library"
-            onClick={() => setOpen(false)}
+            onClick={handleClose}
           />
         </nav>
 

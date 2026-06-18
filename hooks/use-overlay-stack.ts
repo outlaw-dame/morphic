@@ -80,10 +80,6 @@ export function useOverlayStack(): OverlayStackAPI {
         const topmost = stackRef.current[stackRef.current.length - 1]
         stackRef.current = stackRef.current.slice(0, -1)
         topmost.close()
-        // Re-push the non-overlay history state that was popped
-        if (state !== null && state !== undefined) {
-          window.history.pushState(state, '')
-        }
       }
     }
 

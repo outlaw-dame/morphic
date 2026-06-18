@@ -77,11 +77,16 @@ function createDb() {
 }
 
 export const db = new Proxy({} as ReturnType<typeof createDb>, {
-  get(_target, prop, receiver) {
+  get(_target, prop) {
     if (!_db) {
       _db = createDb()
     }
-    return Reflect.get(_db, prop, receiver)
+    const value = (_db as any)[prop]
+    // Bind functions to the actual db instance to avoid `this` context issues
+    if (typeof value === 'function') {
+      return value.bind(_db)
+    }
+    return value
   }
 })
 

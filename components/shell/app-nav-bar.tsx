@@ -1,7 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-
 import { cn } from '@/lib/utils'
 
 import { useBackButton } from '@/hooks/use-back-button'
@@ -40,7 +38,6 @@ export function AppNavBar({
 }: AppNavBarProps) {
   const platform = usePlatform()
   const { handleBack } = useBackButton()
-  const router = useRouter()
 
   const isAppleMobile = platform.isAppleLike && typeof window !== 'undefined'
   const isAndroid = platform.family === 'android'
