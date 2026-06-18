@@ -81,32 +81,38 @@ export function validateShareContent(data: {
  * - URLs with auth tokens in query params
  */
 function isValidShareUrl(url: string): boolean {
+  let parsed: URL
   try {
-    const parsed = new URL(url)
-
-    // Only HTTPS is shareable
-    if (parsed.protocol !== 'https:') return false
-
-    // Reject URLs with sensitive query params (applies to ALL URLs including internal)
-    const sensitiveParams = [
-      'token',
-      'access_token',
-      'api_key',
-      'secret',
-      'password'
-    ]
-    for (const param of sensitiveParams) {
-      if (parsed.searchParams.has(param)) return false
-    }
-
-    // Reject URLs with sensitive data in hash/fragment
-    const hash = parsed.hash.toLowerCase()
-    if (sensitiveParams.some(p => hash.includes(p + '='))) return false
-
-    return true
+    // Handle relative URLs by resolving against app origin
+    parsed = new URL(url, 'https://morphic.sh')
   } catch {
     return false
   }
+
+  // Only HTTPS is shareable
+  if (parsed.protocol !== 'https:') return false
+
+  // Reject URLs with sensitive query params (case-insensitive)
+  const sensitiveParams = [
+    'token',
+    'access_token',
+    'api_key',
+    'secret',
+    'password'
+  ]
+  for (const [key] of parsed.searchParams) {
+    if (sensitiveParams.includes(key.toLowerCase())) return false
+  }
+
+  // Reject URLs with sensitive data in hash/fragment (parse as URLSearchParams)
+  if (parsed.hash) {
+    const hashParams = new URLSearchParams(parsed.hash.slice(1).toLowerCase())
+    for (const param of sensitiveParams) {
+      if (hashParams.has(param)) return false
+    }
+  }
+
+  return true
 }
 
 /**
