@@ -104,11 +104,21 @@ function isValidShareUrl(url: string): boolean {
     if (sensitiveParams.includes(key.toLowerCase())) return false
   }
 
-  // Reject URLs with sensitive data in hash/fragment (parse as URLSearchParams)
+  // Reject URLs with sensitive data in hash/fragment
+  // Handle SPA hash routing: #/path?param=value — extract query after ?
   if (parsed.hash) {
-    const hashParams = new URLSearchParams(parsed.hash.slice(1).toLowerCase())
+    const hashContent = parsed.hash.slice(1).toLowerCase()
+    // Check if the hash contains a ? (SPA routing pattern)
+    const queryStart = hashContent.indexOf('?')
+    const hashQuery =
+      queryStart >= 0 ? hashContent.slice(queryStart + 1) : hashContent
+    const hashParams = new URLSearchParams(hashQuery)
     for (const param of sensitiveParams) {
       if (hashParams.has(param)) return false
+    }
+    // Also do raw string check as a fallback for unusual formats
+    for (const param of sensitiveParams) {
+      if (hashContent.includes(param + '=')) return false
     }
   }
 
