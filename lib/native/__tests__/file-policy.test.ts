@@ -54,6 +54,12 @@ describe('validateFile', () => {
     expect(result.reason).toContain('Unsupported')
   })
 
+  it('rejects files with empty MIME type', () => {
+    const result = validateFile({ size: 100, type: '' })
+    expect(result.valid).toBe(false)
+    expect(result.reason).toContain('could not be determined')
+  })
+
   it('accepts text/plain', () => {
     expect(validateFile({ size: 100, type: 'text/plain' }).valid).toBe(true)
   })

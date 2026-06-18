@@ -93,10 +93,12 @@ const DATA_REGISTRY: DataClassificationRule[] = [
 /**
  * Classify a storage key.
  *
+ * Normalizes keys by stripping the 'draft:' prefix if present.
  * Unknown keys are treated as sensitive_forbidden by default (deny-by-default).
  */
 export function classifyKey(key: string): DataClassification {
-  const rule = DATA_REGISTRY.find(r => r.key === key)
+  const cleanKey = key.startsWith('draft:') ? key.slice(6) : key
+  const rule = DATA_REGISTRY.find(r => r.key === cleanKey)
   return rule?.classification ?? 'sensitive_forbidden'
 }
 
@@ -136,7 +138,7 @@ export function getLogoutClearKeys(): string[] {
     r =>
       r.classification === 'user_draft' ||
       r.classification === 'cacheable_metadata'
-  ).map(r => r.key)
+  ).map(r => (r.classification === 'user_draft' ? `draft:${r.key}` : r.key))
 }
 
 /**
