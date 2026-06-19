@@ -80,6 +80,21 @@ export function validateShareContent(data: {
  * - javascript:, data:, file: schemes
  * - URLs with auth tokens in query params
  */
+/** Sensitive parameter names that should never appear in shared URLs */
+const SENSITIVE_SHARE_PARAMS = [
+  'token',
+  'access_token',
+  'api_key',
+  'secret',
+  'password'
+]
+
+/** Pre-compiled boundary-aware regex for hash fragment sensitive param detection */
+const HASH_SENSITIVE_PATTERN = new RegExp(
+  `(?:^|[?&;/#])(?:${SENSITIVE_SHARE_PARAMS.join('|')})=`,
+  'i'
+)
+
 function isValidShareUrl(url: string): boolean {
   let parsed: URL
   try {
@@ -93,36 +108,23 @@ function isValidShareUrl(url: string): boolean {
   if (parsed.protocol !== 'https:') return false
 
   // Reject URLs with sensitive query params (case-insensitive)
-  const sensitiveParams = [
-    'token',
-    'access_token',
-    'api_key',
-    'secret',
-    'password'
-  ]
   for (const [key] of parsed.searchParams) {
-    if (sensitiveParams.includes(key.toLowerCase())) return false
+    if (SENSITIVE_SHARE_PARAMS.includes(key.toLowerCase())) return false
   }
 
   // Reject URLs with sensitive data in hash/fragment
   // Handle SPA hash routing: #/path?param=value — extract query after ?
   if (parsed.hash) {
     const hashContent = parsed.hash.slice(1).toLowerCase()
-    // Check if the hash contains a ? (SPA routing pattern)
     const queryStart = hashContent.indexOf('?')
     const hashQuery =
       queryStart >= 0 ? hashContent.slice(queryStart + 1) : hashContent
     const hashParams = new URLSearchParams(hashQuery)
-    for (const param of sensitiveParams) {
+    for (const param of SENSITIVE_SHARE_PARAMS) {
       if (hashParams.has(param)) return false
     }
-    // Also check with boundary-aware matching for unusual hash formats
-    // Single combined regex: param name must be preceded by a delimiter (? & ; / # or start)
-    const pattern = new RegExp(
-      `(?:^|[?&;/#])(?:${sensitiveParams.join('|')})=`,
-      'i'
-    )
-    if (pattern.test(hashContent)) return false
+    // Boundary-aware fallback for unusual formats (nested # delimiters etc.)
+    if (HASH_SENSITIVE_PATTERN.test(hashContent)) return false
   }
 
   return true

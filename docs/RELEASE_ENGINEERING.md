@@ -25,7 +25,7 @@ Versioned via git tags          Versioned via build number
 
 ### Native Shell
 
-- Uses `appVersion` from capacitor.config.ts (matches package.json)
+- Version sourced from `package.json` (set before release, synced to native via `cap sync`)
 - Build number increments per store submission
 - iOS: CFBundleShortVersionString + CFBundleVersion
 - Android: versionName + versionCode
@@ -70,7 +70,7 @@ Only needed when native config changes. Steps:
    ```
 
 3. **Submit:**
-   - iOS: Upload to App Store Connect via Xcode or `xcrun altool`
+   - iOS: Upload to App Store Connect via Xcode or `xcrun notarytool` / Transporter app
    - Android: Upload to Play Console
 
 4. **Post-release:**

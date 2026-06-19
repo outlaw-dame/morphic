@@ -15,6 +15,20 @@ describe('redactSensitiveData', () => {
     expect(result).not.toContain('sk-abc123def456ghi789')
   })
 
+  it('redacts segmented API keys (sk-proj-...)', () => {
+    const input = 'key: sk-proj-abc123_def456-ghi789xyz'
+    const result = redactSensitiveData(input)
+    expect(result).toContain('[REDACTED_API_KEY]')
+    expect(result).not.toContain('sk-proj-abc123')
+  })
+
+  it('redacts Bearer tokens with base64 characters', () => {
+    const input = 'Auth: Bearer eyJhbGciOiJIUzI1NiJ9.pay+load/data=.sig+nal='
+    const result = redactSensitiveData(input)
+    expect(result).toContain('Bearer [REDACTED]')
+    expect(result).not.toContain('eyJhbGci')
+  })
+
   it('redacts Bearer tokens', () => {
     const input = 'Auth: Bearer eyJhbGciOiJIUzI1NiJ9.payload.sig'
     const result = redactSensitiveData(input)
@@ -29,10 +43,12 @@ describe('redactSensitiveData', () => {
     expect(result).not.toContain('user@example.com')
   })
 
-  it('redacts sensitive URL query params', () => {
+  it('redacts sensitive URL query params preserving structure', () => {
     const input = 'Request to /api?token=secret123&page=1'
     const result = redactSensitiveData(input)
     expect(result).not.toContain('secret123')
+    expect(result).toContain('token=[REDACTED]')
+    expect(result).toContain('page=1')
   })
 
   it('redacts UUIDs', () => {
