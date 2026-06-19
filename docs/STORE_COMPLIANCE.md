@@ -8,14 +8,14 @@ This document tracks compliance requirements for Apple App Store and Google Play
 
 ### Data Collected
 
-| Data Type       | Collected              | Linked to Identity | Purpose                |
-| --------------- | ---------------------- | ------------------ | ---------------------- |
-| Email address   | Yes (account creation) | Yes                | Authentication         |
-| Search queries  | Yes (server-side only) | Yes                | Core functionality     |
-| AI responses    | Yes (server-side only) | Yes                | Core functionality     |
-| Usage analytics | Yes (Vercel Analytics) | No                 | Performance monitoring |
-| Crash data      | Yes (redacted)         | No                 | Bug fixing             |
-| Device ID       | Future (push tokens)   | No                 | Push notifications     |
+| Data Type       | Collected              | Linked to Identity       | Purpose                |
+| --------------- | ---------------------- | ------------------------ | ---------------------- |
+| Email address   | Yes (account creation) | Yes                      | Authentication         |
+| Search queries  | Yes (server-side only) | Yes                      | Core functionality     |
+| AI responses    | Yes (server-side only) | Yes                      | Core functionality     |
+| Usage analytics | Yes (Vercel Analytics) | Yes (when authenticated) | Performance monitoring |
+| Crash data      | Yes (redacted)         | No                       | Bug fixing             |
+| Device ID       | Future (push tokens)   | No                       | Push notifications     |
 
 ### Data NOT Collected
 
@@ -90,11 +90,11 @@ This document tracks compliance requirements for Apple App Store and Google Play
 - Must disclose what AI model/provider is used
 - Must not present AI-generated content as human-written
 
-### Implementation
+### Implementation (Pending)
 
-- Search results display "AI-generated" indicator
-- Settings → About shows AI provider information
-- No impersonation of specific humans
+- [ ] Search results display "AI-generated" indicator
+- [ ] Settings → About shows AI provider information
+- [x] No impersonation of specific humans (by architecture — no persona features)
 
 ### Google Play Policies
 
@@ -140,8 +140,15 @@ Key points:
 - All permissions justified (Internet for core function, notifications for alerts)
 - Account deletion available in Settings
 
-Data safety: only email collected for authentication.
-Search queries processed server-side, not stored on device.
+Data collection summary:
+- Email: collected for authentication (linked to identity)
+- Search queries + AI responses: processed server-side (linked to identity)
+- Usage analytics: via Vercel Analytics (linked when authenticated)
+- Crash data: collected with PII redaction (not linked to identity)
+- Device tokens: for push notifications when enabled (not linked to identity)
+
+No data shared with advertisers.
+AI provider receives queries for processing (disclosed in privacy policy).
 ```
 
 ## Store Listing Assets (Future)
