@@ -138,7 +138,7 @@ export function withCompressionHeaders(
 ): Record<string, string> {
   // Remove any existing accept-encoding header (case-insensitive) to avoid duplication
   const cleanHeaders: Record<string, string> = {}
-  for (const [key, value] of Object.entries(headers)) {
+  for (const [key, value] of Object.entries(headers ?? {})) {
     if (key.toLowerCase() !== 'accept-encoding') {
       cleanHeaders[key] = value
     }
