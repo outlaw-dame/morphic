@@ -101,7 +101,7 @@ export function isSecureStorageAvailable(): boolean {
   // Check if the secure storage plugin is actually registered
   if (typeof window === 'undefined') return false
   const cap = (window as any).Capacitor
-  if (!cap || typeof cap.Plugins !== 'object') return false
+  if (!cap || !cap.Plugins || typeof cap.Plugins !== 'object') return false
   return (
     typeof cap.Plugins.SecureStorage === 'object' &&
     cap.Plugins.SecureStorage !== null

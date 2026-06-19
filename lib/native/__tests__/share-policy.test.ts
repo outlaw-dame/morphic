@@ -134,6 +134,13 @@ describe('validateShareContent', () => {
     })
     expect(result.allowed).toBe(true)
   })
+
+  it('rejects nested hash fragment with sensitive params', () => {
+    const result = validateShareContent({
+      url: 'https://morphic.sh/#/callback#access_token=leaked'
+    })
+    expect(result.allowed).toBe(false)
+  })
 })
 
 describe('buildSearchShareUrl', () => {
