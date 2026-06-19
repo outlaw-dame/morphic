@@ -136,8 +136,15 @@ function gzipResponse(
 export function withCompressionHeaders(
   headers: Record<string, string> = {}
 ): Record<string, string> {
+  // Remove any existing accept-encoding header (case-insensitive) to avoid duplication
+  const cleanHeaders: Record<string, string> = {}
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() !== 'accept-encoding') {
+      cleanHeaders[key] = value
+    }
+  }
   return {
-    ...headers,
+    ...cleanHeaders,
     // Note: only advertise encodings that the runtime can auto-decompress.
     // Node.js/Bun fetch auto-decompresses gzip, deflate, and br but NOT zstd.
     'Accept-Encoding': 'gzip, deflate, br'
