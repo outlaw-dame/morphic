@@ -127,6 +127,13 @@ describe('validateShareContent', () => {
     })
     expect(result.allowed).toBe(false)
   })
+
+  it('allows hash routing URLs with non-sensitive params containing sensitive keywords as substrings', () => {
+    const result = validateShareContent({
+      url: 'https://example.com/#/list?pagetoken=abc123'
+    })
+    expect(result.allowed).toBe(true)
+  })
 })
 
 describe('buildSearchShareUrl', () => {

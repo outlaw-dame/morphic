@@ -21,12 +21,16 @@ import { getRuntime } from './runtime'
 
 /**
  * Allowlisted secure storage keys.
- * Adding a new key requires updating this type AND the threat model doc.
+ * Adding a new key requires updating this array AND the threat model doc.
+ * The type is derived from this array so runtime iteration is possible.
  */
-export type AllowedSecureKey =
-  | 'device_preference_id'
-  | 'push_device_token'
-  | 'biometric_enabled'
+export const ALLOWED_SECURE_KEYS = [
+  'device_preference_id',
+  'push_device_token',
+  'biometric_enabled'
+] as const
+
+export type AllowedSecureKey = (typeof ALLOWED_SECURE_KEYS)[number]
 
 /**
  * Get a value from secure storage.
@@ -84,12 +88,24 @@ export async function clearAllSecureData(): Promise<void> {
 /**
  * Check if secure storage is available on the current platform.
  *
- * Only available on Capacitor (native iOS/Android).
- * Returns false on web, SSR, and PWA.
+ * Returns true only when:
+ * 1. Running in Capacitor (native iOS/Android)
+ * 2. The secure storage plugin is actually registered
+ *
+ * Returns false on web, SSR, PWA, and when the plugin is not installed.
  */
 export function isSecureStorageAvailable(): boolean {
   const runtime = getRuntime()
-  return runtime.isCapacitor
+  if (!runtime.isCapacitor) return false
+
+  // Check if the secure storage plugin is actually registered
+  if (typeof window === 'undefined') return false
+  const cap = (window as any).Capacitor
+  if (!cap || typeof cap.Plugins !== 'object') return false
+  return (
+    typeof cap.Plugins.SecureStorage === 'object' &&
+    cap.Plugins.SecureStorage !== null
+  )
 }
 
 /**
