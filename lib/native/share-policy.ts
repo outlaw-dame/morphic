@@ -117,11 +117,12 @@ function isValidShareUrl(url: string): boolean {
       if (hashParams.has(param)) return false
     }
     // Also check with boundary-aware matching for unusual hash formats
-    // Use regex to ensure param name is preceded by a delimiter (? & ; / or start)
-    for (const param of sensitiveParams) {
-      const pattern = new RegExp(`(?:^|[?&;/])${param}=`, 'i')
-      if (pattern.test(hashContent)) return false
-    }
+    // Single combined regex: param name must be preceded by a delimiter (? & ; / # or start)
+    const pattern = new RegExp(
+      `(?:^|[?&;/#])(?:${sensitiveParams.join('|')})=`,
+      'i'
+    )
+    if (pattern.test(hashContent)) return false
   }
 
   return true
