@@ -32,7 +32,8 @@ export class TavilySearchProvider extends BaseSearchProvider {
     const response = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept-Encoding': 'gzip, deflate, br, zstd'
       },
       body: JSON.stringify({
         api_key: apiKey,

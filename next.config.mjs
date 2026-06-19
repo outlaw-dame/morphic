@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Enable gzip compression for all responses (default true, made explicit)
+  compress: true,
   allowedDevOrigins: ['[::1]'],
   images: {
     remotePatterns: [
