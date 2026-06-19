@@ -26,13 +26,30 @@ describe('secure-storage (stub phase)', () => {
     expect(isSecureStorageAvailable()).toBe(false)
   })
 
-  it('isSecureStorageAvailable returns true on Capacitor', () => {
+  it('isSecureStorageAvailable returns true on Capacitor with plugin', () => {
     vi.stubGlobal('window', {
-      Capacitor: { isNativePlatform: () => true, getPlatform: () => 'ios' },
+      Capacitor: {
+        isNativePlatform: () => true,
+        getPlatform: () => 'ios',
+        Plugins: { SecureStorage: {} }
+      },
       matchMedia: () => ({ matches: false })
     })
     vi.stubGlobal('navigator', {})
     expect(isSecureStorageAvailable()).toBe(true)
+  })
+
+  it('isSecureStorageAvailable returns false on Capacitor without plugin', () => {
+    vi.stubGlobal('window', {
+      Capacitor: {
+        isNativePlatform: () => true,
+        getPlatform: () => 'ios',
+        Plugins: {}
+      },
+      matchMedia: () => ({ matches: false })
+    })
+    vi.stubGlobal('navigator', {})
+    expect(isSecureStorageAvailable()).toBe(false)
   })
 
   it('getSecureValue returns null on browser', async () => {
@@ -61,7 +78,11 @@ describe('secure-storage (stub phase)', () => {
 
   it('clearOrphanedKeysIfNeeded does nothing with active session', async () => {
     vi.stubGlobal('window', {
-      Capacitor: { isNativePlatform: () => true, getPlatform: () => 'ios' },
+      Capacitor: {
+        isNativePlatform: () => true,
+        getPlatform: () => 'ios',
+        Plugins: { SecureStorage: {} }
+      },
       matchMedia: () => ({ matches: false })
     })
     vi.stubGlobal('navigator', {})
@@ -71,7 +92,11 @@ describe('secure-storage (stub phase)', () => {
 
   it('clearOrphanedKeysIfNeeded clears data without active session', async () => {
     vi.stubGlobal('window', {
-      Capacitor: { isNativePlatform: () => true, getPlatform: () => 'ios' },
+      Capacitor: {
+        isNativePlatform: () => true,
+        getPlatform: () => 'ios',
+        Plugins: { SecureStorage: {} }
+      },
       matchMedia: () => ({ matches: false })
     })
     vi.stubGlobal('navigator', {})

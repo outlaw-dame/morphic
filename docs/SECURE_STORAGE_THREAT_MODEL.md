@@ -111,30 +111,27 @@ This document defines the threat model for native secure storage in Morphic's mo
 ## Implementation Contract
 
 ```typescript
-// lib/native/secure-storage.ts (future)
+// lib/native/secure-storage.ts (future implementation)
 
-interface SecureStorageAPI {
-  /** Get a value. Returns null if key doesn't exist or is not in allowlist. */
-  get(key: AllowedSecureKey): Promise<string | null>
+export const ALLOWED_SECURE_KEYS = [
+  'device_preference_id',
+  'push_device_token',
+  'biometric_enabled'
+] as const
 
-  /** Set a value. Rejects if key is not in allowlist. */
-  set(key: AllowedSecureKey, value: string): Promise<boolean>
+export type AllowedSecureKey = (typeof ALLOWED_SECURE_KEYS)[number]
 
-  /** Delete a specific key. */
-  delete(key: AllowedSecureKey): Promise<boolean>
-
-  /** Delete ALL user-specific entries (called on logout). */
-  clearUserData(): Promise<void>
-
-  /** Check if secure storage is available on this device. */
-  isAvailable(): boolean
-}
-
-/** Only these keys can be stored — enforced at compile time */
-type AllowedSecureKey =
-  | 'device_preference_id'
-  | 'push_device_token'
-  | 'biometric_enabled'
+export function isSecureStorageAvailable(): boolean
+export function getSecureValue(key: AllowedSecureKey): Promise<string | null>
+export function setSecureValue(
+  key: AllowedSecureKey,
+  value: string
+): Promise<boolean>
+export function deleteSecureValue(key: AllowedSecureKey): Promise<boolean>
+export function clearAllSecureData(): Promise<void>
+export function clearOrphanedKeysIfNeeded(
+  hasActiveSession: boolean
+): Promise<void>
 ```
 
 ---
