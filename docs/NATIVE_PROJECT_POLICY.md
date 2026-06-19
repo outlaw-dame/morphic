@@ -26,11 +26,14 @@ Commit `/ios/` and `/android/` when **any** of the following becomes true:
 When the time comes:
 
 ```bash
-# 1. Remove from .gitignore
-sed -i '' '/^\/ios\//d' .gitignore
-sed -i '' '/^\/android\//d' .gitignore
+# 1. Remove from .gitignore (portable across macOS and Linux)
+grep -v '^/ios/$' .gitignore | grep -v '^/android/$' > .gitignore.tmp && mv .gitignore.tmp .gitignore
 
-# 2. Generate fresh native projects
+# 2. Add native platforms (if not already present)
+npx cap add ios
+npx cap add android
+
+# 3. Sync to generate/update native projects
 bun run cap:sync
 
 # 3. Inspect generated files
