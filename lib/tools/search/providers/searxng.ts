@@ -45,7 +45,8 @@ export class SearXNGSearchProvider extends BaseSearchProvider {
       const response = await fetch(url.toString(), {
         method: 'GET',
         headers: {
-          Accept: 'application/json'
+          Accept: 'application/json',
+          'Accept-Encoding': 'gzip, deflate, br, zstd'
         }
       })
 
