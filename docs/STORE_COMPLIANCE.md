@@ -8,14 +8,14 @@ This document tracks compliance requirements for Apple App Store and Google Play
 
 ### Data Collected
 
-| Data Type       | Collected              | Linked to Identity       | Purpose                |
-| --------------- | ---------------------- | ------------------------ | ---------------------- |
-| Email address   | Yes (account creation) | Yes                      | Authentication         |
-| Search queries  | Yes (server-side only) | Yes                      | Core functionality     |
-| AI responses    | Yes (server-side only) | Yes                      | Core functionality     |
-| Usage analytics | Yes (Vercel Analytics) | Yes (when authenticated) | Performance monitoring |
-| Crash data      | Yes (redacted)         | No                       | Bug fixing             |
-| Device ID       | Future (push tokens)   | No                       | Push notifications     |
+| Data Type       | Collected              | Linked to Identity         | Purpose                |
+| --------------- | ---------------------- | -------------------------- | ---------------------- |
+| Email address   | Yes (account creation) | Yes                        | Authentication         |
+| Search queries  | Yes (server-side only) | Yes                        | Core functionality     |
+| AI responses    | Yes (server-side only) | Yes                        | Core functionality     |
+| Usage analytics | Yes (Vercel Analytics) | Yes (when authenticated)   | Performance monitoring |
+| Crash data      | Yes (redacted)         | No                         | Bug fixing             |
+| Device ID       | Future (push tokens)   | Yes (user-specific alerts) | Push notifications     |
 
 ### Data NOT Collected
 
@@ -31,9 +31,10 @@ This document tracks compliance requirements for Apple App Store and Google Play
 
 ### Data Sharing
 
-- No data is shared with third-party advertisers
-- AI provider (OpenAI, etc.) receives search queries for processing — disclosed in privacy policy
-- Vercel Analytics: anonymized usage data
+- **Vercel Analytics:** Anonymized usage metrics; when user is authenticated, session-level analytics may be linked to user identity for performance debugging
+- **AI provider (OpenAI, Anthropic, etc.):** Search queries sent for processing — disclosed in privacy policy. Provider may retain data per their own policies.
+- **No data shared with advertisers**
+- **No data sold to third parties**
 
 ## Account Deletion
 
@@ -145,7 +146,7 @@ Data collection summary:
 - Search queries + AI responses: processed server-side (linked to identity)
 - Usage analytics: via Vercel Analytics (linked when authenticated)
 - Crash data: collected with PII redaction (not linked to identity)
-- Device tokens: for push notifications when enabled (not linked to identity)
+- Device tokens: collected for push notifications when enabled (linked to identity for user-specific alerts)
 
 No data shared with advertisers.
 AI provider receives queries for processing (disclosed in privacy policy).

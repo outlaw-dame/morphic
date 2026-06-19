@@ -46,7 +46,7 @@ export class SearXNGSearchProvider extends BaseSearchProvider {
         method: 'GET',
         headers: {
           Accept: 'application/json',
-          'Accept-Encoding': 'gzip, deflate, br, zstd'
+          'Accept-Encoding': 'gzip, deflate, br'
         }
       })
 

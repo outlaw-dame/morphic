@@ -26,7 +26,7 @@ async function fetchRegularData(url: string): Promise<SearchResultsType> {
           'User-Agent': 'Mozilla/5.0 (compatible; Morphic/1.0)',
           Accept:
             'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Encoding': 'gzip, deflate, br, zstd'
+          'Accept-Encoding': 'gzip, deflate, br'
         }
       })
     } finally {

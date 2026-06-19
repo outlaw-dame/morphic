@@ -108,13 +108,13 @@ describe('withCompressionHeaders', () => {
     const headers = withCompressionHeaders({
       'Content-Type': 'application/json'
     })
-    expect(headers['Accept-Encoding']).toBe('gzip, deflate, br, zstd')
+    expect(headers['Accept-Encoding']).toBe('gzip, deflate, br')
     expect(headers['Content-Type']).toBe('application/json')
   })
 
   it('works with empty headers', () => {
     const headers = withCompressionHeaders()
-    expect(headers['Accept-Encoding']).toBe('gzip, deflate, br, zstd')
+    expect(headers['Accept-Encoding']).toBe('gzip, deflate, br')
   })
 })
 
