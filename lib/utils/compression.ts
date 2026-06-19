@@ -138,7 +138,9 @@ export function withCompressionHeaders(
 ): Record<string, string> {
   return {
     ...headers,
-    'Accept-Encoding': 'gzip, deflate, br, zstd'
+    // Note: only advertise encodings that the runtime can auto-decompress.
+    // Node.js/Bun fetch auto-decompresses gzip, deflate, and br but NOT zstd.
+    'Accept-Encoding': 'gzip, deflate, br'
   }
 }
 

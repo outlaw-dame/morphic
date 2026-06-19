@@ -33,7 +33,7 @@ export class TavilySearchProvider extends BaseSearchProvider {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept-Encoding': 'gzip, deflate, br, zstd'
+        'Accept-Encoding': 'gzip, deflate, br'
       },
       body: JSON.stringify({
         api_key: apiKey,
