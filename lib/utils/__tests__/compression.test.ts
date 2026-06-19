@@ -116,6 +116,14 @@ describe('withCompressionHeaders', () => {
     const headers = withCompressionHeaders()
     expect(headers['Accept-Encoding']).toBe('gzip, deflate, br')
   })
+
+  it('removes existing lowercase accept-encoding to avoid duplication', () => {
+    const headers = withCompressionHeaders({ 'accept-encoding': 'identity' })
+    const keys = Object.keys(headers)
+    const encodingKeys = keys.filter(k => k.toLowerCase() === 'accept-encoding')
+    expect(encodingKeys).toHaveLength(1)
+    expect(headers['Accept-Encoding']).toBe('gzip, deflate, br')
+  })
 })
 
 describe('isCompressedResponse', () => {
