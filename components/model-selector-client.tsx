@@ -89,6 +89,12 @@ export function ModelSelectorClient({ data }: ModelSelectorClientProps) {
   const selectedModel = selectableByKey[selectedModelKey]
 
   useEffect(() => {
+    setSelectedModelKey(currentKey =>
+      selectableByKey[currentKey] ? currentKey : data.selectedModelKey
+    )
+  }, [data.selectedModelKey, selectableByKey])
+
+  useEffect(() => {
     if (!data.enabled || !selectedModel) {
       return
     }

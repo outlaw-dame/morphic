@@ -118,6 +118,22 @@ describe('ShellFrame', () => {
     expect(children[2]).toContainElement(screen.getByTestId('tab'))
   })
 
+  it('makes the middle zone a constrained flex container for scrolling', () => {
+    const { container } = render(
+      <ShellFrame navBar={<div>Nav</div>}>
+        <div data-testid="content">Content</div>
+      </ShellFrame>
+    )
+
+    const frame = container.firstChild as HTMLElement
+    const middleZone = frame.children[1] as HTMLElement
+
+    const classNames = middleZone.className.split(/\s+/)
+    expect(classNames).toContain('flex')
+    expect(classNames).toContain('min-h-0')
+    expect(classNames).toContain('overflow-hidden')
+  })
+
   it('hides tabBar on md breakpoint via md:hidden class', () => {
     const { container } = render(
       <ShellFrame tabBar={<div>Tabs</div>}>

@@ -51,7 +51,7 @@ export function ShellFrame({
       {navBar && <div className="shrink-0 overflow-hidden">{navBar}</div>}
 
       {/* Middle zone: scrollable content (flex-grow) */}
-      <div className="flex-1 min-h-0 overflow-hidden">{children}</div>
+      <div className="flex flex-1 min-h-0 overflow-hidden">{children}</div>
 
       {/* Bottom zone: tab bar (hidden on desktop, hidden when keyboard open) */}
       {tabBar && (
