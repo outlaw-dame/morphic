@@ -1,7 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-
 import { cn } from '@/lib/utils'
 
 import { useBackButton } from '@/hooks/use-back-button'
@@ -58,15 +56,9 @@ export function AppNavBar({
 }: AppNavBarProps) {
   const platform = usePlatform()
   const { handleBack } = useBackButton()
-  const [mounted, setMounted] = useState(false)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  // Only use platform-specific rendering after hydration to avoid mismatch
-  const isAppleMobile = mounted && platform.isAppleLike
-  const isAndroid = mounted && platform.family === 'android'
+  const isAppleMobile = platform.isAppleLike
+  const isAndroid = platform.family === 'android'
   const isCollapsed = scrollOffset >= COLLAPSE_THRESHOLD
 
   // Collapse progress for smooth interpolation (0 = expanded, 1 = collapsed)

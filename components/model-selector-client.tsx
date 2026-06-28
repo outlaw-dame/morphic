@@ -86,13 +86,10 @@ export function ModelSelectorClient({ data }: ModelSelectorClientProps) {
     [selectableModels]
   )
 
-  const selectedModel = selectableByKey[selectedModelKey]
-
-  useEffect(() => {
-    setSelectedModelKey(currentKey =>
-      selectableByKey[currentKey] ? currentKey : data.selectedModelKey
-    )
-  }, [data.selectedModelKey, selectableByKey])
+  const effectiveSelectedModelKey = selectableByKey[selectedModelKey]
+    ? selectedModelKey
+    : data.selectedModelKey
+  const selectedModel = selectableByKey[effectiveSelectedModelKey]
 
   useEffect(() => {
     if (!data.enabled || !selectedModel) {
@@ -161,7 +158,7 @@ export function ModelSelectorClient({ data }: ModelSelectorClientProps) {
               <CommandGroup key={provider} heading={provider}>
                 {models.map(model => {
                   const value = modelKey(model)
-                  const isSelected = selectedModelKey === value
+                  const isSelected = effectiveSelectedModelKey === value
                   return (
                     <CommandItem
                       key={value}

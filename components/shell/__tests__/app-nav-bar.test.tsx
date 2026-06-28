@@ -54,7 +54,9 @@ describe('AppNavBar', () => {
     const wordmark = container.querySelector('[data-gist-wordmark]')
     expect(wordmark).not.toBeNull()
     expect(wordmark?.textContent).toBe('gist.')
-    expect(container.querySelector('[data-gist-wordmark-accent]')).not.toBeNull()
+    expect(
+      container.querySelector('[data-gist-wordmark-accent]')
+    ).not.toBeNull()
   })
 
   it('renders large title on Apple-like platforms', () => {
