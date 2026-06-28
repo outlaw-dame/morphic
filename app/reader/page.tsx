@@ -6,7 +6,7 @@ import { GuardedExternalLink } from '@/components/navigation/guarded-external-li
 import { ReaderView } from '@/components/sources/reader-view'
 
 export const metadata = {
-  title: 'Reader — Morphic',
+  title: 'Reader — gist.',
   description: 'Inspect a source while keeping the original visible.'
 }
 
@@ -38,13 +38,21 @@ async function ReaderPageContent({
 
   if (!sourceUrl) {
     return (
-      <div className="h-full w-full overflow-y-auto px-4 py-6">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
-          <Link href="/" className="text-sm font-medium underline">
+      <div className="h-full w-full overflow-y-auto px-4 py-6 md:py-10">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+          <Link
+            href="/"
+            className="text-sm font-medium text-muted-foreground underline underline-offset-4"
+          >
             Back to search
           </Link>
-          <h1 className="text-2xl font-semibold">Reader</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs font-medium uppercase text-muted-foreground">
+            Source reader
+          </p>
+          <h1 className="font-[var(--font-display)] text-4xl font-semibold leading-none md:text-5xl">
+            Reader<span className="text-[var(--indigo)]">.</span>
+          </h1>
+          <p className="max-w-xl text-sm leading-6 text-muted-foreground">
             Open Reader from a source card or saved library item.
           </p>
         </div>
@@ -60,16 +68,19 @@ async function ReaderPageContent({
   }).replace('/reader?', '/api/reader?')
 
   return (
-    <div className="h-full w-full overflow-y-auto px-4 py-6">
+    <div className="h-full w-full overflow-y-auto px-4 py-6 md:py-10">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link href="/" className="text-sm font-medium underline">
+          <Link
+            href="/"
+            className="text-sm font-medium text-muted-foreground underline underline-offset-4"
+          >
             Back to search
           </Link>
           <GuardedExternalLink
             href={sourceUrl}
             target="_blank"
-            className="text-sm font-medium underline underline-offset-4"
+            className="gist-primary-button inline-flex h-9 items-center rounded-full px-3 text-sm font-medium"
           >
             Read original
           </GuardedExternalLink>

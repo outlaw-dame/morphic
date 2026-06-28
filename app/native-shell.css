@@ -159,6 +159,11 @@
   color: white;
 }
 
+.gist-icon-tile {
+  background: color-mix(in oklch, var(--indigo) 12%, transparent);
+  color: var(--indigo);
+}
+
 @supports (
   (backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))
 ) {

@@ -40,6 +40,7 @@ import { getCookie, setCookie } from '@/lib/utils/cookies'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
+import { LocationPrompt } from './location/location-prompt'
 import { Label } from './ui/label'
 import { PasswordInput } from './ui/password-input'
 import {
@@ -478,9 +479,9 @@ export function SearchSettings() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-8">
+    <div className="mx-auto w-full max-w-3xl px-4 py-8 md:py-10">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-8 space-y-3">
         <Link
           href="/"
           className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -488,8 +489,13 @@ export function SearchSettings() {
           <IconArrowLeft className="size-4" />
           Back to search
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight">Search Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-xs font-medium uppercase text-muted-foreground">
+          Personal controls
+        </p>
+        <h1 className="font-[var(--font-display)] text-4xl font-semibold leading-none md:text-5xl">
+          Settings<span className="text-[var(--indigo)]">.</span>
+        </h1>
+        <p className="max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
           Customize how search results are filtered and displayed across all
           providers.
         </p>
@@ -497,11 +503,11 @@ export function SearchSettings() {
 
       <div className="flex flex-col gap-6">
         {/* ── Language ───────────────────────────────────────────────── */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
+        <div className="gist-card-surface border p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="flex gap-3">
-              <div className="mt-0.5 rounded-lg bg-primary/10 p-2">
-                <IconLanguage className="size-5 text-primary" />
+              <div className="gist-icon-tile mt-0.5 rounded-lg p-2">
+                <IconLanguage className="size-5" />
               </div>
               <div>
                 <Label className="text-sm font-semibold">
@@ -531,11 +537,11 @@ export function SearchSettings() {
         </div>
 
         {/* ── Region ────────────────────────────────────────────────── */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
+        <div className="gist-card-surface border p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="flex gap-3">
-              <div className="mt-0.5 rounded-lg bg-primary/10 p-2">
-                <IconMapPin className="size-5 text-primary" />
+              <div className="gist-icon-tile mt-0.5 rounded-lg p-2">
+                <IconMapPin className="size-5" />
               </div>
               <div>
                 <Label className="text-sm font-semibold">Region</Label>
@@ -560,14 +566,22 @@ export function SearchSettings() {
               </SelectContent>
             </Select>
           </div>
+          <div className="mt-3 pl-11">
+            <LocationPrompt
+              currentRegion={preferences.region}
+              onRegionDetected={(code, displayName) => {
+                update('region', code, `Region (auto: ${displayName})`)
+              }}
+            />
+          </div>
         </div>
 
         {/* ── Safe Search ───────────────────────────────────────────── */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
+        <div className="gist-card-surface border p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="flex gap-3">
-              <div className="mt-0.5 rounded-lg bg-primary/10 p-2">
-                <IconFilter className="size-5 text-primary" />
+              <div className="gist-icon-tile mt-0.5 rounded-lg p-2">
+                <IconFilter className="size-5" />
               </div>
               <div>
                 <Label className="text-sm font-semibold">
@@ -607,12 +621,12 @@ export function SearchSettings() {
         <Separator />
 
         {/* ── Personalization ──────────────────────────────────────── */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
+        <div className="gist-card-surface border p-5">
           <div className="flex flex-col gap-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex gap-3">
-                <div className="mt-0.5 rounded-lg bg-primary/10 p-2">
-                  <IconUserCircle className="size-5 text-primary" />
+                <div className="gist-icon-tile mt-0.5 rounded-lg p-2">
+                  <IconUserCircle className="size-5" />
                 </div>
                 <div>
                   <Label className="text-sm font-semibold">
@@ -632,7 +646,7 @@ export function SearchSettings() {
               />
             </div>
 
-            <div className="flex items-center justify-between gap-4 rounded-lg border bg-background px-3 py-2">
+            <div className="gist-card-surface flex items-center justify-between gap-4 border px-3 py-2">
               <Label className="text-sm font-medium" htmlFor="use-for-search">
                 Use in search
               </Label>
@@ -648,7 +662,7 @@ export function SearchSettings() {
             <div className="grid gap-3">
               <div className="grid gap-1.5">
                 <Label className="text-xs font-medium" htmlFor="about-user">
-                  What should Morphic know about you?
+                  What should gist. know about you?
                 </Label>
                 <Textarea
                   id="about-user"
@@ -668,7 +682,7 @@ export function SearchSettings() {
 
               <div className="grid gap-1.5">
                 <Label className="text-xs font-medium" htmlFor="response-style">
-                  How should Morphic respond?
+                  How should gist. respond?
                 </Label>
                 <Textarea
                   id="response-style"
@@ -719,11 +733,11 @@ export function SearchSettings() {
         </div>
 
         {/* ── Source Preferences ────────────────────────────────────── */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
+        <div className="gist-card-surface border p-5">
           <div className="flex flex-col gap-4">
             <div className="flex gap-3">
-              <div className="mt-0.5 rounded-lg bg-primary/10 p-2">
-                <IconBookmark className="size-5 text-primary" />
+              <div className="gist-icon-tile mt-0.5 rounded-lg p-2">
+                <IconBookmark className="size-5" />
               </div>
               <div>
                 <Label className="text-sm font-semibold">
@@ -764,7 +778,7 @@ export function SearchSettings() {
                 {sourcePreferenceProfiles.map(profile => (
                   <div
                     key={profile.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2"
+                    className="gist-card-surface flex items-center justify-between gap-3 border px-3 py-2"
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -853,11 +867,11 @@ export function SearchSettings() {
 
             <div className="flex flex-col gap-2">
               {sourcePreferencesLoading ? (
-                <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+                <div className="gist-card-surface border border-dashed p-3 text-sm text-muted-foreground">
                   Loading sources...
                 </div>
               ) : sourcePreferences.length === 0 ? (
-                <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+                <div className="gist-card-surface border border-dashed p-3 text-sm text-muted-foreground">
                   No source preferences saved.
                 </div>
               ) : (
@@ -868,7 +882,7 @@ export function SearchSettings() {
                   return (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2"
+                      className="gist-card-surface flex items-center justify-between gap-3 border px-3 py-2"
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -908,11 +922,11 @@ export function SearchSettings() {
         </div>
 
         {/* ── News on Homepage ──────────────────────────────────────── */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
+        <div className="gist-card-surface border p-5">
           <div className="flex items-center justify-between gap-4">
             <div className="flex gap-3">
-              <div className="mt-0.5 rounded-lg bg-primary/10 p-2">
-                <IconNews className="size-5 text-primary" />
+              <div className="gist-icon-tile mt-0.5 rounded-lg p-2">
+                <IconNews className="size-5" />
               </div>
               <div>
                 <Label htmlFor="show-news" className="text-sm font-semibold">
@@ -932,11 +946,11 @@ export function SearchSettings() {
         </div>
 
         {/* ── Ads / Sponsored ───────────────────────────────────────── */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
+        <div className="gist-card-surface border p-5">
           <div className="flex items-center justify-between gap-4">
             <div className="flex gap-3">
-              <div className="mt-0.5 rounded-lg bg-primary/10 p-2">
-                <IconSpeakerphone className="size-5 text-primary" />
+              <div className="gist-icon-tile mt-0.5 rounded-lg p-2">
+                <IconSpeakerphone className="size-5" />
               </div>
               <div>
                 <Label htmlFor="show-ads" className="text-sm font-semibold">
@@ -956,11 +970,11 @@ export function SearchSettings() {
         </div>
 
         {/* ── OpenRouter API Key ────────────────────────────────────── */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
+        <div className="gist-card-surface border p-5">
           <div className="flex flex-col gap-3">
             <div className="flex gap-3">
-              <div className="mt-0.5 rounded-lg bg-primary/10 p-2">
-                <IconKey className="size-5 text-primary" />
+              <div className="gist-icon-tile mt-0.5 rounded-lg p-2">
+                <IconKey className="size-5" />
               </div>
               <div className="flex-1">
                 <Label
@@ -989,11 +1003,11 @@ export function SearchSettings() {
         </div>
 
         {/* ── Ollama Cloud API Key ─────────────────────────────────── */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
+        <div className="gist-card-surface border p-5">
           <div className="flex flex-col gap-3">
             <div className="flex gap-3">
-              <div className="mt-0.5 rounded-lg bg-primary/10 p-2">
-                <IconKey className="size-5 text-primary" />
+              <div className="gist-icon-tile mt-0.5 rounded-lg p-2">
+                <IconKey className="size-5" />
               </div>
               <div className="flex-1">
                 <Label
