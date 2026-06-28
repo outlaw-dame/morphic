@@ -8,6 +8,7 @@
   --native-radius-card: 20px;
   --native-radius-control: 14px;
   --native-radius-sheet: 28px;
+  --native-radius-pill: 999px;
   --native-min-touch-target: 44px;
   --native-toolbar-height: 52px;
   --native-bottom-bar-height: 72px;
@@ -60,10 +61,10 @@
 .native-app-frame {
   min-height: 0;
   background:
-    radial-gradient(
-      circle at top,
-      color-mix(in oklch, var(--muted) 45%, transparent),
-      transparent 36rem
+    linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--muted) 34%, transparent),
+      transparent 22rem
     ),
     var(--background);
 }
@@ -93,11 +94,78 @@
 @supports (
   (backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))
 ) {
+  .shell-nav-bar,
+  .shell-tab-bar,
   .platform-apple-like .native-translucent-surface {
     background: var(--native-backdrop);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     border-color: var(--native-hairline);
+  }
+}
+
+.shell-nav-bar {
+  border-bottom: 1px solid var(--native-hairline);
+  background: var(--native-backdrop);
+}
+
+.shell-tab-bar {
+  border-top: 1px solid var(--native-hairline);
+  background: var(--native-backdrop);
+}
+
+.gist-wordmark {
+  font-family: var(--font-display);
+  letter-spacing: 0;
+}
+
+.gist-wordmark-dot {
+  color: var(--indigo);
+}
+
+.gist-icon-button {
+  min-width: var(--native-min-touch-target);
+  min-height: var(--native-min-touch-target);
+  border: 1px solid var(--native-hairline);
+  border-radius: var(--native-radius-pill);
+  background: color-mix(in oklch, var(--background) 78%, transparent);
+  box-shadow: 0 8px 24px hsl(0 0% 0% / 0.08);
+}
+
+.gist-card-surface {
+  border-color: var(--native-hairline);
+  border-radius: var(--native-radius-card);
+  background: color-mix(in oklch, var(--card) 86%, transparent);
+  box-shadow: 0 12px 36px hsl(0 0% 0% / 0.08);
+}
+
+.gist-tab-icon-active {
+  background: color-mix(in oklch, var(--indigo) 16%, transparent);
+  color: var(--indigo);
+}
+
+.gist-preference-pill {
+  background: color-mix(in oklch, var(--indigo) 12%, transparent);
+  color: var(--indigo);
+}
+
+.gist-primary-button {
+  background: var(--indigo);
+  color: white;
+}
+
+.gist-primary-button:hover {
+  background: color-mix(in oklch, var(--indigo) 90%, black);
+  color: white;
+}
+
+@supports (
+  (backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))
+) {
+  .gist-icon-button,
+  .gist-card-surface {
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
   }
 }
 

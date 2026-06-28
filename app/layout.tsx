@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter as FontSans } from 'next/font/google'
 
 import { Analytics } from '@vercel/analytics/next'
 
@@ -27,12 +26,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
 import './native-shell.css'
 
-const fontSans = FontSans({
-  subsets: ['latin'],
-  variable: '--font-sans'
-})
-
-const title = 'Morphic'
+const title = 'gist.'
 const description =
   'A fully open-source AI-powered answer engine with a generative UI.'
 const ssrPlatformClasses = buildPlatformInfo().classes.join(' ')
@@ -103,8 +97,7 @@ export default async function RootLayout({
     <html lang="en" className={ssrPlatformClasses} suppressHydrationWarning>
       <body
         className={cn(
-          'fixed inset-0 flex flex-col font-sans antialiased overflow-hidden app-shell',
-          fontSans.variable
+          'flex flex-col font-sans antialiased h-dvh overflow-hidden app-shell'
         )}
       >
         <PlatformProvider>
@@ -129,7 +122,7 @@ export default async function RootLayout({
                 </NavigationDepthProvider>
               </UserProvider>
               <Toaster />
-              <Analytics />
+              {process.env.VERCEL && <Analytics />}
             </ThemeProvider>
           </NativeEnvironmentProvider>
         </PlatformProvider>

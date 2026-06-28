@@ -65,7 +65,7 @@ export function TabBar({ items, onScrollToTop, hidden = false }: TabBarProps) {
   return (
     <nav
       className={cn(
-        'shell-tab-bar flex items-center justify-around bg-background/95 backdrop-blur-sm border-t border-border/50',
+        'shell-tab-bar flex items-center justify-around',
         'transition-transform duration-200',
         hidden && 'translate-y-full'
       )}
@@ -98,7 +98,8 @@ export function TabBar({ items, onScrollToTop, hidden = false }: TabBarProps) {
               name={item.icon}
               size={22}
               className={cn(
-                active ? 'text-foreground' : 'text-muted-foreground'
+                'rounded-full p-0.5 transition-colors duration-150',
+                active ? 'gist-tab-icon-active' : 'text-muted-foreground'
               )}
             />
             <span

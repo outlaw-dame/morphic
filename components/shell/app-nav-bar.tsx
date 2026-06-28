@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+
 import { cn } from '@/lib/utils'
 
 import { useBackButton } from '@/hooks/use-back-button'
@@ -22,6 +24,24 @@ export interface AppNavBarProps {
 
 const COLLAPSE_THRESHOLD = 60
 
+function isGistTitle(title: string) {
+  return title.trim().toLocaleLowerCase() === 'gist.'
+}
+
+function GistWordmark({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn('gist-wordmark font-semibold', className)}
+      data-gist-wordmark
+    >
+      gist
+      <span className="gist-wordmark-dot" data-gist-wordmark-accent>
+        .
+      </span>
+    </span>
+  )
+}
+
 /**
  * Adaptive top navigation bar with platform-specific behavior.
  *
@@ -38,9 +58,15 @@ export function AppNavBar({
 }: AppNavBarProps) {
   const platform = usePlatform()
   const { handleBack } = useBackButton()
+  const [mounted, setMounted] = useState(false)
 
-  const isAppleMobile = platform.isAppleLike && typeof window !== 'undefined'
-  const isAndroid = platform.family === 'android'
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Only use platform-specific rendering after hydration to avoid mismatch
+  const isAppleMobile = mounted && platform.isAppleLike
+  const isAndroid = mounted && platform.family === 'android'
   const isCollapsed = scrollOffset >= COLLAPSE_THRESHOLD
 
   // Collapse progress for smooth interpolation (0 = expanded, 1 = collapsed)
@@ -54,7 +80,7 @@ export function AppNavBar({
       <button
         type="button"
         onClick={handleBack}
-        className="flex items-center justify-center"
+        className="gist-icon-button flex items-center justify-center"
         style={{
           minWidth: 'var(--native-min-touch-target)',
           minHeight: 'var(--native-min-touch-target)'
@@ -89,7 +115,7 @@ export function AppNavBar({
         {hasOverflow && (
           <button
             type="button"
-            className="flex items-center justify-center"
+            className="gist-icon-button flex items-center justify-center"
             style={{
               minWidth: 'var(--native-min-touch-target)',
               minHeight: 'var(--native-min-touch-target)'
@@ -127,14 +153,14 @@ export function AppNavBar({
           {/* Inline title: always visible on Android/desktop, fades in on iOS collapse */}
           <h1
             className={cn(
-              'font-semibold text-base truncate',
+              'truncate text-base font-semibold',
               isAppleMobile && 'transition-opacity duration-200',
               isAppleMobile && !isCollapsed && 'opacity-0',
               isAppleMobile && isCollapsed && 'opacity-100',
               !isAppleMobile && 'opacity-100'
             )}
           >
-            {title}
+            {isGistTitle(title) ? <GistWordmark /> : title}
           </h1>
         </div>
         {renderTrailing()}
@@ -149,8 +175,12 @@ export function AppNavBar({
           }}
           aria-hidden={isCollapsed}
         >
-          <h1 className="font-bold text-[34px] leading-tight truncate">
-            {title}
+          <h1 className="truncate text-[34px] font-bold leading-tight">
+            {isGistTitle(title) ? (
+              <GistWordmark className="font-bold" />
+            ) : (
+              title
+            )}
           </h1>
         </div>
       )}

@@ -28,6 +28,32 @@ interface GistModuleProps {
 
 const MIN_SOURCES_FOR_GIST = 2
 const MAX_GIST_SOURCES = 5
+const MAX_GIST_CLAIMS = 3
+const STITCHED_SNIPPET_PATTERN =
+  /\b(?:during|while|after|before)\s+[A-Z][\p{L}'-]+\s+(?:made|makes|scored|scores|returned|returns|beat|beats|won|wins|lost|loses|advanced|advances)\b/u
+
+function stripWrappingQuotes(value: string) {
+  return value.replace(/^["'“”]+|["'“”]+$/g, '').trim()
+}
+
+function ensureSentenceEnding(value: string) {
+  return /[.!?]$/.test(value) ? value : `${value}.`
+}
+
+function firstSentence(value: string) {
+  const normalized = stripWrappingQuotes(value.replace(/\s+/g, ' ').trim())
+  const match = normalized.match(/^(.+?[.!?])(?:\s|$)/)
+  const sentence = (match?.[1]?.trim() || normalized)
+    .replace(/\s*(?:\.{2,}|…)+\s*$/u, '')
+    .trim()
+  return ensureSentenceEnding(sentence)
+}
+
+function normalizedStartsWith(value: string, prefix: string) {
+  return value
+    .toLocaleLowerCase()
+    .startsWith(prefix.toLocaleLowerCase().replace(/[.!?]+$/, ''))
+}
 
 function normalizeClaimText(value?: string) {
   return value?.replace(/\s+/g, ' ').trim().toLowerCase()
@@ -47,6 +73,24 @@ function sourceIdentity(source: NormalizedSource) {
 
 function sourceBlurb(source: NormalizedSource) {
   return source.summary || source.snippet || source.title
+}
+
+function gistClaimFromSource(source: NormalizedSource) {
+  const title = firstSentence(source.title)
+  const blurb = sourceBlurb(source)
+  if (!blurb) {
+    return title
+  }
+
+  const claim = firstSentence(blurb)
+  if (
+    STITCHED_SNIPPET_PATTERN.test(claim) &&
+    normalizedStartsWith(claim, source.title)
+  ) {
+    return title
+  }
+
+  return claim
 }
 
 function uniqueSources(sources: NormalizedSource[]) {
@@ -73,9 +117,9 @@ function uniqueSources(sources: NormalizedSource[]) {
 
 function sentenceFromSources(sources: NormalizedSource[]) {
   return sources
-    .map(source => sourceBlurb(source))
+    .map(gistClaimFromSource)
     .filter(Boolean)
-    .slice(0, 3)
+    .slice(0, MAX_GIST_CLAIMS)
     .join(' ')
 }
 

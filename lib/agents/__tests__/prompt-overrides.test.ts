@@ -10,6 +10,9 @@ import {
 
 const originalDir = process.env.MORPHIC_PROMPT_OVERRIDES_DIR
 const originalMode = process.env.MORPHIC_PROMPT_OVERRIDE_MODE
+const originalQuickOverride = process.env.MORPHIC_PROMPT_OVERRIDE_QUICK
+const originalAdaptiveOverride = process.env.MORPHIC_PROMPT_OVERRIDE_ADAPTIVE
+const originalRouterOverride = process.env.MORPHIC_PROMPT_OVERRIDE_ROUTER
 
 function withTempPromptDir() {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'morphic-prompts-'))
@@ -17,9 +20,21 @@ function withTempPromptDir() {
   return dir
 }
 
+function restoreEnv(name: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[name]
+    return
+  }
+
+  process.env[name] = value
+}
+
 afterEach(() => {
-  process.env.MORPHIC_PROMPT_OVERRIDES_DIR = originalDir
-  process.env.MORPHIC_PROMPT_OVERRIDE_MODE = originalMode
+  restoreEnv('MORPHIC_PROMPT_OVERRIDES_DIR', originalDir)
+  restoreEnv('MORPHIC_PROMPT_OVERRIDE_MODE', originalMode)
+  restoreEnv('MORPHIC_PROMPT_OVERRIDE_QUICK', originalQuickOverride)
+  restoreEnv('MORPHIC_PROMPT_OVERRIDE_ADAPTIVE', originalAdaptiveOverride)
+  restoreEnv('MORPHIC_PROMPT_OVERRIDE_ROUTER', originalRouterOverride)
 })
 
 describe('prompt overrides', () => {
@@ -42,6 +57,12 @@ describe('prompt overrides', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
+  })
+
+  it('loads a bounded prompt override from environment variables', () => {
+    process.env.MORPHIC_PROMPT_OVERRIDE_QUICK = '  Prefer concise answers.  '
+
+    expect(loadPromptOverrideSync('quick')).toBe('Prefer concise answers.')
   })
 
   it('appends local overrides by default with a safety boundary', () => {

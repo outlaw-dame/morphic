@@ -48,6 +48,15 @@ describe('AppNavBar', () => {
     expect(titles.length).toBeGreaterThan(0)
   })
 
+  it('renders the gist wordmark with an accent dot on the home title', () => {
+    const { container } = render(<AppNavBar title="gist." />)
+
+    const wordmark = container.querySelector('[data-gist-wordmark]')
+    expect(wordmark).not.toBeNull()
+    expect(wordmark?.textContent).toBe('gist.')
+    expect(container.querySelector('[data-gist-wordmark-accent]')).not.toBeNull()
+  })
+
   it('renders large title on Apple-like platforms', () => {
     render(<AppNavBar title="Home" scrollOffset={0} />)
     // The large title has 34px font

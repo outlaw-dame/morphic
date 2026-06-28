@@ -3,7 +3,34 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@font-face {
+  font-family: 'Graphik';
+  src: url('/fonts/GraphikRegular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fakt Pro';
+  src: url('/fonts/FaktPro-Normal.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
+  --gray-0: oklch(1 0 0);
+  --gray-50: oklch(0.99 0 0);
+  --gray-100: oklch(0.97 0 0);
+  --gray-150: oklch(0.94 0 0);
+  --gray-200: oklch(0.92 0 0);
+  --gray-400: oklch(0.72 0 0);
+  --gray-500: oklch(0.56 0 0);
+  --gray-600: oklch(0.44 0 0);
+  --gray-850: oklch(0.18 0 0);
+  --gray-900: oklch(0.14 0 0);
+  --gray-1000: oklch(0 0 0);
   --background: oklch(0.99 0 0);
   --foreground: oklch(0 0 0);
   --card: oklch(1 0 0);
@@ -23,6 +50,22 @@
   --border: oklch(0.92 0 0);
   --input: oklch(0.94 0 0);
   --ring: oklch(0 0 0);
+  --ok: oklch(0.52 0.13 155);
+  --warn: oklch(0.6 0.14 65);
+  --danger: oklch(0.58 0.2 23.03);
+  --indigo: oklch(0.45 0.24 277);
+  --indigo-tint: oklch(0.92 0.05 280);
+  --link: oklch(0.45 0.24 277);
+  --story-indigo-fill: oklch(0.92 0.05 280);
+  --story-indigo-ink: oklch(0.4 0.22 277);
+  --story-paper-fill: oklch(1 0 0);
+  --story-paper-ink: oklch(0 0 0);
+  --story-sage-fill: oklch(0.88 0.06 145);
+  --story-sage-ink: oklch(0.25 0 0);
+  --story-taupe-fill: oklch(0.9 0.02 90);
+  --story-taupe-ink: oklch(0.25 0 0);
+  --story-gold-fill: oklch(0.88 0.09 80);
+  --story-gold-ink: oklch(0.28 0.04 70);
   --chart-1: oklch(0.81 0.17 75.35);
   --chart-2: oklch(0.55 0.22 264.53);
   --chart-3: oklch(0.72 0 0);
@@ -36,10 +79,25 @@
   --sidebar-accent-foreground: oklch(0 0 0);
   --sidebar-border: oklch(0.94 0 0);
   --sidebar-ring: oklch(0 0 0);
-  --font-sans: Geist, sans-serif;
-  --font-serif: Georgia, serif;
-  --font-mono: Geist Mono, monospace;
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Graphik', 'Fakt Pro',
+    'Segoe UI', system-ui, sans-serif;
+  --font-display:
+    'Graphik', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui,
+    sans-serif;
+  --font-serif: Georgia, 'Times New Roman', 'Iowan Old Style', serif;
+  --font-mono: 'SF Mono', 'Geist Mono', ui-monospace, Menlo, monospace;
+  --text-caption: 12px;
+  --text-footnote: 13px;
+  --text-sub: 15px;
+  --text-body: 17px;
+  --text-callout: 20px;
+  --text-title3: 22px;
+  --text-title2: 28px;
+  --text-title1: 34px;
+  --text-display: 44px;
   --radius: 0.5rem;
+  --radius-pill: 999px;
   --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
   --shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
   --shadow-sm:
@@ -54,10 +112,14 @@
     0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 8px 10px -1px hsl(0 0% 0% / 0.18);
   --shadow-2xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.45);
   --tracking-normal: 0em;
+  --tracking-wordmark: 0em;
   --spacing: 0.25rem;
   --motion-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --motion-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --motion-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-fast: 140ms;
+  --dur-base: 180ms;
+  --dur-slow: 220ms;
 }
 
 .dark {
@@ -80,6 +142,11 @@
   --border: oklch(0.26 0 0);
   --input: oklch(0.32 0 0);
   --ring: oklch(0.72 0 0);
+  --ok: oklch(0.74 0.15 155);
+  --warn: oklch(0.8 0.15 75);
+  --danger: oklch(0.7 0.19 23.91);
+  --indigo: oklch(0.62 0.22 277);
+  --link: oklch(0.62 0.22 277);
   --chart-1: oklch(0.81 0.17 75.35);
   --chart-2: oklch(0.58 0.21 260.84);
   --chart-3: oklch(0.56 0 0);
@@ -93,9 +160,14 @@
   --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-border: oklch(0.32 0 0);
   --sidebar-ring: oklch(0.72 0 0);
-  --font-sans: Geist, sans-serif;
-  --font-serif: Georgia, serif;
-  --font-mono: Geist Mono, monospace;
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Graphik', 'Fakt Pro',
+    'Segoe UI', system-ui, sans-serif;
+  --font-display:
+    'Graphik', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui,
+    sans-serif;
+  --font-serif: Georgia, 'Times New Roman', 'Iowan Old Style', serif;
+  --font-mono: 'SF Mono', 'Geist Mono', ui-monospace, Menlo, monospace;
   --radius: 0.5rem;
   --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
   --shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);

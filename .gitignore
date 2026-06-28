@@ -19,6 +19,7 @@
 # misc
 .DS_Store
 *.pem
+/certs/
 
 # debug
 npm-debug.log*
@@ -28,6 +29,7 @@ yarn-error.log*
 # local env files
 .env
 .env*.local
+/prompts.local/
 
 # local private planning docs
 /docs/private/
@@ -51,3 +53,4 @@ next-env.d.ts
 /ios/
 /android/
 .capacitor/
+.env*

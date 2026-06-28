@@ -25,6 +25,9 @@ DATABASE_URL=postgresql://user:password@localhost:5432/morphic
 
 Any PostgreSQL provider works: [Neon](https://neon.tech/), [Supabase](https://supabase.com/), or a local PostgreSQL instance.
 
+For Supabase-specific connection string, Auth URL, and key handling guidance,
+see [Supabase Setup](./SUPABASE.md).
+
 **Docker**: Database is automatically configured — no need to set this.
 
 ### Running Migrations
@@ -201,9 +204,12 @@ OPENROUTER_ADVISOR_TOOLS=web_search
 
 Fusion requires at least one configured analysis model or judge model. Advisor requires a configured advisor model. Invalid or over-broad config fails closed and no beta server tools are attached.
 
-Private prompt experiments should stay local. Add override files to `prompts.local/quick.md`, `prompts.local/adaptive.md`, or `prompts.local/router.md`; these paths are gitignored. Overrides are appended by default with a safety boundary. Local-only deployments can replace a prompt explicitly:
+Private prompt experiments should stay local or in deployment secrets. Production and Vercel deployments should use environment variables so private prompts are not traced as filesystem assets. Local development can also use override files at `prompts.local/quick.md`, `prompts.local/adaptive.md`, or `prompts.local/router.md`; this directory is gitignored. Overrides are appended by default with a safety boundary. Local-only deployments can replace a prompt explicitly:
 
 ```bash
+MORPHIC_PROMPT_OVERRIDE_QUICK=
+MORPHIC_PROMPT_OVERRIDE_ADAPTIVE=
+MORPHIC_PROMPT_OVERRIDE_ROUTER=
 MORPHIC_PROMPT_OVERRIDES_DIR=./prompts.local
 MORPHIC_PROMPT_OVERRIDE_MODE=replace
 ```
@@ -315,6 +321,12 @@ SUPABASE_SECRET_KEY=[YOUR_SUPABASE_SECRET_KEY]
    - **Project URL**: Settings > API > Project URL
    - **Publishable Key**: Settings > API Keys > publishable key (`sb_publishable_...`)
    - **Secret Key**: Settings > API Keys > secret key (`sb_secret_...`)
+
+4. Verify the environment without printing secrets:
+
+```bash
+bun run supabase:check
+```
 
 ## Guest Mode
 

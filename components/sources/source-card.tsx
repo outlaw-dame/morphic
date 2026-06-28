@@ -181,7 +181,7 @@ export function SourceCard({ source, compact = false }: SourceCardProps) {
   return (
     <article
       className={cn(
-        'flex min-w-0 flex-col justify-between rounded-md border bg-card p-3 text-sm',
+        'gist-card-surface flex min-w-0 flex-col justify-between border p-3 text-sm',
         compact ? 'gap-2' : 'gap-3'
       )}
     >
@@ -209,7 +209,7 @@ export function SourceCard({ source, compact = false }: SourceCardProps) {
               <span>{source.kind}</span>
               {date ? <span>{date}</span> : null}
               {preferenceLabel ? (
-                <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-primary">
+                <span className="gist-preference-pill rounded-full px-1.5 py-0.5">
                   {preferenceLabel}
                 </span>
               ) : null}
@@ -234,7 +234,7 @@ export function SourceCard({ source, compact = false }: SourceCardProps) {
               type="button"
               variant="outline"
               size="icon"
-              className="size-8 rounded-full"
+              className="gist-icon-button size-8 rounded-full"
               aria-label={isSaved ? 'Source saved' : 'Save source'}
               disabled={isSaving || isSaved}
               onClick={handleSaveSource}
@@ -249,7 +249,7 @@ export function SourceCard({ source, compact = false }: SourceCardProps) {
               asChild
               variant="outline"
               size="icon"
-              className="size-8 rounded-full"
+              className="gist-icon-button size-8 rounded-full"
             >
               <a
                 href={buildReaderUrl({
@@ -264,7 +264,11 @@ export function SourceCard({ source, compact = false }: SourceCardProps) {
                 <Reader className="size-3.5" />
               </a>
             </Button>
-            <Button asChild size="sm" className="h-8 shrink-0 gap-1.5">
+            <Button
+              asChild
+              size="sm"
+              className="gist-primary-button h-8 shrink-0 gap-1.5 rounded-full"
+            >
               <GuardedExternalLink
                 href={source.url}
                 target="_blank"

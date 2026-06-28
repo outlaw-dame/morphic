@@ -20,7 +20,7 @@ export function GistCard({ card, sourcesById }: GistCardProps) {
 
   return (
     <article
-      className="flex min-h-[172px] flex-col justify-between gap-3 rounded-md border bg-card p-3 text-sm"
+      className="gist-card-surface flex min-h-[172px] flex-col justify-between gap-3 border p-3 text-sm"
       data-testid={`gist-card-${card.type}`}
     >
       <div className="min-w-0 space-y-2">
@@ -57,7 +57,7 @@ export function GistCard({ card, sourcesById }: GistCardProps) {
           <p
             className={
               isSummary
-                ? 'text-sm leading-7 text-foreground/85'
+                ? 'text-[15px] leading-7 text-foreground/85'
                 : 'line-clamp-4 text-xs leading-relaxed text-muted-foreground'
             }
           >

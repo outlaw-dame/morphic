@@ -300,7 +300,7 @@ export function ChatPanel({
 
         <div
           className={cn(
-            'native-composer-surface relative flex w-full flex-col gap-2 rounded-3xl border border-input bg-muted transition-[box-shadow] duration-[140ms] ease-[var(--motion-ease-out)]',
+            'native-composer-surface relative flex w-full flex-col gap-2 rounded-[var(--native-radius-sheet)] border border-input bg-muted transition-[box-shadow] duration-[140ms] ease-[var(--motion-ease-out)]',
             isInputFocused &&
               'ring-1 ring-ring/20 ring-offset-1 ring-offset-background/50'
           )}
@@ -432,7 +432,7 @@ export function ChatPanel({
               {messages.length > 0 && (
                 <NativePressable
                   onClick={handleNewChat}
-                  className="group flex size-8 shrink-0 items-center justify-center rounded-full border border-input bg-background md:size-10"
+                  className="gist-icon-button group flex size-8 shrink-0 items-center justify-center md:size-10"
                   type="button"
                   disabled={isLoading}
                 >
@@ -445,7 +445,7 @@ export function ChatPanel({
               <NativePressable
                 type={isLoading ? 'button' : 'submit'}
                 className={cn(
-                  'flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground md:size-10',
+                  'flex size-8 items-center justify-center rounded-full bg-[var(--indigo)] text-white md:size-10',
                   isLoading && 'animate-pulse',
                   ((input.length === 0 && !isLoading) || !hasAvailableModels) &&
                     'pointer-events-none opacity-50'
