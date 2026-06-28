@@ -113,7 +113,7 @@ export function ModelSelectorClient({ data }: ModelSelectorClientProps) {
   if (!data.hasAvailableModels) {
     return (
       <NativePressable
-        className="flex h-auto items-center gap-1 rounded-full border-none bg-muted px-3 py-2 text-sm shadow-none transition-[background-color,color,box-shadow,transform] opacity-50 cursor-not-allowed"
+        className="flex h-10 items-center gap-1 rounded-full border border-[var(--native-hairline)] bg-[color-mix(in_oklch,var(--card)_76%,transparent)] px-3 text-sm shadow-sm opacity-50 cursor-not-allowed"
         disabled
         title="No enabled models are available"
       >
@@ -134,7 +134,12 @@ export function ModelSelectorClient({ data }: ModelSelectorClientProps) {
         <NativePressable
           role="combobox"
           aria-expanded={open}
-          className="flex h-auto items-center gap-1 rounded-full border-none bg-muted px-3 py-2 text-sm shadow-none transition-[background-color,color,box-shadow,transform]"
+          className={cn(
+            'flex h-10 min-w-0 items-center gap-1 rounded-full border border-[var(--native-hairline)] bg-[color-mix(in_oklch,var(--card)_76%,transparent)] px-3 text-sm shadow-sm backdrop-blur-xl transition-[background-color,border-color,color,box-shadow,transform]',
+            'hover:border-[color-mix(in_oklch,var(--indigo)_30%,var(--native-hairline))] hover:bg-[color-mix(in_oklch,var(--indigo)_6%,var(--card))]',
+            open &&
+              'border-[color-mix(in_oklch,var(--indigo)_38%,var(--native-hairline))]'
+          )}
         >
           <ProviderLogo providerId={selectedModel.providerId} />
           <span className="truncate max-w-40 text-xs font-medium">
@@ -149,7 +154,11 @@ export function ModelSelectorClient({ data }: ModelSelectorClientProps) {
           />
         </NativePressable>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0" align="end" sideOffset={6}>
+      <PopoverContent
+        className="w-[300px] rounded-[var(--native-radius-card)] border-[var(--native-hairline)] bg-[color-mix(in_oklch,var(--popover)_92%,transparent)] p-1 shadow-[var(--native-shadow-card)] backdrop-blur-xl"
+        align="end"
+        sideOffset={8}
+      >
         <Command>
           <CommandInput placeholder="Search models..." />
           <CommandList>

@@ -14,7 +14,7 @@ const FOCUS_OUT_DELAY_MS = 100 // Delay to ensure focus has actually moved
 const nativeButtonBaseClassName =
   'inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-[background-color,border-color,color,box-shadow,transform] duration-[140ms] ease-[var(--motion-ease-out)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
 const nativeOutlineButtonClassName =
-  'border border-input bg-background hover:bg-accent hover:text-accent-foreground'
+  'border border-[var(--native-hairline)] bg-[color-mix(in_oklch,var(--card)_76%,transparent)] hover:border-[color-mix(in_oklch,var(--indigo)_30%,var(--native-hairline))] hover:bg-[color-mix(in_oklch,var(--indigo)_6%,var(--card))] hover:text-accent-foreground'
 
 interface ActionCategory {
   icon: NativeIconName
@@ -160,15 +160,16 @@ export function ActionButtons({
     }
   }, [activeCategory, inputRef])
 
-  // Calculate max height needed for samples (4 items * ~40px + padding)
-  const containerHeight = 'h-[180px]'
-
   return (
     <div
       ref={containerRef}
-      className={cn('relative', containerHeight, className)}
+      className={cn(
+        'relative transition-[min-height] duration-[180ms] ease-[var(--motion-ease-out)]',
+        activeCategory ? 'min-h-44' : 'min-h-12',
+        className
+      )}
     >
-      <div className="relative h-full">
+      <div className="relative min-h-[inherit]">
         {/* Action buttons */}
         <div
           className={cn(
@@ -176,7 +177,7 @@ export function ActionButtons({
             activeCategory ? 'opacity-0 pointer-events-none' : 'opacity-100'
           )}
         >
-          <div className="flex flex-wrap justify-center gap-2 px-2">
+          <div className="gist-scroll flex max-w-full gap-2 overflow-x-auto px-1 pb-1 md:flex-wrap md:justify-center md:overflow-visible md:px-2">
             {actionCategories.map(category => {
               return (
                 <NativePressable
@@ -186,7 +187,7 @@ export function ActionButtons({
                   className={cn(
                     nativeButtonBaseClassName,
                     nativeOutlineButtonClassName,
-                    'h-9 gap-2 rounded-full whitespace-nowrap',
+                    'h-9 shrink-0 gap-2 rounded-full whitespace-nowrap shadow-sm backdrop-blur-xl',
                     'text-xs sm:text-sm px-3 sm:px-4'
                   )}
                   onClick={() => handleCategoryClick(category)}
@@ -205,7 +206,7 @@ export function ActionButtons({
         {/* Prompt samples */}
         <div
           className={cn(
-            'absolute inset-0 space-y-1 overflow-y-auto py-1 transition-opacity duration-[180ms] ease-[var(--motion-ease-out)]',
+            'absolute inset-0 space-y-1 overflow-y-auto rounded-[var(--native-radius-card)] border border-[var(--native-hairline)] bg-[color-mix(in_oklch,var(--card)_88%,transparent)] p-2 shadow-[var(--native-shadow-card)] backdrop-blur-xl transition-opacity duration-[180ms] ease-[var(--motion-ease-out)]',
             !activeCategory ? 'opacity-0 pointer-events-none' : 'opacity-100'
           )}
         >
@@ -216,8 +217,8 @@ export function ActionButtons({
                 type="button"
                 pressScale={0.99}
                 className={cn(
-                  'w-full rounded-md px-3 py-2 text-left text-sm',
-                  'transition-colors duration-[140ms] ease-[var(--motion-ease-out)] hover:bg-muted',
+                  'w-full rounded-xl px-3 py-2.5 text-left text-sm',
+                  'transition-colors duration-[140ms] ease-[var(--motion-ease-out)] hover:bg-[color-mix(in_oklch,var(--indigo)_7%,var(--card))]',
                   'flex items-center gap-2 group'
                 )}
                 onClick={() => handlePromptClick(prompt)}

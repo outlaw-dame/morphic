@@ -101,7 +101,7 @@ export function SearchModeSelector({
             <Button
               variant="outline"
               size="sm"
-              className="gap-1 rounded-full text-xs shadow-none transition-[background-color,color,box-shadow,transform]"
+              className="h-10 gap-1 rounded-full border-[var(--native-hairline)] bg-[color-mix(in_oklch,var(--card)_76%,transparent)] text-xs shadow-sm backdrop-blur-xl transition-[background-color,border-color,color,box-shadow,transform] hover:border-[color-mix(in_oklch,var(--indigo)_30%,var(--native-hairline))] hover:bg-[color-mix(in_oklch,var(--indigo)_6%,var(--card))]"
             >
               {selectedMode && (
                 <NativeIcon
@@ -122,7 +122,11 @@ export function SearchModeSelector({
               />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64" sideOffset={5}>
+          <DropdownMenuContent
+            align="start"
+            className="w-64 rounded-[var(--native-radius-card)] border-[var(--native-hairline)] bg-[color-mix(in_oklch,var(--popover)_92%,transparent)] p-1 shadow-[var(--native-shadow-card)] backdrop-blur-xl"
+            sideOffset={8}
+          >
             {SEARCH_MODE_CONFIGS.map(config => {
               const isSelected = value === config.value
               return (
@@ -158,10 +162,10 @@ export function SearchModeSelector({
 
       {/* Desktop Toggle */}
       <div className="hidden sm:block">
-        <div className="relative inline-flex items-center rounded-full bg-background border p-1">
+        <div className="relative inline-flex h-10 items-center rounded-full border border-[var(--native-hairline)] bg-[color-mix(in_oklch,var(--card)_76%,transparent)] p-1 shadow-sm backdrop-blur-xl">
           {/* Animated background indicator */}
           <div
-            className="absolute inset-1 rounded-full bg-muted transition-[transform,width] duration-[180ms] ease-[var(--motion-ease-in-out)]"
+            className="absolute inset-1 rounded-full bg-[color-mix(in_oklch,var(--indigo)_10%,var(--background))] shadow-sm transition-[transform,width] duration-[180ms] ease-[var(--motion-ease-in-out)]"
             style={{
               width: `calc(${100 / modeCount}% - 4px)`,
               transform: `translateX(${selectedIndex * 100}%)`

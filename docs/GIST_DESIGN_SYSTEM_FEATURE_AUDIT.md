@@ -16,6 +16,7 @@ This audit maps the supplied Gist Design System package to Morphic's current pro
 - Source cards: save, reader, guarded original links, favicon fallback, source preferences, and metadata remain available with the new material card surface.
 - Navigation: home, search, discovery, library, and settings tabs are preserved.
 - Auth flows: login, sign-up, password reset, confirmation, and auth error states now use the Gist auth shell, material cards, sentence-case copy, focused auth chrome, and mobile-safe layout.
+- Composer controls: the live search composer, model selector, Quick/Adaptive selector, submit/stop control, and prompt action chips now use Gist material surfaces while preserving upload, model-cookie, guest-mode, and adaptive-mode behavior.
 
 ## Present In Product, Needs Deeper Design-System Coverage
 

@@ -226,9 +226,9 @@ export function ChatPanel({
   return (
     <div
       className={cn(
-        'w-full bg-background group/form-container shrink-0',
+        'w-full group/form-container shrink-0',
         messages.length > 0
-          ? 'sticky bottom-0 px-2 pb-2 md:pb-4'
+          ? 'sticky bottom-0 px-2 pb-2 md:pb-4 bg-linear-to-t from-background via-background/95 to-transparent pt-8'
           : 'px-4 md:px-6'
       )}
     >
@@ -291,9 +291,9 @@ export function ChatPanel({
 
         <div
           className={cn(
-            'native-composer-surface relative flex w-full flex-col gap-2 rounded-[var(--native-radius-sheet)] border border-input bg-muted transition-[box-shadow] duration-[140ms] ease-[var(--motion-ease-out)]',
+            'native-composer-surface relative flex w-full flex-col gap-2 rounded-[var(--native-radius-sheet)] border border-[var(--native-hairline)] bg-[color-mix(in_oklch,var(--card)_86%,transparent)] shadow-[var(--native-shadow-card)] transition-[border-color,box-shadow,transform] duration-[140ms] ease-[var(--motion-ease-out)]',
             isInputFocused &&
-              'ring-1 ring-ring/20 ring-offset-1 ring-offset-background/50'
+              'border-[color-mix(in_oklch,var(--indigo)_38%,var(--native-hairline))] ring-1 ring-[color-mix(in_oklch,var(--indigo)_18%,transparent)] ring-offset-1 ring-offset-background/50'
           )}
         >
           <Textarea
@@ -310,7 +310,7 @@ export function ChatPanel({
             spellCheck={false}
             value={input}
             disabled={isLoading || isToolInvocationInProgress()}
-            className="resize-none w-full min-h-12 bg-transparent border-0 p-3 md:p-4 text-sm placeholder:text-muted-foreground focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50"
+            className="resize-none w-full min-h-12 bg-transparent border-0 px-4 pt-4 pb-1 text-[17px] leading-relaxed placeholder:text-muted-foreground focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 md:px-5"
             onChange={handleInputChange}
             onKeyDown={e => {
               // e.nativeEvent.isComposing stays true on the keydown that
@@ -359,7 +359,7 @@ export function ChatPanel({
           />
 
           {/* Bottom menu area */}
-          <div className="flex items-center justify-between p-2 md:p-3">
+          <div className="flex items-center justify-between gap-2 px-2 pb-2 md:px-3 md:pb-3">
             <div className="flex items-center gap-2">
               {!isGuest && (
                 <FileUploadButton
@@ -436,7 +436,8 @@ export function ChatPanel({
               <NativePressable
                 type={isLoading ? 'button' : 'submit'}
                 className={cn(
-                  'flex size-8 items-center justify-center rounded-full bg-[var(--indigo)] text-white md:size-10',
+                  'flex size-10 items-center justify-center rounded-full bg-[var(--indigo)] text-white shadow-[0_10px_28px_color-mix(in_oklch,var(--indigo)_28%,transparent)] transition-[opacity,transform,box-shadow] duration-[140ms] ease-[var(--motion-ease-out)] md:size-11',
+                  !isLoading && 'hover:scale-[1.03] active:scale-[0.97]',
                   isLoading && 'animate-pulse',
                   ((input.length === 0 && !isLoading) || !hasAvailableModels) &&
                     'pointer-events-none opacity-50'
