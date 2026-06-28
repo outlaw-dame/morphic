@@ -77,16 +77,20 @@ export function LoginForm({
 
   return (
     <div
-      className={cn('flex flex-col items-center gap-6', className)}
+      className={cn('flex flex-col items-center gap-5', className)}
       {...props}
     >
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl flex flex-col items-center justify-center gap-4">
-            <IconLogo className="size-12" />
-            Welcome back
+      <Card className="gist-card-surface w-full border">
+        <CardHeader className="items-center text-center">
+          <div className="gist-icon-tile mb-2 flex size-16 items-center justify-center rounded-full">
+            <IconLogo className="size-11" />
+          </div>
+          <CardTitle className="font-[var(--font-display)] text-2xl font-semibold">
+            Sign in
           </CardTitle>
-          <CardDescription>Sign in to your account</CardDescription>
+          <CardDescription>
+            Continue with your saved searches and source preferences.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4">
@@ -97,15 +101,15 @@ export function LoginForm({
               onClick={handleSocialLogin}
               disabled={isLoading}
             >
-              Sign In with Google
+              Sign in with Google
             </Button>
 
             <div className="relative my-2">
               <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
+                <span className="w-full border-t border-[var(--native-hairline)]" />
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-muted px-2 text-muted-foreground">Or</span>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-card px-2 text-muted-foreground">or</span>
               </div>
             </div>
 
@@ -116,6 +120,7 @@ export function LoginForm({
                   id="email"
                   type="email"
                   placeholder="you@example.com"
+                  autoComplete="email"
                   required
                   value={email}
                   onChange={e => setEmail(e.target.value)}
@@ -134,31 +139,31 @@ export function LoginForm({
                 <PasswordInput
                   id="password"
                   type="password"
-                  placeholder="********"
+                  placeholder="Password"
+                  autoComplete="current-password"
                   required
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                 />
               </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
+              {error && (
+                <p className="rounded-[var(--native-radius-control)] border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
+                  {error}
+                </p>
+              )}
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Logging in...' : 'Sign In'}
+                {isLoading ? 'Signing in...' : 'Sign in'}
               </Button>
             </form>
           </div>
           <div className="mt-6 text-center text-sm">
             Don&apos;t have an account?{' '}
             <Link href="/auth/sign-up" className="underline underline-offset-4">
-              Sign Up
+              Sign up
             </Link>
           </div>
         </CardContent>
       </Card>
-      <div className="text-center text-xs text-muted-foreground">
-        <Link href="/" className="hover:underline">
-          &larr; Back to Home
-        </Link>
-      </div>
     </div>
   )
 }

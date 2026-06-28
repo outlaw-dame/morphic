@@ -47,9 +47,11 @@ export function UpdatePasswordForm({
 
   return (
     <div className={cn('flex flex-col gap-6', className)} {...props}>
-      <Card>
+      <Card className="gist-card-surface border">
         <CardHeader>
-          <CardTitle className="text-2xl">Reset Your Password</CardTitle>
+          <CardTitle className="font-[var(--font-display)] text-2xl font-semibold">
+            Reset your password
+          </CardTitle>
           <CardDescription>
             Please enter your new password below.
           </CardDescription>
@@ -63,12 +65,17 @@ export function UpdatePasswordForm({
                   id="password"
                   type="password"
                   placeholder="New password"
+                  autoComplete="new-password"
                   required
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                 />
               </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
+              {error && (
+                <p className="rounded-[var(--native-radius-control)] border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
+                  {error}
+                </p>
+              )}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Saving...' : 'Save new password'}
               </Button>

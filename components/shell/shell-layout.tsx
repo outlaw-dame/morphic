@@ -44,6 +44,7 @@ export function ShellLayout({
   const [scrollOffset, setScrollOffset] = useState(0)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
 
+  const isAuthPage = pathname.startsWith('/auth')
   const showBack = pathname.startsWith('/search/') && pathname !== '/'
   const isSearchPage = pathname === '/' || pathname.startsWith('/search')
 
@@ -55,6 +56,7 @@ export function ShellLayout({
     if (pathname.startsWith('/library')) return 'Library'
     if (pathname.startsWith('/settings')) return 'gist.'
     if (pathname.startsWith('/reader')) return 'Reader'
+    if (isAuthPage) return 'gist.'
     return 'gist.'
   }
 
@@ -63,17 +65,22 @@ export function ShellLayout({
     container?.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
 
-  const trailingActions = [
-    user ? (
-      <UserMenu
-        key="user-menu"
-        user={user}
-        onFeedback={() => setFeedbackOpen(true)}
-      />
-    ) : (
-      <GuestMenu key="guest-menu" onFeedback={() => setFeedbackOpen(true)} />
-    )
-  ]
+  const trailingActions = isAuthPage
+    ? []
+    : [
+        user ? (
+          <UserMenu
+            key="user-menu"
+            user={user}
+            onFeedback={() => setFeedbackOpen(true)}
+          />
+        ) : (
+          <GuestMenu
+            key="guest-menu"
+            onFeedback={() => setFeedbackOpen(true)}
+          />
+        )
+      ]
 
   return (
     <>
@@ -92,7 +99,11 @@ export function ShellLayout({
               scrollOffset={scrollOffset}
             />
           }
-          tabBar={<TabBar items={TAB_ITEMS} onScrollToTop={scrollToTop} />}
+          tabBar={
+            isAuthPage ? undefined : (
+              <TabBar items={TAB_ITEMS} onScrollToTop={scrollToTop} />
+            )
+          }
         >
           <ScrollContainer
             className="native-app-main"

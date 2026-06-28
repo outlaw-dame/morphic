@@ -1,11 +1,13 @@
+import { AuthPageShell } from '@/components/auth/auth-page-shell'
 import { UpdatePasswordForm } from '@/components/update-password-form'
 
 export default function Page() {
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-      <div className="w-full max-w-sm">
-        <UpdatePasswordForm />
-      </div>
-    </div>
+    <AuthPageShell
+      title="Choose a new password."
+      description="Use a password you do not use elsewhere, then continue back to search."
+    >
+      <UpdatePasswordForm />
+    </AuthPageShell>
   )
 }

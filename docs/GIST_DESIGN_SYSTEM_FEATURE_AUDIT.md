@@ -1,6 +1,6 @@
 # Gist Design System Feature Audit
 
-Last updated: 2026-06-27
+Last updated: 2026-06-28
 
 This audit maps the supplied Gist Design System package to Morphic's current product surface. The goal is to adopt the new mobile PWA and desktop browser app language without losing source-first features that already exist in the app.
 
@@ -15,6 +15,7 @@ This audit maps the supplied Gist Design System package to Morphic's current pro
 - Gist cards: summary/context/originals cards now use the new rounded material surface, while source-backed entity chips and source chips remain.
 - Source cards: save, reader, guarded original links, favicon fallback, source preferences, and metadata remain available with the new material card surface.
 - Navigation: home, search, discovery, library, and settings tabs are preserved.
+- Auth flows: login, sign-up, password reset, confirmation, and auth error states now use the Gist auth shell, material cards, sentence-case copy, focused auth chrome, and mobile-safe layout.
 
 ## Present In Product, Needs Deeper Design-System Coverage
 
@@ -27,7 +28,7 @@ This audit maps the supplied Gist Design System package to Morphic's current pro
 - Search modes and action categories: quick/adaptive modes exist, but the design package needs the complete mode selector, category chips, and signed-out gating states.
 - Research process trace: tool progress exists, but the design package needs an explicit multi-agent/process trace pattern.
 - Overlay system: shell sheets and dialogs exist, but the design package calls for a formal back-stack, focus trap, drag-dismiss, and side-panel contract.
-- Auth, guest mode, and account settings: guest search gating and auth screens exist, but the design system needs signed-out/signed-in variants for every major route.
+- Guest mode and account settings: guest search gating exists, but signed-in account management, profile/history/bookmark tabs, and connector states still need fuller Gist coverage.
 - Share and feedback: site feedback exists, but thread sharing and per-answer/citation reporting need a complete pattern.
 
 ## Missing Or Deferred From This Pass

@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 import {
   Card,
   CardContent,
@@ -6,27 +8,34 @@ import {
   CardTitle
 } from '@/components/ui/card'
 
+import { AuthPageShell } from '@/components/auth/auth-page-shell'
+
 export default function Page() {
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-      <div className="w-full max-w-sm">
-        <div className="flex flex-col gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl">
-                Thank you for signing up!
-              </CardTitle>
-              <CardDescription>Check your email to confirm</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                You&apos;ve successfully signed up. Please check your email to
-                confirm your account before signing in.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
+    <AuthPageShell
+      title="Check your email."
+      description="Your account is almost ready. Confirm your address, then return to gist."
+    >
+      <Card className="gist-card-surface border">
+        <CardHeader>
+          <CardTitle className="font-[var(--font-display)] text-2xl font-semibold">
+            Confirm your account
+          </CardTitle>
+          <CardDescription>We sent a confirmation link.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <p className="text-sm leading-6 text-muted-foreground">
+            You&apos;ve successfully signed up. Please check your email to
+            confirm your account before signing in.
+          </p>
+          <Link
+            href="/auth/login"
+            className="gist-primary-button inline-flex h-10 w-full items-center justify-center rounded-[var(--native-radius-control)] text-sm font-medium"
+          >
+            Sign in
+          </Link>
+        </CardContent>
+      </Card>
+    </AuthPageShell>
   )
 }
