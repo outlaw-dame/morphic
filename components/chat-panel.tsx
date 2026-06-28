@@ -33,7 +33,6 @@ import { useArtifact } from './artifact/artifact-context'
 import { NativeIcon } from './native/native-icon'
 import { NativePressable } from './native/native-pressable'
 import { Button } from './ui/button'
-import { IconBlinkingLogo } from './ui/icons'
 import { ActionButtons } from './action-buttons'
 import { FileUploadButton } from './file-upload-button'
 import { MessageNavigationDots } from './message-navigation-dots'
@@ -233,14 +232,6 @@ export function ChatPanel({
           : 'px-4 md:px-6'
       )}
     >
-      {messages.length === 0 && (
-        <div className="mb-6 md:mb-10 flex flex-col items-center gap-2 md:gap-4">
-          <IconBlinkingLogo className="size-12" />
-          <h1 className="text-xl md:text-2xl font-medium text-foreground">
-            What would you like to know?
-          </h1>
-        </div>
-      )}
       {uploadedFiles.length > 0 && (
         <UploadedFileList files={uploadedFiles} onRemove={handleFileRemove} />
       )}

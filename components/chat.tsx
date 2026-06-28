@@ -50,17 +50,20 @@ const homePrompts = [
   {
     label: 'Latest',
     prompt: 'Find me the latest important world news today.',
-    icon: 'latest' as const
+    icon: 'latest' as const,
+    tint: 'bg-[color-mix(in_oklch,var(--indigo)_8%,var(--card))]'
   },
   {
     label: 'Research',
     prompt: 'Research the most important AI developments this week.',
-    icon: 'research' as const
+    icon: 'research' as const,
+    tint: 'bg-[color-mix(in_oklch,var(--muted)_72%,var(--card))]'
   },
   {
     label: 'Local',
     prompt: 'Find highly rated coffee shops near me and compare the sources.',
-    icon: 'mapPin' as const
+    icon: 'mapPin' as const,
+    tint: 'bg-[color-mix(in_oklch,var(--indigo)_5%,var(--background))]'
   }
 ]
 
@@ -78,8 +81,8 @@ function HomeBriefing({
   onSelectPrompt: (prompt: string) => void
 }) {
   return (
-    <section className="flex w-full flex-1 items-start justify-center overflow-y-auto px-4 pb-40 pt-6 md:pb-48">
-      <div className="w-full max-w-3xl space-y-6">
+    <section className="flex w-full flex-1 items-start justify-center overflow-y-auto px-4 pb-28 pt-6 md:pb-36">
+      <div className="w-full max-w-3xl space-y-5">
         <div className="space-y-3">
           <p className="text-xs font-medium uppercase text-muted-foreground">
             {formatHomeDate()}
@@ -101,15 +104,15 @@ function HomeBriefing({
               key={item.label}
               type="button"
               className={cn(
-                'gist-card-surface min-h-28 flex-col justify-between border p-4 text-left md:flex',
+                'min-h-28 flex-col justify-between rounded-[var(--native-radius-card)] border border-[var(--native-hairline)] p-4 text-left shadow-[0_12px_36px_hsl(0_0%_0%_/_0.06)] transition-transform duration-[140ms] ease-[var(--motion-ease-out)] active:scale-[0.99] md:flex',
+                item.tint,
                 index === 0 ? 'flex' : 'hidden'
               )}
               onClick={() => onSelectPrompt(item.prompt)}
             >
-              <NativeIcon
-                name={item.icon}
-                className="size-5 text-[var(--indigo)]"
-              />
+              <span className="flex size-8 items-center justify-center rounded-full bg-background/70 text-[var(--indigo)]">
+                <NativeIcon name={item.icon} className="size-5" />
+              </span>
               <div>
                 <p className="text-sm font-semibold text-foreground">
                   {item.label}

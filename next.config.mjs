@@ -2,6 +2,7 @@
 const nextConfig = {
   // Enable gzip compression for all responses (default true, made explicit)
   compress: true,
+  devIndicators: false,
   allowedDevOrigins: ['[::1]'],
   images: {
     remotePatterns: [
