@@ -2,18 +2,57 @@
 
 import { useState } from 'react'
 
+import { OpenNewWindow } from 'iconoir-react'
+
 import { SearchResultItem } from '@/lib/types'
+import { cn } from '@/lib/utils'
 import { displayUrlName } from '@/lib/utils/domain'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 
 import { GuardedExternalLink } from '@/components/navigation/guarded-external-link'
 
 export interface SearchResultsProps {
   results: SearchResultItem[]
   displayMode?: 'grid' | 'list'
+}
+
+interface DisplaySearchResult {
+  content: string
+  domain: string
+  faviconUrl?: string
+  hostnameInitial: string
+  siteLabel: string
+  title: string
+  url?: string
+}
+
+function toDisplaySearchResult(result: SearchResultItem): DisplaySearchResult {
+  try {
+    const url = new URL(result.url)
+    const domain = url.hostname
+
+    return {
+      content: result.content || '',
+      domain,
+      faviconUrl: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
+      hostnameInitial: domain[0]?.toUpperCase() || '?',
+      siteLabel: displayUrlName(result.url),
+      title: result.title || url.pathname || domain,
+      url: result.url
+    }
+  } catch {
+    const fallbackTitle = result.title || result.content || 'Search result'
+
+    return {
+      content: result.content || '',
+      domain: 'Source',
+      hostnameInitial: fallbackTitle[0]?.toUpperCase() || '?',
+      siteLabel: 'Source',
+      title: fallbackTitle
+    }
+  }
 }
 
 export function SearchResults({
@@ -30,47 +69,15 @@ export function SearchResults({
   // Logic for grid mode
   const displayedGridResults = showAllResults ? results : results.slice(0, 3)
   const additionalResultsCount = results.length > 3 ? results.length - 3 : 0
+  const displayedResults = displayedGridResults.map(toDisplaySearchResult)
+  const listResults = results.map(toDisplaySearchResult)
 
   // --- List Mode Rendering ---
   if (displayMode === 'list') {
     return (
-      <div className="flex flex-col gap-2">
-        {results.map((result, index) => (
-          <GuardedExternalLink
-            href={result.url}
-            key={index}
-            target="_blank"
-            className="block"
-          >
-            <Card className="w-full hover:bg-muted/50 transition-colors">
-              <CardContent className="p-2 flex items-start space-x-2">
-                <Avatar className="h-4 w-4 mt-1 shrink-0">
-                  <AvatarImage
-                    src={`https://www.google.com/s2/favicons?domain=${
-                      new URL(result.url).hostname
-                    }`}
-                    alt={new URL(result.url).hostname}
-                  />
-                  <AvatarFallback className="text-xs">
-                    {new URL(result.url).hostname[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="grow overflow-hidden space-y-0.5">
-                  <p className="text-sm font-medium line-clamp-1">
-                    {result.title || new URL(result.url).pathname}
-                  </p>
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {result.content}
-                  </p>
-                  <div className="text-xs text-muted-foreground/80 mt-1 truncate">
-                    <span className="underline">
-                      {new URL(result.url).hostname}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </GuardedExternalLink>
+      <div className="flex flex-col gap-2" data-testid="search-results-list">
+        {listResults.map((result, index) => (
+          <SearchResultSurface key={index} result={result} displayMode="list" />
         ))}
       </div>
     )
@@ -78,62 +85,84 @@ export function SearchResults({
 
   // --- Grid Mode Rendering (Existing Logic) ---
   return (
-    <div className="flex flex-col gap-1 md:-m-1 md:flex-row md:flex-wrap md:gap-0">
-      {displayedGridResults.map((result, index) => (
-        <div className="min-w-0 md:w-1/4 md:p-1" key={index}>
-          <GuardedExternalLink href={result.url} target="_blank">
-            <Card className="h-full flex-1 rounded-md hover:bg-muted/50 transition-colors">
-              <CardContent className="flex h-full min-w-0 items-center justify-between gap-2 p-2 md:flex-col md:items-stretch">
-                <p className="min-w-0 flex-1 line-clamp-1 text-xs md:min-h-8 md:line-clamp-2">
-                  {result.title || result.content}
-                </p>
-                <div className="flex max-w-[42%] shrink-0 items-center space-x-1 min-w-0 md:mt-2 md:max-w-full md:shrink">
-                  <Avatar className="h-4 w-4 shrink-0">
-                    <AvatarImage
-                      src={`https://www.google.com/s2/favicons?domain=${
-                        new URL(result.url).hostname
-                      }`}
-                      alt={new URL(result.url).hostname}
-                    />
-                    <AvatarFallback>
-                      {new URL(result.url).hostname[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="text-xs opacity-60 truncate min-w-0">
-                    {displayUrlName(result.url)}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </GuardedExternalLink>
-        </div>
+    <div
+      className="grid grid-cols-1 gap-2 md:grid-cols-3"
+      data-testid="search-results-grid"
+    >
+      {displayedResults.map((result, index) => (
+        <SearchResultSurface key={index} result={result} displayMode="grid" />
       ))}
       {!showAllResults && additionalResultsCount > 0 && (
-        <>
-          <div className="flex justify-center py-1 md:hidden">
-            <Button
-              variant="link"
-              className="h-auto px-2 py-1 text-muted-foreground"
-              onClick={handleViewMore}
-            >
-              View {additionalResultsCount} more
-            </Button>
-          </div>
-          <div className="hidden md:block md:w-1/4 md:p-1">
-            <Card className="flex h-full flex-1 items-center justify-center">
-              <CardContent className="p-2">
-                <Button
-                  variant="link"
-                  className="text-muted-foreground"
-                  onClick={handleViewMore}
-                >
-                  View {additionalResultsCount} more
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </>
+        <Button
+          variant="outline"
+          className="gist-card-surface min-h-24 justify-center border border-dashed px-3 text-sm text-muted-foreground"
+          onClick={handleViewMore}
+        >
+          View {additionalResultsCount} more
+        </Button>
       )}
     </div>
+  )
+}
+
+function SearchResultSurface({
+  result,
+  displayMode
+}: {
+  result: DisplaySearchResult
+  displayMode: 'grid' | 'list'
+}) {
+  const content = (
+    <article
+      className={cn(
+        'gist-card-surface group flex min-w-0 gap-3 border p-3 text-left transition-[background-color,border-color,transform] duration-[140ms] ease-[var(--motion-ease-out)]',
+        'hover:border-[color-mix(in_oklch,var(--indigo)_34%,var(--native-hairline))] hover:bg-[color-mix(in_oklch,var(--indigo)_5%,var(--card))]',
+        'active:scale-[0.99]',
+        displayMode === 'grid'
+          ? 'min-h-32 flex-col justify-between'
+          : 'items-start'
+      )}
+    >
+      <div className="flex min-w-0 items-start gap-2.5">
+        <Avatar className="mt-0.5 size-6 shrink-0 border border-[var(--native-hairline)] bg-background">
+          {result.faviconUrl ? (
+            <AvatarImage src={result.faviconUrl} alt={result.domain} />
+          ) : null}
+          <AvatarFallback className="text-[10px]">
+            {result.hostnameInitial}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1 space-y-1">
+          <h4 className="line-clamp-2 text-sm font-medium leading-snug text-foreground">
+            {result.title}
+          </h4>
+          {displayMode === 'list' && result.content ? (
+            <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+              {result.content}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      <div className="flex min-w-0 items-center justify-between gap-2 text-[11px] text-muted-foreground">
+        <span className="min-w-0 truncate">{result.siteLabel}</span>
+        {result.url ? (
+          <OpenNewWindow className="size-3.5 shrink-0 opacity-50 transition-opacity group-hover:opacity-80" />
+        ) : null}
+      </div>
+    </article>
+  )
+
+  if (!result.url) {
+    return content
+  }
+
+  return (
+    <GuardedExternalLink
+      href={result.url}
+      target="_blank"
+      className="block min-w-0"
+    >
+      {content}
+    </GuardedExternalLink>
   )
 }
