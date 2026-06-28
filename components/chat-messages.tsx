@@ -9,7 +9,7 @@ import type { UIDataTypes, UIMessage, UITools } from '@/lib/types/ai'
 import { cn } from '@/lib/utils'
 import { extractCitationMapsFromMessages } from '@/lib/utils/citation'
 
-import { AnimatedLogo } from './ui/animated-logo'
+import { NativeIcon } from './native/native-icon'
 import { ChatError } from './chat-error'
 import { ChatFooterMessage } from './chat-footer-message'
 import { RenderMessage } from './render-message'
@@ -271,10 +271,12 @@ export function ChatMessages({
             {/* Show assistant logo and footer message after assistant messages */}
             {showAssistantLogo && sectionIndex === sections.length - 1 && (
               <div className="flex items-center gap-3 py-1 md:py-4">
-                <AnimatedLogo
-                  className="size-10 shrink-0"
-                  animate={isLoading}
-                />
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--native-hairline)] bg-card text-[var(--indigo)] shadow-[0_10px_28px_hsl(0_0%_0%_/_0.08)]">
+                  <NativeIcon
+                    name={isLoading ? 'research' : 'checkCircle'}
+                    className="size-5"
+                  />
+                </span>
                 <ChatFooterMessage isLoading={isLoading} />
               </div>
             )}

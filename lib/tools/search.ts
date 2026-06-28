@@ -20,6 +20,7 @@ import {
 import { getBaseUrlString } from '@/lib/utils/url'
 
 import { blendConfiguredFeedResults } from './search/feed-blending'
+import { getSearchProviderFallbackPlan } from './search/provider-fallbacks'
 import {
   createSearchProvider,
   DEFAULT_PROVIDER,
@@ -60,7 +61,7 @@ export function createSearchTool(fullModel: string) {
 
       // Use the original query as is - any provider-specific handling will be done in the provider
       const filledQuery = query
-      let searchResult: SearchResults
+      let searchResult: SearchResults | undefined
 
       // Determine which provider to use based on type
       let searchAPI: SearchProviderType
@@ -112,9 +113,11 @@ export function createSearchTool(fullModel: string) {
         safeSearch: userPrefs.safeSearch as 'off' | 'moderate' | 'strict'
       }
 
-      try {
+      const runProviderSearch = async (
+        providerType: SearchProviderType
+      ): Promise<SearchResults> => {
         if (
-          searchAPI === 'searxng' &&
+          providerType === 'searxng' &&
           effectiveSearchDepthForAPI === 'advanced'
         ) {
           // Get the base URL using the centralized utility function
@@ -136,44 +139,73 @@ export function createSearchTool(fullModel: string) {
               `Advanced search API error: ${response.status} ${response.statusText}`
             )
           }
-          searchResult = await response.json()
-        } else {
-          // Use the provider factory to get the appropriate search provider
-          const searchProvider = createSearchProvider(searchAPI)
+          return response.json()
+        }
 
-          // Pass content_types only for Brave provider
-          if (searchAPI === 'brave') {
-            searchResult = await searchProvider.search(
-              filledQuery,
-              effectiveMaxResults,
-              effectiveSearchDepthForAPI,
-              include_domains,
-              exclude_domains,
-              {
-                type: type as 'general' | 'optimized',
-                content_types: content_types as Array<
-                  'web' | 'video' | 'image' | 'news'
-                >,
-                preferences: searchPreferences
-              }
+        // Use the provider factory to get the appropriate search provider
+        const searchProvider = createSearchProvider(providerType)
+
+        // Pass content_types only for Brave provider
+        if (providerType === 'brave') {
+          return searchProvider.search(
+            filledQuery,
+            effectiveMaxResults,
+            effectiveSearchDepthForAPI,
+            include_domains,
+            exclude_domains,
+            {
+              type: type as 'general' | 'optimized',
+              content_types: content_types as Array<
+                'web' | 'video' | 'image' | 'news'
+              >,
+              preferences: searchPreferences
+            }
+          )
+        }
+
+        return searchProvider.search(
+          filledQuery,
+          effectiveMaxResults,
+          effectiveSearchDepthForAPI,
+          include_domains,
+          exclude_domains,
+          {
+            preferences: searchPreferences
+          }
+        )
+      }
+
+      try {
+        searchResult = await runProviderSearch(searchAPI)
+      } catch (error) {
+        const fallbackProviders = getSearchProviderFallbackPlan(searchAPI)
+        console.error('Search API error:', error)
+
+        let lastError = error
+        for (const fallbackProvider of fallbackProviders) {
+          try {
+            console.warn(
+              `[Search] ${searchAPI} failed; falling back to ${fallbackProvider}.`
             )
-          } else {
-            searchResult = await searchProvider.search(
-              filledQuery,
-              effectiveMaxResults,
-              effectiveSearchDepthForAPI,
-              include_domains,
-              exclude_domains,
-              {
-                preferences: searchPreferences
-              }
+            searchResult = await runProviderSearch(fallbackProvider)
+            searchAPI = fallbackProvider
+            lastError = undefined
+            break
+          } catch (fallbackError) {
+            console.error(
+              `[Search] fallback provider ${fallbackProvider} failed:`,
+              fallbackError
             )
+            lastError = fallbackError
           }
         }
-      } catch (error) {
-        console.error('Search API error:', error)
-        // Re-throw the error to let AI SDK handle it properly
-        throw error instanceof Error ? error : new Error('Unknown search error')
+
+        if (!searchResult) {
+          // Re-throw the error to let AI SDK handle it properly
+          throw lastError instanceof Error
+            ? lastError
+            : new Error('Unknown search error')
+        }
       }
 
       searchResult = await blendConfiguredFeedResults(searchResult, {
