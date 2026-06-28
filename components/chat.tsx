@@ -32,6 +32,8 @@ import { getCookie } from '@/lib/utils/cookies'
 
 import { useFileDropzone } from '@/hooks/use-file-dropzone'
 
+import { NativeIcon } from './native/native-icon'
+import { NativePressable } from './native/native-pressable'
 import { ChatMessages } from './chat-messages'
 import { ChatPanel } from './chat-panel'
 import { DragOverlay } from './drag-overlay'
@@ -42,6 +44,130 @@ interface ChatSection {
   id: string // User message ID
   userMessage: UIMessage
   assistantMessages: UIMessage[]
+}
+
+const homePrompts = [
+  {
+    label: 'Latest',
+    prompt: 'Find me the latest important world news today.',
+    icon: 'latest' as const
+  },
+  {
+    label: 'Research',
+    prompt: 'Research the most important AI developments this week.',
+    icon: 'research' as const
+  },
+  {
+    label: 'Local',
+    prompt: 'Find highly rated coffee shops near me and compare the sources.',
+    icon: 'mapPin' as const
+  }
+]
+
+const briefingItems = [
+  {
+    kicker: 'Source-first',
+    title:
+      'Ask with web, feeds, places, fact checks, and saved sources in play.',
+    meta: 'Adaptive research'
+  },
+  {
+    kicker: 'Library',
+    title: 'Save sources into your reading queue and return to the original.',
+    meta: 'Reader ready'
+  },
+  {
+    kicker: 'Preferences',
+    title: 'Tell gist. which sources to prefer, avoid, trust, or block.',
+    meta: 'Personalized ranking'
+  }
+]
+
+function formatHomeDate() {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric'
+  }).format(new Date())
+}
+
+function HomeBriefing({
+  onSelectPrompt
+}: {
+  onSelectPrompt: (prompt: string) => void
+}) {
+  return (
+    <section className="flex w-full flex-1 items-start justify-center overflow-y-auto px-4 pb-40 pt-6 md:pb-48">
+      <div className="w-full max-w-3xl space-y-6">
+        <div className="space-y-3">
+          <p className="text-xs font-medium uppercase text-muted-foreground">
+            {formatHomeDate()}
+          </p>
+          <h1 className="font-[var(--font-display)] text-5xl font-semibold leading-none text-foreground md:text-6xl">
+            Good evening.
+            <br />
+            Here&apos;s your <span className="text-[var(--indigo)]">gist.</span>
+          </h1>
+          <p className="max-w-2xl text-base leading-7 text-muted-foreground md:text-[17px]">
+            A quieter answer engine for source-backed search, local discovery,
+            feeds, saved reading, and model-routed research.
+          </p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          {homePrompts.map(item => (
+            <NativePressable
+              key={item.label}
+              type="button"
+              className="gist-card-surface flex min-h-28 flex-col justify-between border p-4 text-left"
+              onClick={() => onSelectPrompt(item.prompt)}
+            >
+              <NativeIcon
+                name={item.icon}
+                className="size-5 text-[var(--indigo)]"
+              />
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {item.label}
+                </p>
+                <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                  {item.prompt}
+                </p>
+              </div>
+            </NativePressable>
+          ))}
+        </div>
+
+        <div className="gist-card-surface border p-4 md:p-5">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-xs font-medium uppercase text-muted-foreground">
+              For you
+            </p>
+            <span className="rounded-full border border-[var(--native-hairline)] px-2.5 py-1 text-xs text-muted-foreground">
+              Source-aware
+            </span>
+          </div>
+          <div className="divide-y divide-border/60">
+            {briefingItems.map(item => (
+              <div key={item.title} className="grid gap-2 py-3 md:grid-cols-5">
+                <p className="text-[11px] font-semibold uppercase text-[var(--indigo)] md:col-span-1">
+                  {item.kicker}
+                </p>
+                <div className="md:col-span-4">
+                  <h2 className="font-[var(--font-serif)] text-xl leading-snug text-foreground">
+                    {item.title}
+                  </h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {item.meta}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
 }
 
 export function Chat({
@@ -239,6 +365,21 @@ export function Chat({
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value)
   }
+
+  const submitPrompt = useCallback(
+    (prompt: string) => {
+      if (status === 'submitted' || status === 'streaming') {
+        return
+      }
+
+      safeSendMessage({ role: 'user', parts: [{ type: 'text', text: prompt }] })
+
+      if (!isGuest && window.location.pathname === '/') {
+        window.history.pushState({}, '', `/search/${chatId}`)
+      }
+    },
+    [chatId, isGuest, safeSendMessage, status]
+  )
 
   // Convert messages array to sections array.
   // Deduplicate by message.id — @ai-sdk/react useChat can occasionally
@@ -507,6 +648,9 @@ export function Chat({
         onDragLeave={dragHandlers.handleDragLeave}
         onDrop={dragHandlers.handleDrop}
       >
+        {messages.length === 0 ? (
+          <HomeBriefing onSelectPrompt={submitPrompt} />
+        ) : null}
         <ChatMessages
           sections={sections}
           status={status}
