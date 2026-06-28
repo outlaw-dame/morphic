@@ -1,5 +1,7 @@
+'use client'
+
 import { ChatHistoryClient } from './chat-history-client'
 
-export async function ChatHistorySection() {
+export function ChatHistorySection() {
   return <ChatHistoryClient />
 }

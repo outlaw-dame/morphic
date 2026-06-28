@@ -52,7 +52,8 @@ export function SourceFavicons({
             alt={domain}
             width={16}
             height={16}
-            className="bg-background"
+            className="size-4 bg-background"
+            style={{ width: 16, height: 16 }}
             unoptimized
           />
         </div>

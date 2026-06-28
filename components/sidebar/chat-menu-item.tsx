@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState, useTransition } from 'react'
+import { useCallback, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 
@@ -81,7 +81,7 @@ export function ChatMenuItem({ chat }: ChatMenuItemProps) {
   const path = `/search/${chat.id}`
   const isActive = pathname === path
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+  const [isPending, setIsPending] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAlertOpen, setIsAlertOpen] = useState(false)
 
@@ -91,22 +91,29 @@ export function ChatMenuItem({ chat }: ChatMenuItemProps) {
     setIsAlertOpen(false)
     setIsMenuOpen(false)
 
-    startTransition(async () => {
-      const result = await deleteChat(chat.id)
-
-      if (result?.success) {
-        toast.success('Chat deleted')
-        if (isActive) {
-          router.push('/')
+    setIsPending(true)
+    void deleteChat(chat.id)
+      .then(result => {
+        if (result?.success) {
+          toast.success('Chat deleted')
+          if (isActive) {
+            router.push('/')
+          }
+          window.dispatchEvent(new CustomEvent('chat-history-updated'))
+        } else if (result?.error) {
+          toast.error(result.error)
+        } else {
+          toast.error('An unexpected error occurred while deleting the chat.')
         }
-        window.dispatchEvent(new CustomEvent('chat-history-updated'))
-      } else if (result?.error) {
-        toast.error(result.error)
-      } else {
+      })
+      .catch(() => {
         toast.error('An unexpected error occurred while deleting the chat.')
-      }
-    })
-  }, [chat.id, isActive, router, startTransition])
+      })
+      .finally(() => {
+        setIsPending(false)
+      })
+  }, [chat.id, isActive, router])
+
   const handleMenuOpenChange = useCallback((open: boolean) => {
     setIsMenuOpen(open)
   }, [])

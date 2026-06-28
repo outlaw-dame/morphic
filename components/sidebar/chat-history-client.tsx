@@ -55,8 +55,8 @@ export function ChatHistoryClient() {
 
   useEffect(() => {
     const handleHistoryUpdate = () => {
-      startTransition(async () => {
-        await fetchInitialChats()
+      startTransition(() => {
+        void fetchInitialChats()
       })
     }
     window.addEventListener('chat-history-updated', handleHistoryUpdate)

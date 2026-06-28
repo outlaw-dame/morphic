@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 
 import {
   Emoji as Smile,
@@ -32,7 +32,7 @@ interface FeedbackModalProps {
 export function FeedbackModal({ open, onOpenChange }: FeedbackModalProps) {
   const [sentiment, setSentiment] = useState<Sentiment | null>(null)
   const [message, setMessage] = useState('')
-  const [isPending, startTransition] = useTransition()
+  const [isPending, setIsPending] = useState(false)
 
   const handleSubmit = () => {
     if (!sentiment || !message.trim()) {
@@ -40,23 +40,29 @@ export function FeedbackModal({ open, onOpenChange }: FeedbackModalProps) {
       return
     }
 
-    startTransition(async () => {
-      const result = await submitFeedback({
-        sentiment,
-        message: message.trim(),
-        pageUrl: window.location.href
-      })
-
-      if (result.success) {
-        toast.success('Thank you for your feedback!')
-        // Reset form and close modal
-        setSentiment(null)
-        setMessage('')
-        onOpenChange(false)
-      } else {
-        toast.error('Failed to submit feedback. Please try again later.')
-      }
+    setIsPending(true)
+    void submitFeedback({
+      sentiment,
+      message: message.trim(),
+      pageUrl: window.location.href
     })
+      .then(result => {
+        if (result.success) {
+          toast.success('Thank you for your feedback!')
+          // Reset form and close modal
+          setSentiment(null)
+          setMessage('')
+          onOpenChange(false)
+        } else {
+          toast.error('Failed to submit feedback. Please try again later.')
+        }
+      })
+      .catch(() => {
+        toast.error('Failed to submit feedback. Please try again later.')
+      })
+      .finally(() => {
+        setIsPending(false)
+      })
   }
 
   const handleCancel = () => {

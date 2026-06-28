@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState, useTransition } from 'react'
+import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { MoreHoriz as MoreHorizontal, Trash as Trash2 } from 'iconoir-react'
@@ -33,25 +33,32 @@ interface ClearHistoryActionProps {
 }
 
 export function ClearHistoryAction({ empty }: ClearHistoryActionProps) {
-  const [isPending, startTransition] = useTransition()
+  const [isPending, setIsPending] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAlertOpen, setIsAlertOpen] = useState(false)
   const router = useRouter()
 
   const handleClearAction = useCallback(() => {
-    startTransition(async () => {
-      const res = await clearChats()
-      if (res?.success) {
-        toast.success('History cleared')
-        router.push('/')
-      } else if (res?.error) {
-        toast.error(res.error)
-      }
-      setIsAlertOpen(false)
-      setIsMenuOpen(false)
-      window.dispatchEvent(new CustomEvent('chat-history-updated'))
-    })
-  }, [startTransition, router])
+    setIsPending(true)
+    void clearChats()
+      .then(res => {
+        if (res?.success) {
+          toast.success('History cleared')
+          router.push('/')
+        } else if (res?.error) {
+          toast.error(res.error)
+        }
+      })
+      .catch(() => {
+        toast.error('Failed to clear history.')
+      })
+      .finally(() => {
+        setIsPending(false)
+        setIsAlertOpen(false)
+        setIsMenuOpen(false)
+        window.dispatchEvent(new CustomEvent('chat-history-updated'))
+      })
+  }, [router])
 
   const handleAlertOpenChange = useCallback(
     (open: boolean) => {
