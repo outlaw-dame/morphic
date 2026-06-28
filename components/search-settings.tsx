@@ -169,6 +169,10 @@ export function SearchSettings() {
     try {
       const response = await fetch('/api/source-preferences')
       const data = await response.json()
+      if (response.status === 401 || response.status === 403) {
+        setSourcePreferences([])
+        return
+      }
       if (!response.ok || !data.ok) {
         throw new Error(data.error || 'Unable to load source preferences')
       }
@@ -188,6 +192,10 @@ export function SearchSettings() {
     try {
       const response = await fetch('/api/source-preference-profiles')
       const data = await response.json()
+      if (response.status === 401 || response.status === 403) {
+        setSourcePreferenceProfiles([])
+        return
+      }
       if (!response.ok || !data.ok) {
         throw new Error(data.error || 'Unable to load source profiles')
       }
@@ -484,10 +492,10 @@ export function SearchSettings() {
       <div className="mb-8 space-y-3">
         <Link
           href="/"
-          className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="mb-4 inline-flex size-11 items-center justify-center rounded-full border border-[var(--native-hairline)] bg-background/80 text-muted-foreground shadow-[0_8px_24px_hsl(0_0%_0%_/_0.08)] transition-colors hover:text-foreground"
+          aria-label="Back to search"
         >
-          <IconArrowLeft className="size-4" />
-          Back to search
+          <IconArrowLeft className="size-5" />
         </Link>
         <p className="text-xs font-medium uppercase text-muted-foreground">
           Personal controls
@@ -504,7 +512,7 @@ export function SearchSettings() {
       <div className="flex flex-col gap-6">
         {/* ── Language ───────────────────────────────────────────────── */}
         <div className="gist-card-surface border p-5">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
             <div className="flex gap-3">
               <div className="gist-icon-tile mt-0.5 rounded-lg p-2">
                 <IconLanguage className="size-5" />
@@ -522,7 +530,7 @@ export function SearchSettings() {
               value={preferences.language}
               onValueChange={v => update('language', v, 'Language')}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -538,7 +546,7 @@ export function SearchSettings() {
 
         {/* ── Region ────────────────────────────────────────────────── */}
         <div className="gist-card-surface border p-5">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
             <div className="flex gap-3">
               <div className="gist-icon-tile mt-0.5 rounded-lg p-2">
                 <IconMapPin className="size-5" />
@@ -554,7 +562,7 @@ export function SearchSettings() {
               value={preferences.region}
               onValueChange={v => update('region', v, 'Region')}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -578,7 +586,7 @@ export function SearchSettings() {
 
         {/* ── Safe Search ───────────────────────────────────────────── */}
         <div className="gist-card-surface border p-5">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
             <div className="flex gap-3">
               <div className="gist-icon-tile mt-0.5 rounded-lg p-2">
                 <IconFilter className="size-5" />
@@ -602,7 +610,7 @@ export function SearchSettings() {
                 )
               }
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

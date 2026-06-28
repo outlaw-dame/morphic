@@ -45,25 +45,25 @@ export function ErrorModal({
   const getErrorIcon = () => {
     switch (error.type) {
       case 'rate-limit':
-        return <Clock className="size-6 text-yellow-500" />
+        return <Clock className="size-6 text-[var(--indigo)]" />
       case 'auth':
       case 'forbidden':
-        return <AlertCircle className="size-6 text-red-500" />
+        return <AlertCircle className="size-6 text-destructive" />
       default:
-        return <AlertCircle className="size-6 text-orange-500" />
+        return <AlertCircle className="size-6 text-[var(--indigo)]" />
     }
   }
 
   const getErrorTitle = () => {
     switch (error.type) {
       case 'rate-limit':
-        return 'Rate Limit Exceeded'
+        return 'Rate limit exceeded'
       case 'auth':
-        return 'Continue with Morphic'
+        return 'Continue with gist.'
       case 'forbidden':
-        return 'Access Denied'
+        return 'Access denied'
       default:
-        return 'Error Occurred'
+        return 'Error occurred'
     }
   }
 
@@ -77,7 +77,7 @@ export function ErrorModal({
       case 'auth':
         return (
           error.message ||
-          'To use Morphic, sign in to your account or create a new one.'
+          'To use gist., sign in to your account or create a new one.'
         )
       case 'forbidden':
         return 'You do not have permission to access this resource.'
@@ -108,17 +108,17 @@ export function ErrorModal({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
+          <div className="gist-icon-tile mx-auto mb-4 flex size-14 items-center justify-center rounded-full">
             {getErrorIcon()}
           </div>
-          <DialogTitle className="text-center text-xl font-semibold">
+          <DialogTitle className="text-center font-[var(--font-display)] text-2xl font-semibold leading-tight">
             {getErrorTitle()}
           </DialogTitle>
           <DialogDescription className="text-center text-muted-foreground">
             {getErrorDescription()}
           </DialogDescription>
           {getErrorDetails() && (
-            <div className="mt-4 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+            <div className="mt-4 rounded-[var(--native-radius-control)] border border-[var(--native-hairline)] bg-muted/50 p-3 text-sm text-muted-foreground">
               {getErrorDetails()}
             </div>
           )}
@@ -127,10 +127,10 @@ export function ErrorModal({
           {error.type === 'auth' ? (
             <>
               <Button asChild className="w-full">
-                <Link href="/auth/sign-up">Sign Up</Link>
+                <Link href="/auth/sign-up">Sign up</Link>
               </Button>
               <Button asChild variant="outline" className="w-full">
-                <Link href="/auth/login">Sign In</Link>
+                <Link href="/auth/login">Sign in</Link>
               </Button>
             </>
           ) : (

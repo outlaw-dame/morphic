@@ -69,13 +69,16 @@ export function FeedbackModal({ open, onOpenChange }: FeedbackModalProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
-          <DialogTitle>Give feedback</DialogTitle>
+          <DialogTitle className="font-[var(--font-display)] text-2xl font-semibold">
+            Give feedback
+          </DialogTitle>
           <DialogDescription>
-            Your feedback helps us improve Morphic. Let us know what you think!
+            Your feedback helps improve gist. Tell us what felt useful, unclear,
+            or missing.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 mt-4">
+        <div className="mt-4 space-y-4">
           <div className="flex gap-2">
             <Button
               type="button"
@@ -83,8 +86,9 @@ export function FeedbackModal({ open, onOpenChange }: FeedbackModalProps) {
               size="icon"
               onClick={() => setSentiment('positive')}
               className={cn(
-                'size-12',
-                sentiment === 'positive' && 'bg-green-500 hover:bg-green-600'
+                'size-12 rounded-full',
+                sentiment === 'positive' &&
+                  'bg-[var(--indigo)] hover:bg-[var(--indigo)]'
               )}
             >
               <Smile className="size-6" />
@@ -95,8 +99,9 @@ export function FeedbackModal({ open, onOpenChange }: FeedbackModalProps) {
               size="icon"
               onClick={() => setSentiment('neutral')}
               className={cn(
-                'size-12',
-                sentiment === 'neutral' && 'bg-yellow-500 hover:bg-yellow-600'
+                'size-12 rounded-full',
+                sentiment === 'neutral' &&
+                  'bg-[var(--indigo)] hover:bg-[var(--indigo)]'
               )}
             >
               <Meh className="size-6" />
@@ -107,8 +112,9 @@ export function FeedbackModal({ open, onOpenChange }: FeedbackModalProps) {
               size="icon"
               onClick={() => setSentiment('negative')}
               className={cn(
-                'size-12',
-                sentiment === 'negative' && 'bg-red-500 hover:bg-red-600'
+                'size-12 rounded-full',
+                sentiment === 'negative' &&
+                  'bg-[var(--indigo)] hover:bg-[var(--indigo)]'
               )}
             >
               <Frown className="size-6" />
@@ -119,7 +125,7 @@ export function FeedbackModal({ open, onOpenChange }: FeedbackModalProps) {
             placeholder="Your feedback"
             value={message}
             onChange={e => setMessage(e.target.value)}
-            className="min-h-[150px] resize-none"
+            className="min-h-[150px] resize-none rounded-[var(--native-radius-control)] border-[var(--native-hairline)] bg-background/70"
           />
 
           <div className="flex justify-end gap-2">

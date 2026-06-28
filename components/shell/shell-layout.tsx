@@ -49,13 +49,13 @@ export function ShellLayout({
 
   // Derive page title from route
   const getTitle = () => {
-    if (pathname === '/') return 'Morphic'
+    if (pathname === '/') return 'gist.'
     if (pathname.startsWith('/search')) return 'Search'
     if (pathname.startsWith('/discovery')) return 'Discover'
     if (pathname.startsWith('/library')) return 'Library'
-    if (pathname.startsWith('/settings')) return 'Settings'
+    if (pathname.startsWith('/settings')) return 'gist.'
     if (pathname.startsWith('/reader')) return 'Reader'
-    return 'Morphic'
+    return 'gist.'
   }
 
   const scrollToTop = useCallback(() => {

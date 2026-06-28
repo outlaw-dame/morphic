@@ -64,25 +64,6 @@ const homePrompts = [
   }
 ]
 
-const briefingItems = [
-  {
-    kicker: 'Source-first',
-    title:
-      'Ask with web, feeds, places, fact checks, and saved sources in play.',
-    meta: 'Adaptive research'
-  },
-  {
-    kicker: 'Library',
-    title: 'Save sources into your reading queue and return to the original.',
-    meta: 'Reader ready'
-  },
-  {
-    kicker: 'Preferences',
-    title: 'Tell gist. which sources to prefer, avoid, trust, or block.',
-    meta: 'Personalized ranking'
-  }
-]
-
 function formatHomeDate() {
   return new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
@@ -115,11 +96,14 @@ function HomeBriefing({
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
-          {homePrompts.map(item => (
+          {homePrompts.map((item, index) => (
             <NativePressable
               key={item.label}
               type="button"
-              className="gist-card-surface flex min-h-28 flex-col justify-between border p-4 text-left"
+              className={cn(
+                'gist-card-surface min-h-28 flex-col justify-between border p-4 text-left md:flex',
+                index === 0 ? 'flex' : 'hidden'
+              )}
               onClick={() => onSelectPrompt(item.prompt)}
             >
               <NativeIcon
@@ -136,34 +120,6 @@ function HomeBriefing({
               </div>
             </NativePressable>
           ))}
-        </div>
-
-        <div className="gist-card-surface border p-4 md:p-5">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <p className="text-xs font-medium uppercase text-muted-foreground">
-              For you
-            </p>
-            <span className="rounded-full border border-[var(--native-hairline)] px-2.5 py-1 text-xs text-muted-foreground">
-              Source-aware
-            </span>
-          </div>
-          <div className="divide-y divide-border/60">
-            {briefingItems.map(item => (
-              <div key={item.title} className="grid gap-2 py-3 md:grid-cols-5">
-                <p className="text-[11px] font-semibold uppercase text-[var(--indigo)] md:col-span-1">
-                  {item.kicker}
-                </p>
-                <div className="md:col-span-4">
-                  <h2 className="font-[var(--font-serif)] text-xl leading-snug text-foreground">
-                    {item.title}
-                  </h2>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {item.meta}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </section>
