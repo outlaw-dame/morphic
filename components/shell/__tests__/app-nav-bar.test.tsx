@@ -114,6 +114,19 @@ describe('AppNavBar', () => {
     expect(backButton).toBeInTheDocument()
   })
 
+  it('renders a custom leading action instead of the back button', () => {
+    render(
+      <AppNavBar
+        title="Library"
+        showBack
+        leadingAction={<button aria-label="Toggle Sidebar">Menu</button>}
+      />
+    )
+
+    expect(screen.getByLabelText('Toggle Sidebar')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Go back')).toBeNull()
+  })
+
   it('does not render back button when showBack is false', () => {
     render(<AppNavBar title="Home" showBack={false} />)
 

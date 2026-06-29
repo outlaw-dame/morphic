@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation'
 
 import { User } from '@supabase/supabase-js'
 
+import { SidebarTrigger } from '@/components/ui/sidebar'
+
 import { FeedbackModal } from '@/components/feedback-modal'
 import GuestMenu from '@/components/guest-menu'
 import UserMenu from '@/components/user-menu'
@@ -82,6 +84,11 @@ export function ShellLayout({
         )
       ]
 
+  const leadingAction =
+    showSidebar && !isAuthPage ? (
+      <SidebarTrigger className="gist-icon-button size-10 animate-fade-in" />
+    ) : undefined
+
   return (
     <>
       <div className="flex flex-1 min-w-0">
@@ -94,6 +101,7 @@ export function ShellLayout({
           navBar={
             <AppNavBar
               title={getTitle()}
+              leadingAction={leadingAction}
               showBack={showBack}
               trailingActions={trailingActions}
               scrollOffset={scrollOffset}
