@@ -17,6 +17,7 @@ This audit maps the supplied Gist Design System package to Morphic's current pro
 - Navigation: home, search, discovery, library, and settings tabs are preserved.
 - Auth flows: login, sign-up, password reset, confirmation, and auth error states now use the Gist auth shell, material cards, sentence-case copy, focused auth chrome, and mobile-safe layout.
 - Composer controls: the live search composer, model selector, Quick/Adaptive selector, submit/stop control, and prompt action chips now use Gist material surfaces while preserving upload, model-cookie, guest-mode, and adaptive-mode behavior.
+- Library route: saved-source status filters, signed-out state, empty state, reader/original actions, source thumbnails, and source metadata now use the Gist reading-queue layout while preserving account scoping and saved-source routes.
 
 ## Present In Product, Needs Deeper Design-System Coverage
 
@@ -24,7 +25,7 @@ This audit maps the supplied Gist Design System package to Morphic's current pro
 - Evidence panel and claim verification: evidence components exist, including fact-checking support, but the design package only sketches the concept. It needs a first-class claim drawer, status language, and citation-to-claim interaction model.
 - Source comparison and disagreement: the product has source normalization and source cards, but no finished disagreement/comparison card pattern.
 - Rich source metadata and feedback: source cards carry metadata and actions, but trust metrics, per-citation feedback, and source-quality badges need a unified visual language.
-- Library and reading queue: library routes exist, but the design package only partially covers saved sources, read state, collections, and offline/queue states.
+- Library and reading queue: saved sources and status filters now use the Gist route language, but collections, offline states, and richer queue management are still not complete.
 - Feeds, podcasts, and followed sources: feed/podcast tools exist, but the design system needs follow management, transcript snippets, and audio timestamp playback states.
 - Search modes and action categories: quick/adaptive modes exist, but the design package needs the complete mode selector, category chips, and signed-out gating states.
 - Research process trace: tool progress exists, but the design package needs an explicit multi-agent/process trace pattern.
