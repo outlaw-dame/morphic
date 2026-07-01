@@ -93,6 +93,16 @@ repairer?: ModelRole
 
 This keeps the Repair Agent routable and prevents implementers from wiring a prompt that the model selection schema cannot represent.
 
+## PR #33 review alignment notes
+
+The integration phases document is the canonical implementation sequence. The shorter roadmap in `AI_ARCHITECTURE.md` is only a high-level architecture summary and must not be used as the phase-number source of truth. When implementation work is planned, use `AI_ARCHITECTURE_INTEGRATION_PHASES.md` phase IDs, not the abbreviated roadmap labels in `AI_ARCHITECTURE.md`.
+
+`ModelRole` must be included in Phase AI-2 shared schemas because it is required by `RoutePlan.modelAssignments`. Implementers should place it in the route schema module with `ResearchMode`, `RiskLevel`, and `RoutePlan`.
+
+Phase AI-6 must refactor existing Wikidata and DBpedia lookup logic from `lib/entities/knowledge-graph.ts` into dedicated modules such as `wikidata-client.ts` and `dbpedia-client.ts`; it should not rebuild those clients from scratch unless the existing implementation is proven inadequate.
+
+Phase AI-12 must start from the existing `lib/claims/evidence-verification.ts` implementation, including its claim extraction, cited-source resolution, evidence classification, and answer-claim verification behavior. The phase should refactor, extend, or migrate that implementation into the new architecture instead of creating duplicate greenfield verification modules.
+
 ## Implementation reminder
 
 Phase AI-2 in the integration phases document should create the canonical schemas before Router, Coordinator, Advisor, Verifier, or Repair Agent logic is implemented.
