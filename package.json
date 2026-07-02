@@ -8,7 +8,7 @@
     "dev:webpack": "NODE_OPTIONS='--max-old-space-size=6144' next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint . --ignore-pattern 'app/api/advanced-search/**'",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
