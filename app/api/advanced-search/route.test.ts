@@ -1,6 +1,35 @@
 import { describe, expect, it } from 'vitest'
 
-import { createAdvancedSearchCacheKey } from './route'
+import {
+  createAdvancedSearchCacheKey,
+  matchesDomain,
+  safeParseInt
+} from './route'
+
+describe('safeParseInt', () => {
+  it('falls back for empty or invalid numeric environment values', () => {
+    expect(safeParseInt(undefined, 15_000)).toBe(15_000)
+    expect(safeParseInt('', 15_000)).toBe(15_000)
+    expect(safeParseInt('not-a-number', 15_000)).toBe(15_000)
+  })
+
+  it('returns parsed integer values when valid', () => {
+    expect(safeParseInt('25000', 15_000)).toBe(25_000)
+  })
+})
+
+describe('matchesDomain', () => {
+  it('matches exact domains and subdomains only', () => {
+    expect(matchesDomain('example.com', 'example.com')).toBe(true)
+    expect(matchesDomain('news.example.com', 'example.com')).toBe(true)
+    expect(matchesDomain('notexample.com', 'example.com')).toBe(false)
+  })
+
+  it('does not substring-match unrelated domains', () => {
+    expect(matchesDomain('google.com', 'co')).toBe(false)
+    expect(matchesDomain('company.example', 'co')).toBe(false)
+  })
+})
 
 describe('createAdvancedSearchCacheKey', () => {
   it('does not include raw query or domain values in the cache key', () => {
