@@ -1,10 +1,8 @@
-import { NextResponse } from 'next/server'
+import crypto from 'node:crypto'
 
 import { Redis } from '@upstash/redis'
-import http from 'http'
-import { Agent } from 'http'
-import https from 'https'
 import { JSDOM, VirtualConsole } from 'jsdom'
+import { NextResponse } from 'next/server'
 import { createClient } from 'redis'
 
 import {
@@ -13,6 +11,7 @@ import {
   SearXNGResult,
   SearXNGSearchResults
 } from '@/lib/types'
+import { readResponseWithLimit, safeFetch } from '@/lib/utils/ssrf-guard'
 
 /**
  * Maximum number of results to fetch from SearXNG.
@@ -25,7 +24,18 @@ const SEARXNG_MAX_RESULTS = Math.max(
 )
 
 const CACHE_TTL = 3600 // Cache time-to-live in seconds (1 hour)
-const CACHE_EXPIRATION_CHECK_INTERVAL = 3600000 // 1 hour in milliseconds
+const SEARXNG_RESPONSE_MAX_BYTES = parseInt(
+  process.env.SEARXNG_RESPONSE_MAX_BYTES || '2097152',
+  10
+)
+const CRAWL_RESPONSE_MAX_BYTES = parseInt(
+  process.env.ADVANCED_SEARCH_CRAWL_MAX_BYTES || '1048576',
+  10
+)
+const CRAWL_MAX_REDIRECTS = parseInt(
+  process.env.ADVANCED_SEARCH_CRAWL_MAX_REDIRECTS || '3',
+  10
+)
 
 let redisClient: Redis | ReturnType<typeof createClient> | null = null
 
@@ -47,8 +57,7 @@ async function initializeRedisClient() {
 
   // Otherwise, try to use local Redis (for Docker/SearXNG usage)
   try {
-    const localRedisUrl =
-      process.env.LOCAL_REDIS_URL || 'redis://localhost:6379'
+    const localRedisUrl = process.env.LOCAL_REDIS_URL || 'redis://localhost:6379'
     const client = createClient({ url: localRedisUrl })
     await client.connect()
     redisClient = client
@@ -61,6 +70,32 @@ async function initializeRedisClient() {
   }
 
   return redisClient
+}
+
+function buildCacheKey(params: {
+  query: string
+  maxResults: number
+  searchDepth: string
+  includeDomains: string[]
+  excludeDomains: string[]
+}): string {
+  const normalized = {
+    query: params.query,
+    maxResults: params.maxResults,
+    searchDepth: params.searchDepth,
+    includeDomains: [...params.includeDomains].sort(),
+    excludeDomains: [...params.excludeDomains].sort()
+  }
+  const digest = crypto
+    .createHash('sha256')
+    .update(JSON.stringify(normalized))
+    .digest('hex')
+  return `search:${digest}`
+}
+
+function sanitizeError(error: unknown): string {
+  if (error instanceof Error) return error.message
+  return String(error)
 }
 
 // Function to get cached results
@@ -112,38 +147,43 @@ async function setCachedResults(
   }
 }
 
-// Function to periodically clean up expired cache entries
-async function cleanupExpiredCache() {
-  try {
-    const client = await initializeRedisClient()
-    if (!client) return
-
-    const keys = await client.keys('search:*')
-    for (const key of keys) {
-      const ttl = await client.ttl(key)
-      if (ttl <= 0) {
-        await client.del(key)
-        console.log(`Removed expired cache entry: ${key}`)
-      }
-    }
-  } catch (error) {
-    console.error('Cache cleanup error:', error)
-  }
-}
-
-// Set up periodic cache cleanup
-setInterval(cleanupExpiredCache, CACHE_EXPIRATION_CHECK_INTERVAL)
-
 export async function POST(request: Request) {
-  const { query, maxResults, searchDepth, includeDomains, excludeDomains } =
-    await request.json()
-
-  const SEARXNG_DEFAULT_DEPTH = process.env.SEARXNG_DEFAULT_DEPTH || 'basic'
+  let query = ''
 
   try {
-    const cacheKey = `search:${query}:${maxResults}:${searchDepth}:${
-      Array.isArray(includeDomains) ? includeDomains.join(',') : ''
-    }:${Array.isArray(excludeDomains) ? excludeDomains.join(',') : ''}`
+    const body = await request.json()
+    query = typeof body.query === 'string' ? body.query.trim() : ''
+    if (!query) {
+      return NextResponse.json(
+        {
+          message: 'Query is required',
+          results: [],
+          images: [],
+          number_of_results: 0
+        },
+        { status: 400 }
+      )
+    }
+
+    const SEARXNG_DEFAULT_DEPTH = process.env.SEARXNG_DEFAULT_DEPTH || 'basic'
+    const maxResults = Number.isFinite(Number(body.maxResults))
+      ? Math.min(Math.max(Number(body.maxResults), 1), SEARXNG_MAX_RESULTS)
+      : 10
+    const searchDepth = body.searchDepth || SEARXNG_DEFAULT_DEPTH
+    const includeDomains = Array.isArray(body.includeDomains)
+      ? body.includeDomains.filter((domain: unknown): domain is string => typeof domain === 'string')
+      : []
+    const excludeDomains = Array.isArray(body.excludeDomains)
+      ? body.excludeDomains.filter((domain: unknown): domain is string => typeof domain === 'string')
+      : []
+
+    const cacheKey = buildCacheKey({
+      query,
+      maxResults,
+      searchDepth,
+      includeDomains,
+      excludeDomains
+    })
 
     // Try to get cached results
     const cachedResults = await getCachedResults(cacheKey)
@@ -154,10 +194,10 @@ export async function POST(request: Request) {
     // If not cached, perform the search
     const results = await advancedSearchXNGSearch(
       query,
-      Math.min(maxResults, SEARXNG_MAX_RESULTS),
-      searchDepth || SEARXNG_DEFAULT_DEPTH,
-      Array.isArray(includeDomains) ? includeDomains : [],
-      Array.isArray(excludeDomains) ? excludeDomains : []
+      maxResults,
+      searchDepth,
+      includeDomains,
+      excludeDomains
     )
 
     // Cache the results
@@ -169,8 +209,8 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         message: 'Internal Server Error',
-        error: error instanceof Error ? error.message : String(error),
-        query: query,
+        error: sanitizeError(error),
+        query,
         results: [],
         images: [],
         number_of_results: 0
@@ -219,8 +259,6 @@ async function advancedSearchXNGSearch(
     const pageno = Math.ceil(maxResults / resultsPerPage)
     url.searchParams.append('pageno', String(pageno))
 
-    //console.log('SearXNG API URL:', url.toString()) // Log the full URL for debugging
-
     const data:
       | SearXNGResponse
       | { error: string; status: number; data: string } =
@@ -245,13 +283,17 @@ async function advancedSearchXNGSearch(
     // Apply domain filtering manually
     if (includeDomains.length > 0 || excludeDomains.length > 0) {
       generalResults = generalResults.filter(result => {
-        const domain = new URL(result.url).hostname
-        return (
-          (includeDomains.length === 0 ||
-            includeDomains.some(d => domain.includes(d))) &&
-          (excludeDomains.length === 0 ||
-            !excludeDomains.some(d => domain.includes(d)))
-        )
+        try {
+          const domain = new URL(result.url).hostname
+          return (
+            (includeDomains.length === 0 ||
+              includeDomains.some(d => domain.includes(d))) &&
+            (excludeDomains.length === 0 ||
+              !excludeDomains.some(d => domain.includes(d)))
+          )
+        } catch {
+          return false
+        }
       })
     }
 
@@ -324,7 +366,6 @@ async function crawlPage(
 
     const dom = new JSDOM(html, {
       runScripts: 'outside-only',
-      resources: 'usable',
       virtualConsole
     })
     const document = dom.window.document
@@ -368,13 +409,11 @@ async function crawlPage(
           .querySelector('meta[name="description"]')
           ?.getAttribute('content') || ''
       const metaKeywords =
-        document
-          .querySelector('meta[name="keywords"]')
-          ?.getAttribute('content') || ''
+        document.querySelector('meta[name="keywords"]')?.getAttribute('content') ||
+        ''
       const ogTitle =
-        document
-          .querySelector('meta[property="og:title"]')
-          ?.getAttribute('content') || ''
+        document.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
+        ''
       const ogDescription =
         document
           .querySelector('meta[property="og:description"]')
@@ -426,7 +465,6 @@ function highlightQueryTerms(content: string, query: string): string {
 
     return highlightedContent
   } catch (error) {
-    //console.error('Error in highlightQueryTerms:', error)
     return content // Return original content if highlighting fails
   }
 }
@@ -495,7 +533,6 @@ function calculateRelevanceScore(result: SearXNGResult, query: string): number {
 
     return score
   } catch (error) {
-    //console.error('Error in calculateRelevanceScore:', error)
     return 0 // Return 0 if scoring fails
   }
 }
@@ -529,13 +566,6 @@ function extractPublicationDate(document: Document): Date | null {
   return null
 }
 
-const httpAgent = new http.Agent({ keepAlive: true })
-const httpsAgent = new https.Agent({
-  keepAlive: true,
-  rejectUnauthorized: true // change to false if you want to ignore SSL certificate errors
-  //but use this with caution.
-})
-
 async function fetchJsonWithRetry(url: string, retries: number): Promise<any> {
   for (let i = 0; i < retries; i++) {
     try {
@@ -547,100 +577,68 @@ async function fetchJsonWithRetry(url: string, retries: number): Promise<any> {
   }
 }
 
-function fetchJson(url: string): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const protocol = url.startsWith('https:') ? https : http
-    const agent = url.startsWith('https:') ? httpsAgent : httpAgent
-    const request = protocol.get(url, { agent }, res => {
-      let data = ''
-      res.on('data', chunk => {
-        data += chunk
-      })
-      res.on('end', () => {
-        try {
-          // Check if the response is JSON
-          if (res.headers['content-type']?.includes('application/json')) {
-            resolve(JSON.parse(data))
-          } else {
-            // If not JSON, return an object with the raw data and status
-            resolve({
-              error: 'Invalid JSON response',
-              status: res.statusCode,
-              data: data.substring(0, 200) // Include first 200 characters of the response
-            })
-          }
-        } catch (e) {
-          reject(e)
-        }
-      })
+async function fetchJson(url: string): Promise<any> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        accept: 'application/json'
+      },
+      signal: controller.signal
     })
-    request.on('error', reject)
-    request.on('timeout', () => {
-      request.destroy()
-      reject(new Error('Request timed out'))
-    })
-    request.setTimeout(15000) // 15 second timeout
-  })
+    const data = await readResponseWithLimit(response, SEARXNG_RESPONSE_MAX_BYTES)
+
+    // Check if the response is JSON
+    if (response.headers.get('content-type')?.includes('application/json')) {
+      return JSON.parse(data)
+    }
+
+    // If not JSON, return an object with the raw data and status
+    return {
+      error: 'Invalid JSON response',
+      status: response.status,
+      data: data.substring(0, 200)
+    }
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
 async function fetchHtmlWithTimeout(
   url: string,
   timeoutMs: number
 ): Promise<string> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
   try {
-    return await Promise.race([
-      fetchHtml(url),
-      timeout(timeoutMs, `Fetching ${url} timed out after ${timeoutMs}ms`)
-    ])
+    const response = await safeFetch(url, {
+      headers: {
+        accept: 'text/html,text/plain;q=0.9,*/*;q=0.1',
+        'user-agent': 'MorphicAdvancedSearch/1.0'
+      },
+      maxRedirects: CRAWL_MAX_REDIRECTS,
+      maxResponseBytes: CRAWL_RESPONSE_MAX_BYTES,
+      signal: controller.signal
+    })
+    const contentType = response.headers.get('content-type') || ''
+    if (
+      contentType &&
+      !contentType.includes('text/html') &&
+      !contentType.includes('text/plain')
+    ) {
+      throw new Error(`Unsupported content type: ${contentType}`)
+    }
+    return await readResponseWithLimit(response, CRAWL_RESPONSE_MAX_BYTES)
   } catch (error) {
     console.error(`Error fetching ${url}:`, error)
     const errorMessage = error instanceof Error ? error.message : String(error)
     return `<html><body>Error fetching content: ${errorMessage}</body></html>`
+  } finally {
+    clearTimeout(timeoutId)
   }
-}
-
-function fetchHtml(url: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const protocol = url.startsWith('https:') ? https : http
-    const agent = url.startsWith('https:') ? httpsAgent : httpAgent
-    const request = protocol.get(url, { agent }, res => {
-      if (
-        res.statusCode &&
-        res.statusCode >= 300 &&
-        res.statusCode < 400 &&
-        res.headers.location
-      ) {
-        // Handle redirects
-        fetchHtml(new URL(res.headers.location, url).toString())
-          .then(resolve)
-          .catch(reject)
-        return
-      }
-      let data = ''
-      res.on('data', chunk => {
-        data += chunk
-      })
-      res.on('end', () => resolve(data))
-    })
-    request.on('error', error => {
-      //console.error(`Error fetching ${url}:`, error)
-      reject(error)
-    })
-    request.on('timeout', () => {
-      request.destroy()
-      //reject(new Error(`Request timed out for ${url}`))
-      resolve('')
-    })
-    request.setTimeout(10000) // 10 second timeout
-  })
-}
-
-function timeout(ms: number, message: string): Promise<never> {
-  return new Promise((_, reject) => {
-    setTimeout(() => {
-      reject(new Error(message))
-    }, ms)
-  })
 }
 
 function isQualityContent(text: string): boolean {
