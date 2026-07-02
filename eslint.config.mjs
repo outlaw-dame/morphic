@@ -21,6 +21,9 @@ const importSortGroups = [
 ]
 
 export default defineConfig([
+  {
+    ignores: ['app/api/advanced-search/**']
+  },
   ...nextVitals,
   {
     plugins: {
@@ -53,7 +56,6 @@ export default defineConfig([
     'out/**',
     'build/**',
     'next-env.d.ts',
-    'app/api/advanced-search/*.ts',
     // Project tooling config; Prettier reads this directly, ESLint does not need to lint it.
     'prettier.config.js'
   ])
