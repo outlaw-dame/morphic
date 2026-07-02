@@ -14,10 +14,7 @@ import {
 } from '@/lib/types'
 import { readResponseWithLimit, safeFetch } from '@/lib/utils/ssrf-guard'
 
-export function safeParseInt(
-  value: string | undefined,
-  defaultValue: number
-): number {
+export function safeParseInt(value: string | undefined, defaultValue: number) {
   if (!value) return defaultValue
   const parsed = Number.parseInt(value, 10)
   return Number.isNaN(parsed) ? defaultValue : parsed
@@ -198,7 +195,10 @@ export async function POST(request: Request) {
       )
     }
 
-    const requestedMaxResults = Number.parseInt(String(body.maxResults ?? 10), 10)
+    const requestedMaxResults = Number.parseInt(
+      String(body.maxResults ?? 10),
+      10
+    )
     const maxResults = Math.min(
       Number.isFinite(requestedMaxResults) ? requestedMaxResults : 10,
       SEARXNG_MAX_RESULTS
