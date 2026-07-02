@@ -4,6 +4,12 @@ This document defines the target architecture for Morphic's AI search and answer
 
 The goal is to evolve Morphic from "LLM + search results + citations" into a router-led, coordinator-supervised, evidence-native answer engine.
 
+Companion documents:
+
+- [AI Architecture Gap Audit](./AI_ARCHITECTURE_GAP_AUDIT.md)
+- [AI Role Prompts](./AI_ROLE_PROMPTS.md)
+- [AI Architecture Integration Phases](./AI_ARCHITECTURE_INTEGRATION_PHASES.md)
+
 ## Goals
 
 Morphic should optimize for:
@@ -756,6 +762,8 @@ Router
 ```
 
 ## Implementation roadmap
+
+The implementation sequence and monorepo/library extraction criteria are defined in [AI Architecture Integration Phases](./AI_ARCHITECTURE_INTEGRATION_PHASES.md). The summary below remains as the architectural roadmap.
 
 ### AI-1: Safety hardening
 

@@ -38,3 +38,6 @@ temp/
 
 # Database
 lib/db/migrations/
+
+# Architecture docs
+docs/AI_*.md
