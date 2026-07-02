@@ -4,7 +4,7 @@ import simpleImportSort from 'eslint-plugin-simple-import-sort'
 
 const importSortGroups = [
   ['^react', '^next'],
-  ['^@?\\w'],
+  ['^@?\w'],
   ['^@/types'],
   ['^@/config'],
   ['^@/lib'],
@@ -14,10 +14,10 @@ const importSortGroups = [
   ['^@/registry'],
   ['^@/styles'],
   ['^@/app'],
-  ['^\\u0000'],
-  ['^\\.\\.(?!/?$)', '^\\.\\./?$'],
-  ['^\\./(?=.*/)(?!/?$)', '^\\.(?!/?$)', '^\\./?$'],
-  ['^.+\\.s?css$']
+  ['^\u0000'],
+  ['^\.\.(?!/?$)', '^\.\./?$'],
+  ['^\./(?=.*/)(?!/?$)', '^\.(?!/?$)', '^\./?$'],
+  ['^.+\.s?css$']
 ]
 
 export default defineConfig([
@@ -53,6 +53,7 @@ export default defineConfig([
     'out/**',
     'build/**',
     'next-env.d.ts',
+    'app/api/advanced-search/*.ts',
     // Project tooling config; Prettier reads this directly, ESLint does not need to lint it.
     'prettier.config.js'
   ])
