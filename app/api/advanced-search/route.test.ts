@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  createAdvancedSearchCacheKey,
-  matchesDomain,
-  safeParseInt
-} from './route'
+import { createAdvancedSearchCacheKey, matchesDomain, safeParseInt } from './route'
 
 describe('safeParseInt', () => {
   it('falls back for empty or invalid numeric environment values', () => {
