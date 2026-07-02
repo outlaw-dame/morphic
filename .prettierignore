@@ -41,3 +41,5 @@ lib/db/migrations/
 
 # Architecture docs
 docs/AI_*.md
+
+app/api/advanced-search/*.ts
