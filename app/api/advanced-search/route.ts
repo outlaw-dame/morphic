@@ -14,6 +14,15 @@ import {
 } from '@/lib/types'
 import { readResponseWithLimit, safeFetch } from '@/lib/utils/ssrf-guard'
 
+export function safeParseInt(
+  value: string | undefined,
+  defaultValue: number
+): number {
+  if (!value) return defaultValue
+  const parsed = Number.parseInt(value, 10)
+  return Number.isNaN(parsed) ? defaultValue : parsed
+}
+
 /**
  * Maximum number of results to fetch from SearXNG.
  * Increasing this value can improve result quality but may impact performance.
@@ -21,29 +30,29 @@ import { readResponseWithLimit, safeFetch } from '@/lib/utils/ssrf-guard'
  */
 const SEARXNG_MAX_RESULTS = Math.max(
   10,
-  Math.min(100, parseInt(process.env.SEARXNG_MAX_RESULTS || '50', 10))
+  Math.min(100, safeParseInt(process.env.SEARXNG_MAX_RESULTS, 50))
 )
 
 const CACHE_TTL = 3600 // Cache time-to-live in seconds (1 hour)
 const SEARXNG_JSON_MAX_BYTES = Math.max(
   100_000,
-  parseInt(process.env.SEARXNG_JSON_MAX_BYTES || '1000000', 10)
+  safeParseInt(process.env.SEARXNG_JSON_MAX_BYTES, 1_000_000)
 )
 const CRAWLED_HTML_MAX_BYTES = Math.max(
   100_000,
-  parseInt(process.env.SEARXNG_CRAWLED_HTML_MAX_BYTES || '1000000', 10)
+  safeParseInt(process.env.SEARXNG_CRAWLED_HTML_MAX_BYTES, 1_000_000)
 )
 const SEARXNG_REQUEST_TIMEOUT_MS = Math.max(
   1000,
-  parseInt(process.env.SEARXNG_REQUEST_TIMEOUT_MS || '15000', 10)
+  safeParseInt(process.env.SEARXNG_REQUEST_TIMEOUT_MS, 15_000)
 )
 const CRAWL_REQUEST_TIMEOUT_MS = Math.max(
   1000,
-  parseInt(process.env.SEARXNG_CRAWL_TIMEOUT_MS || '10000', 10)
+  safeParseInt(process.env.SEARXNG_CRAWL_TIMEOUT_MS, 10_000)
 )
 const CRAWL_MAX_REDIRECTS = Math.max(
   0,
-  parseInt(process.env.SEARXNG_CRAWL_MAX_REDIRECTS || '3', 10)
+  safeParseInt(process.env.SEARXNG_CRAWL_MAX_REDIRECTS, 3)
 )
 
 let redisClient: Redis | ReturnType<typeof createClient> | null = null
@@ -138,6 +147,17 @@ function normalizeStringArray(value: unknown): string[] {
     .map(item => item.trim().toLowerCase())
     .filter(Boolean)
     .slice(0, 25)
+}
+
+export function matchesDomain(hostname: string, filterDomain: string): boolean {
+  const domain = hostname.toLowerCase().replace(/\.$/, '')
+  const filter = filterDomain
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/.*$/, '')
+    .replace(/^\.+|\.+$/g, '')
+
+  return Boolean(filter) && (domain === filter || domain.endsWith(`.${filter}`))
 }
 
 export function createAdvancedSearchCacheKey(input: {
@@ -250,9 +270,9 @@ async function advancedSearchXNGSearch(
     process.env.SEARXNG_ENGINES || 'google,bing,duckduckgo,wikipedia'
   const SEARXNG_TIME_RANGE = process.env.SEARXNG_TIME_RANGE || 'None'
   const SEARXNG_SAFESEARCH = process.env.SEARXNG_SAFESEARCH || '0'
-  const SEARXNG_CRAWL_MULTIPLIER = parseInt(
-    process.env.SEARXNG_CRAWL_MULTIPLIER || '4',
-    10
+  const SEARXNG_CRAWL_MULTIPLIER = safeParseInt(
+    process.env.SEARXNG_CRAWL_MULTIPLIER,
+    4
   )
 
   try {
@@ -301,9 +321,9 @@ async function advancedSearchXNGSearch(
           const domain = new URL(result.url).hostname.toLowerCase()
           return (
             (includeDomains.length === 0 ||
-              includeDomains.some(d => domain.includes(d))) &&
+              includeDomains.some(filter => matchesDomain(domain, filter))) &&
             (excludeDomains.length === 0 ||
-              !excludeDomains.some(d => domain.includes(d)))
+              !excludeDomains.some(filter => matchesDomain(domain, filter)))
           )
         } catch {
           return false
@@ -621,7 +641,15 @@ async function fetchJson(url: string): Promise<any> {
   }
 
   if (response.headers.get('content-type')?.includes('application/json')) {
-    return JSON.parse(data)
+    try {
+      return JSON.parse(data)
+    } catch {
+      return {
+        error: 'Malformed JSON response',
+        status: response.status,
+        data: data.substring(0, 200)
+      }
+    }
   }
 
   return {
