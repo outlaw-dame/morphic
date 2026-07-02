@@ -41,3 +41,6 @@ lib/db/migrations/
 
 # Architecture docs
 docs/AI_*.md
+
+# Legacy route pending Phase AI-1 extraction into testable modules
+app/api/advanced-search/route.ts
