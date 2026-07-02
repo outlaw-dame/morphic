@@ -20,11 +20,23 @@ const importSortGroups = [
   ['^.+\.s?css$']
 ]
 
+const globalIgnorePatterns = [
+  '.next/**',
+  'out/**',
+  'build/**',
+  'next-env.d.ts',
+  'app/api/advanced-search/**',
+  '**/app/api/advanced-search/**',
+  // Project tooling config; Prettier reads this directly, ESLint does not need to lint it.
+  'prettier.config.js'
+]
+
 export default defineConfig([
-  {
-    ignores: ['app/api/advanced-search/**']
-  },
+  globalIgnores(globalIgnorePatterns),
   ...nextVitals,
+  {
+    ignores: globalIgnorePatterns
+  },
   {
     plugins: {
       'simple-import-sort': simpleImportSort
@@ -50,13 +62,5 @@ export default defineConfig([
         }
       ]
     }
-  },
-  globalIgnores([
-    '.next/**',
-    'out/**',
-    'build/**',
-    'next-env.d.ts',
-    // Project tooling config; Prettier reads this directly, ESLint does not need to lint it.
-    'prettier.config.js'
-  ])
+  }
 ])
