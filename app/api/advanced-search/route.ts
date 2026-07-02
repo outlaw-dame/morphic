@@ -1,4 +1,4 @@
-import crypto from 'node:crypto'
+import { createHash } from 'node:crypto'
 
 import { Redis } from '@upstash/redis'
 import { JSDOM, VirtualConsole } from 'jsdom'
@@ -36,6 +36,14 @@ const CRAWL_MAX_REDIRECTS = parseInt(
   process.env.ADVANCED_SEARCH_CRAWL_MAX_REDIRECTS || '3',
   10
 )
+
+type AdvancedSearchRequestBody = {
+  query?: unknown
+  maxResults?: unknown
+  searchDepth?: unknown
+  includeDomains?: unknown
+  excludeDomains?: unknown
+}
 
 let redisClient: Redis | ReturnType<typeof createClient> | null = null
 
@@ -86,8 +94,7 @@ function buildCacheKey(params: {
     includeDomains: [...params.includeDomains].sort(),
     excludeDomains: [...params.excludeDomains].sort()
   }
-  const digest = crypto
-    .createHash('sha256')
+  const digest = createHash('sha256')
     .update(JSON.stringify(normalized))
     .digest('hex')
   return `search:${digest}`
@@ -96,6 +103,23 @@ function buildCacheKey(params: {
 function sanitizeError(error: unknown): string {
   if (error instanceof Error) return error.message
   return String(error)
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string')
+}
+
+function parseSearchDepth(value: unknown): 'basic' | 'advanced' {
+  if (value === 'advanced' || value === 'basic') return value
+  const defaultDepth = process.env.SEARXNG_DEFAULT_DEPTH
+  return defaultDepth === 'advanced' ? 'advanced' : 'basic'
+}
+
+function parseMaxResults(value: unknown): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return 10
+  return Math.min(Math.max(parsed, 1), SEARXNG_MAX_RESULTS)
 }
 
 // Function to get cached results
@@ -151,7 +175,7 @@ export async function POST(request: Request) {
   let query = ''
 
   try {
-    const body = await request.json()
+    const body = (await request.json()) as AdvancedSearchRequestBody
     query = typeof body.query === 'string' ? body.query.trim() : ''
     if (!query) {
       return NextResponse.json(
@@ -165,17 +189,10 @@ export async function POST(request: Request) {
       )
     }
 
-    const SEARXNG_DEFAULT_DEPTH = process.env.SEARXNG_DEFAULT_DEPTH || 'basic'
-    const maxResults = Number.isFinite(Number(body.maxResults))
-      ? Math.min(Math.max(Number(body.maxResults), 1), SEARXNG_MAX_RESULTS)
-      : 10
-    const searchDepth = body.searchDepth || SEARXNG_DEFAULT_DEPTH
-    const includeDomains = Array.isArray(body.includeDomains)
-      ? body.includeDomains.filter((domain: unknown): domain is string => typeof domain === 'string')
-      : []
-    const excludeDomains = Array.isArray(body.excludeDomains)
-      ? body.excludeDomains.filter((domain: unknown): domain is string => typeof domain === 'string')
-      : []
+    const maxResults = parseMaxResults(body.maxResults)
+    const searchDepth = parseSearchDepth(body.searchDepth)
+    const includeDomains = toStringArray(body.includeDomains)
+    const excludeDomains = toStringArray(body.excludeDomains)
 
     const cacheKey = buildCacheKey({
       query,
