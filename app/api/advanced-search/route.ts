@@ -1,8 +1,9 @@
+import { NextResponse } from 'next/server'
+
 import { createHash } from 'node:crypto'
 
 import { Redis } from '@upstash/redis'
 import { JSDOM, VirtualConsole } from 'jsdom'
-import { NextResponse } from 'next/server'
 import { createClient } from 'redis'
 
 import {
