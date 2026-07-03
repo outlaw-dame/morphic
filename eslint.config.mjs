@@ -54,8 +54,6 @@ export default defineConfig([
     'build/**',
     'next-env.d.ts',
     // Project tooling config; Prettier reads this directly, ESLint does not need to lint it.
-    'prettier.config.js',
-    // Legacy route pending Phase AI-1 extraction into testable modules.
-    'app/api/advanced-search/route.ts'
+    'prettier.config.js'
   ])
 ])
