@@ -1,6 +1,6 @@
 # AI Phase 0 Baseline and Safety Inventory
 
-This document records the first implementation pass after the AI architecture documentation was merged. It covers Phase AI-0 and the first safety slice of Phase AI-1.
+This document records the first implementation pass after the AI architecture documentation was merged. It covers Phase AI-0 and the first safety slices of Phase AI-1.
 
 Companion documents:
 
@@ -13,7 +13,7 @@ Companion documents:
 
 Phase AI-0 asks us to confirm the current system state before deeper architecture changes. The most important finding from that baseline is that advanced search had safety debt that should be corrected before adding Router, Coordinator, Fusion, or deeper crawling behavior.
 
-This PR therefore includes one low-risk Phase AI-1 safety patch for advanced search crawling.
+This PR therefore includes Phase AI-0 inventory work and Phase AI-1 safety hardening for advanced search crawling.
 
 ## Current request flow baseline
 
@@ -41,6 +41,7 @@ The major evidence entry points are:
 - `lib/tools/factcheck.ts` for Google Fact Check API lookups.
 - `lib/tools/subtask-agent.ts` for delegated research notes.
 - `app/api/advanced-search/route.ts` for SearXNG-backed advanced search and result crawling.
+- `lib/tools/search/advanced-search.ts` for advanced-search request parsing, cache-key hashing, crawl safety, content extraction, domain filtering, scoring, and bounded concurrency.
 - `lib/entities/knowledge-graph.ts` for current lightweight Wikidata and DBpedia enrichment.
 - `lib/claims/evidence-verification.ts` for existing claim/citation verification behavior that later phases should refactor instead of duplicating.
 
@@ -64,10 +65,12 @@ The major evidence entry points are:
 - Cache keys included raw query/domain values instead of a stable hash.
 - A module-level `setInterval` performed Redis key scanning and cleanup, which is serverless-hostile and unnecessary when Redis TTL is already used.
 - JSDOM was configured with external resource loading enabled even though advanced search only needs static parsed HTML.
+- Crawling was fan-out based on result count without an explicit concurrency cap.
+- The advanced-search route mixed HTTP handling, cache handling, crawl safety, content extraction, filtering, scoring, and request parsing in one hard-to-test file.
 
-## Phase AI-1 safety patch included
+## Phase AI-1 safety work included
 
-The first safety patch updates `app/api/advanced-search/route.ts` to:
+The safety patch updates advanced search to:
 
 - use hashed cache keys;
 - rely on Redis TTL instead of periodic key scanning;
@@ -77,20 +80,22 @@ The first safety patch updates `app/api/advanced-search/route.ts` to:
 - enforce a configurable crawl redirect cap via `ADVANCED_SEARCH_CRAWL_MAX_REDIRECTS`;
 - bound SearXNG JSON response reads via `SEARXNG_RESPONSE_MAX_BYTES`;
 - parse request input defensively;
-- avoid JSDOM external resource loading during content extraction.
+- avoid JSDOM external resource loading during content extraction;
+- enforce bounded crawl fan-out via `ADVANCED_SEARCH_CRAWL_CONCURRENCY`;
+- extract advanced-search helper logic into `lib/tools/search/advanced-search.ts`;
+- add unit tests for request parsing, cache-key hashing, domain filtering, HTML extraction, relevance scoring, quality filtering, and concurrency limiting.
 
 ## Remaining Phase AI-1 work
 
-This patch is the first safety slice, not the full AI-1 completion. Remaining follow-up work should include:
+This PR completes the initial advanced-search hardening slice, but Phase AI-1 should continue with deeper network-path tests and configured-service validation:
 
-- Unit tests for advanced-search blocked private IP URLs.
-- Unit tests for redirect-to-private-IP behavior.
-- Unit tests for oversized crawled response handling.
-- Unit tests for non-HTML/non-text crawl responses.
+- Integration-style tests for advanced-search blocked private IP URLs.
+- Integration-style tests for redirect-to-private-IP behavior through `safeFetch()`.
+- Integration-style tests for oversized crawled response handling.
+- Integration-style tests for non-HTML/non-text crawl responses.
 - A focused review of whether the configured SearXNG API URL should remain an internal trusted fetch path or use a separate allowlist validator for configured service URLs.
-- A concurrency limit for advanced crawling so a large result set does not fan out too aggressively.
-- Potential extraction of advanced-search safety helpers into testable modules outside the route handler.
+- Optional route-level tests for the `POST` handler once the project has a route-handler test pattern.
 
 ## Next phase after this PR
 
-After this safety slice lands, continue Phase AI-1 until the remaining tests and concurrency control are in place. Only then should implementation proceed to Phase AI-2 shared schemas and model capability routing.
+After this safety slice lands, continue Phase AI-1 until the remaining network-path tests and configured-service URL policy are in place. Only then should implementation proceed to Phase AI-2 shared schemas and model capability routing.
