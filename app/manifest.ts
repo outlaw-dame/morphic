@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Morphic',
-    short_name: 'Morphic',
+    name: 'gist.',
+    short_name: 'gist.',
     description:
       'An AI-powered answer engine with a native-feeling search and chat experience.',
     start_url: '/',
@@ -44,7 +44,7 @@ export default function manifest(): MetadataRoute.Manifest {
       {
         name: 'New Search',
         short_name: 'Search',
-        description: 'Start a new Morphic search',
+        description: 'Start a new gist search',
         url: '/'
       }
     ]

@@ -245,4 +245,76 @@ describe('createResearcher search modes', () => {
       })
     )
   })
+
+  it('adds validated Mistral native-tool headers through prepareCall', async () => {
+    createResearcher({
+      model: 'mistral:mistral-large-latest',
+      searchMode: 'adaptive',
+      modelConfig: {
+        id: 'mistral-large-latest',
+        name: 'Mistral Large',
+        provider: 'Mistral',
+        providerId: 'mistral',
+        providerOptions: {
+          mistral: {
+            serverTools: {
+              enabled: true,
+              webSearch: {
+                enabled: true,
+                tool: 'web_search'
+              }
+            }
+          }
+        }
+      }
+    })
+
+    const config = mocks.toolLoopAgent.mock.calls[0]?.[0]
+    const prepared = await config.prepareCall({
+      headers: { 'x-existing': 'yes' },
+      model: config.model,
+      tools: config.tools,
+      instructions: config.instructions,
+      activeTools: config.activeTools,
+      providerOptions: config.providerOptions,
+      stopWhen: config.stopWhen,
+      messages: []
+    })
+
+    expect(prepared.headers).toEqual(
+      expect.objectContaining({
+        'x-existing': 'yes',
+        'x-morphic-mistral-server-tools': expect.any(String)
+      })
+    )
+  })
+
+  it('keeps Mistral native search inside the source-first architecture', () => {
+    createResearcher({
+      model: 'mistral:mistral-large-latest',
+      searchMode: 'adaptive',
+      modelConfig: {
+        id: 'mistral-large-latest',
+        name: 'Mistral Large',
+        provider: 'Mistral',
+        providerId: 'mistral',
+        providerOptions: {
+          mistral: {
+            serverTools: {
+              enabled: true,
+              webSearch: {
+                enabled: true,
+                tool: 'web_search'
+              }
+            }
+          }
+        }
+      }
+    })
+
+    const config = mocks.toolLoopAgent.mock.calls[0]?.[0]
+    expect(config.instructions).toContain('supplemental cross-check path')
+    expect(config.instructions).toContain('app search, feedSearch, fetch')
+    expect(config.instructions).toContain('app source pipeline')
+  })
 })

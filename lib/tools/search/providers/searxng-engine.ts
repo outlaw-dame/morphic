@@ -6,6 +6,9 @@ import {
 } from '@/lib/types'
 
 import { BaseSearchProvider } from './base'
+import { getPublicSearXNGInstanceUrls } from './searxng-public-instances'
+
+const SEARCH_FETCH_TIMEOUT_MS = 8000
 
 interface SearXNGEngineProviderOptions {
   engine: string
@@ -30,8 +33,13 @@ export class SearXNGEngineSearchProvider extends BaseSearchProvider {
   ): Promise<SearchResults> {
     const apiUrl = process.env.SEARXNG_API_URL
     if (!apiUrl) {
-      this.validateApiUrl(apiUrl, 'SEARXNG')
-      throw new Error('SEARXNG_API_URL is not set in the environment variables')
+      return this.searchPublicInstances(
+        query,
+        maxResults,
+        searchDepth,
+        includeDomains,
+        excludeDomains
+      )
     }
 
     let data = await this.fetchEngineResults(
@@ -121,7 +129,8 @@ export class SearXNGEngineSearchProvider extends BaseSearchProvider {
       method: 'GET',
       headers: {
         Accept: 'application/json'
-      }
+      },
+      signal: AbortSignal.timeout(SEARCH_FETCH_TIMEOUT_MS)
     })
 
     if (!response.ok) {
@@ -134,6 +143,96 @@ export class SearXNGEngineSearchProvider extends BaseSearchProvider {
     }
 
     return response.json()
+  }
+
+  private async searchPublicInstances(
+    query: string,
+    maxResults: number,
+    searchDepth: 'basic' | 'advanced',
+    includeDomains: string[],
+    excludeDomains: string[]
+  ): Promise<SearchResults> {
+    const urls = await getPublicSearXNGInstanceUrls()
+    if (urls.length === 0) {
+      throw new Error('No public SearXNG instances are configured or available')
+    }
+
+    let lastError: unknown
+    for (const apiUrl of urls) {
+      try {
+        const data = await this.fetchEngineResults(
+          apiUrl,
+          this.options.engine,
+          this.options.label,
+          query,
+          searchDepth,
+          includeDomains
+        )
+
+        return this.formatResults(
+          data,
+          apiUrl,
+          query,
+          maxResults,
+          excludeDomains
+        )
+      } catch (error) {
+        lastError = error
+        console.warn(
+          `${this.options.label} via public SearXNG instance failed: ${apiUrl}`,
+          error
+        )
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error('Public SearXNG search failed')
+  }
+
+  private formatResults(
+    data: SearXNGResponse,
+    apiUrl: string,
+    query: string,
+    maxResults: number,
+    excludeDomains: string[]
+  ): SearchResults {
+    const excluded = excludeDomains.map(domain => domain.toLowerCase())
+    const matchesExcludedDomain = (result: SearXNGResult) =>
+      excluded.some(domain => {
+        try {
+          return new URL(result.url).hostname.toLowerCase().includes(domain)
+        } catch {
+          return false
+        }
+      })
+
+    const generalResults = data.results
+      .filter(result => !result.img_src)
+      .filter(result => !matchesExcludedDomain(result))
+      .slice(0, maxResults)
+    const imageResults = data.results
+      .filter(result => result.img_src)
+      .filter(result => !matchesExcludedDomain(result))
+      .slice(0, maxResults)
+
+    return {
+      results: generalResults.map(
+        (result: SearXNGResult): SearchResultItem => ({
+          title: result.title,
+          url: result.url,
+          content: result.content
+        })
+      ),
+      query: data.query || query,
+      images: imageResults
+        .map(result => {
+          const imgSrc = result.img_src || ''
+          return imgSrc.startsWith('http') ? imgSrc : `${apiUrl}${imgSrc}`
+        })
+        .filter(Boolean),
+      number_of_results: data.number_of_results
+    }
   }
 
   private isEngineUnresponsive(data: SearXNGResponse, engine: string): boolean {

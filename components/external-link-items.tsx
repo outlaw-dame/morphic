@@ -8,16 +8,8 @@ import { NativeIcon } from '@/components/native/native-icon'
 
 const externalLinks = [
   {
-    name: 'X',
-    href: 'https://x.com/morphic_ai'
-  },
-  {
-    name: 'Discord',
-    href: 'https://discord.gg/zRxaseCuGq'
-  },
-  {
     name: 'GitHub',
-    href: 'https://git.new/morphic'
+    href: 'https://github.com/outlaw-dame/morphic'
   }
 ]
 

@@ -150,7 +150,7 @@ export function buildSearchShareData(
   url: string
 } {
   return {
-    title: title || 'Check out this search on Morphic',
+    title: title || 'Check out this search on gist.',
     url: buildSearchShareUrl(searchId)
   }
 }

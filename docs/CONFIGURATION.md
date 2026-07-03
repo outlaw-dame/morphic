@@ -130,6 +130,52 @@ Ollama tag discovery does not currently return a complete per-model capability o
 - `webSearch` is marked for Ollama Cloud chat models because hosted cloud models can use Ollama's cloud web-search tools.
 - Embedding, rerank, moderation, image, audio, and speech models are filtered out of Morphic chat model selection.
 
+#### Mistral
+
+Morphic can discover Mistral chat models when a Mistral API key is configured.
+
+```bash
+MISTRAL_API_KEY=[YOUR_MISTRAL_API_KEY]
+```
+
+Users can also add their own Mistral API key from Settings. User keys are
+stored in an HttpOnly cookie, are never returned by the settings API, and take
+precedence over `MISTRAL_API_KEY`.
+
+Mistral also exposes provider-native tool contracts such as `web_search`,
+`web_search_premium`, document-library tools, code interpreter, image
+generation, and custom connectors through its API. These are useful for
+agentic research, but they should be integrated as a provider-native subagent
+capability rather than as a replacement for Morphic's source-first search
+pipeline.
+
+Native-search flags:
+
+```bash
+MISTRAL_NATIVE_WEB_SEARCH_ENABLED=false
+MISTRAL_NATIVE_WEB_SEARCH_TOOL=web_search
+MISTRAL_NATIVE_WEB_SEARCH_PREMIUM_ENABLED=false
+MISTRAL_NATIVE_WEB_SEARCH_MAX_RETRIES=2
+MISTRAL_NATIVE_WEB_SEARCH_TIMEOUT_MS=8000
+```
+
+The Mistral native web-search adapter validates the tool schema before provider
+calls, strips internal routing headers before the request leaves Morphic, and
+keeps `web_search_premium` behind a separate opt-in. Returned citations must
+still be normalized into Morphic's ordinary source cards, source-quality
+ranking, source preferences, Safe Browsing, and claim-verification flow before
+they become user-facing source evidence.
+
+Settings exposes standard Mistral native web search as a user preference for
+Mistral users. That user-facing toggle only enables `web_search`; premium search
+remains deployment-controlled through the environment flags above.
+
+When enabled, Mistral native web search is folded into the agent architecture as
+a supplemental cross-check path. The app still expects Mistral answers to use
+Gist's ordinary app-native search, feeds, fetched pages, source preferences,
+source-quality ranking, Safe Browsing, claim verification, and citation cards
+for user-facing evidence.
+
 #### OpenAI-Compatible Providers
 
 Use OpenAI-compatible endpoints for providers such as DeepSeek, Moonshot, Zhipu, Together, or a self-hosted gateway that exposes the OpenAI chat completions API.
@@ -230,6 +276,32 @@ SEARXNG_API_URL=http://localhost:8080
 SEARXNG_SECRET=""  # generate with: openssl rand -base64 32
 ```
 
+#### Public Instance Discovery
+
+SearXNG does not require an API key. Morphic can optionally discover public
+instances from the SearXNG instance index at
+[`https://searx.space/data/instances.json`](https://searx.space/data/instances.json).
+This is disabled by default because user queries are sent to third-party public
+operators. Prefer self-hosted SearXNG for privacy-sensitive deployments.
+
+```bash
+SEARCH_API=qwant
+SEARXNG_PUBLIC_INSTANCES_ENABLED=true
+SEARXNG_PUBLIC_INSTANCES_INDEX_URL=https://searx.space/data/instances.json
+SEARXNG_PUBLIC_INSTANCE_LIMIT=4
+SEARXNG_PUBLIC_REQUIRE_HTTPS=true
+```
+
+You can also bypass discovery and pin trusted public instances:
+
+```bash
+SEARXNG_PUBLIC_INSTANCES=https://example-searxng.instance,https://another.example
+```
+
+Morphic filters discovered candidates to avoid localhost/private hosts, requires
+HTTPS by default, skips obviously unhealthy/API-disabled entries, caches the
+index, and tries only a small bounded set of instances per search.
+
 Qwant is the default search provider. To use Qwant without a Qwant API key, run SearXNG and select the Qwant-backed provider:
 
 ```bash
@@ -246,7 +318,7 @@ SEARCH_API=duckduckgo
 SEARXNG_API_URL=http://localhost:8080
 ```
 
-DuckDuckGo's official endpoint (`https://api.duckduckgo.com/`) is an Instant Answer API, not a full search-results API. Morphic's DuckDuckGo option routes searches through SearXNG's DuckDuckGo engine so the app can return normal result lists without adding DuckDuckGo page scraping to Morphic.
+DuckDuckGo's official endpoint (`https://api.duckduckgo.com/`) is an Instant Answer API, not a full search-results API. When `SEARXNG_API_URL` is configured, Morphic's DuckDuckGo option routes searches through SearXNG's DuckDuckGo engine so the app can return normal result lists without adding DuckDuckGo page scraping to Morphic. When SearXNG is not configured or is unavailable, Morphic falls back to the official Instant Answer API and marks the result as limited coverage.
 
 #### Advanced Configuration
 
@@ -332,10 +404,13 @@ bun run supabase:check
 
 Guest mode allows users to try Morphic without creating an account. Guest sessions are ephemeral — no chat history is stored.
 
-### Enabling Guest Mode
+### Guest Mode Configuration
+
+Guest mode is enabled by default and allows three searches per anonymous user.
+Set the following kill switch to disable it entirely:
 
 ```bash
-ENABLE_GUEST_CHAT=true
+ENABLE_GUEST_CHAT=false
 ```
 
 ### Guest Mode Behavior
@@ -350,7 +425,7 @@ ENABLE_GUEST_CHAT=true
 For cloud deployments:
 
 ```bash
-GUEST_CHAT_DAILY_LIMIT=10  # Maximum requests per IP per day
+GUEST_CHAT_DAILY_LIMIT=3  # Maximum requests per IP per day
 UPSTASH_REDIS_REST_URL=[YOUR_UPSTASH_URL]
 UPSTASH_REDIS_REST_TOKEN=[YOUR_UPSTASH_TOKEN]
 ```

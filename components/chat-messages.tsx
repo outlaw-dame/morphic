@@ -5,14 +5,17 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { UseChatHelpers } from '@ai-sdk/react'
 
 import { useMediaQuery } from '@/lib/hooks/use-media-query'
+import { collectSourcesFromMessageParts } from '@/lib/sources/message-sources'
+import type { NormalizedSource } from '@/lib/sources/source-types'
 import type { UIDataTypes, UIMessage, UITools } from '@/lib/types/ai'
 import { cn } from '@/lib/utils'
 import { extractCitationMapsFromMessages } from '@/lib/utils/citation'
 
-import { NativeIcon } from './native/native-icon'
+import { AnimatedLogo } from './ui/animated-logo'
 import { ChatError } from './chat-error'
 import { ChatFooterMessage } from './chat-footer-message'
 import { RenderMessage } from './render-message'
+import { SearchResultSection } from './search-result-section'
 
 // Import section structure interface
 interface ChatSection {
@@ -32,11 +35,18 @@ interface ChatMessagesProps {
   onUpdateMessage?: (messageId: string, newContent: string) => Promise<void>
   reload?: (messageId: string) => Promise<void | string | null | undefined>
   error?: Error | string | null | undefined
+  presentation?: 'chat' | 'results'
 }
 
 const DESKTOP_LATEST_SECTION_OFFSET = 196
 const MOBILE_LATEST_SECTION_OFFSET_FALLBACK = 180
 const MOBILE_FOLLOW_UP_TOP_CLEARANCE_FALLBACK = 56
+
+function collectSectionSources(section: ChatSection): NormalizedSource[] {
+  return section.assistantMessages.flatMap(message =>
+    collectSourcesFromMessageParts(message.parts as any[])
+  )
+}
 
 export function ChatMessages({
   sections,
@@ -47,7 +57,8 @@ export function ChatMessages({
   scrollContainerRef,
   onUpdateMessage,
   reload,
-  error
+  error,
+  presentation = 'chat'
 }: ChatMessagesProps) {
   // Track user-modified states (when user explicitly opens/closes)
   const [userModifiedStates, setUserModifiedStates] = useState<
@@ -203,57 +214,57 @@ export function ChatMessages({
       aria-roledescription="chat messages"
       className={cn(
         'relative size-full pt-14',
-        sections.length > 0 ? 'flex-1 overflow-y-auto' : ''
+        sections.length > 0 ? 'flex-1 overflow-y-auto' : '',
+        presentation === 'results' && 'bg-black text-white'
       )}
     >
-      <div className="relative mx-auto w-full max-w-full md:max-w-3xl px-4">
+      <div
+        className={cn(
+          'relative mx-auto w-full max-w-full md:max-w-3xl px-4',
+          presentation === 'results' && 'px-0 md:px-4'
+        )}
+      >
         {sections.map((section, sectionIndex) => (
           <div
             key={section.id}
             id={`section-${section.id}`}
-            className="chat-section scroll-mt-14 pb-4 md:pb-14"
+            className={cn(
+              'chat-section scroll-mt-14 pb-4 md:pb-14',
+              presentation === 'results' && 'pb-8 md:pb-12'
+            )}
             style={
               sectionIndex === sections.length - 1
                 ? { minHeight: latestSectionMinHeight }
                 : {}
             }
           >
-            {/* User message */}
-            <div className="flex flex-col gap-2 md:gap-4 mb-2 md:mb-4">
-              <RenderMessage
-                message={section.userMessage}
-                messageId={section.userMessage.id}
-                getIsOpen={(id, partType, hasNextPart) =>
-                  getIsOpen(id, partType, hasNextPart, section.userMessage)
-                }
-                onOpenChange={handleOpenChange}
-                chatId={chatId}
-                isGuest={isGuest}
-                status={status}
-                addToolResult={addToolResult}
-                onUpdateMessage={onUpdateMessage}
-                reload={reload}
-                citationMaps={allCitationMaps}
-              />
-            </div>
-
-            {/* Assistant messages */}
-            {section.assistantMessages.map((assistantMessage, messageIndex) => {
-              // Check if this is the latest assistant message in the latest section
-              const isLatestMessage =
-                sectionIndex === sections.length - 1 &&
-                messageIndex === section.assistantMessages.length - 1
-
-              return (
-                <div
-                  key={assistantMessage.id}
-                  className="flex flex-col gap-2 md:gap-4"
-                >
+            {presentation === 'results' ? (
+              <>
+                <SearchResultSection
+                  userMessage={section.userMessage}
+                  assistantMessages={section.assistantMessages}
+                  sources={collectSectionSources(section)}
+                  citationMaps={allCitationMaps}
+                />
+                {isLoading && sectionIndex === sections.length - 1 && (
+                  <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-5 py-1 text-sm text-white/50 md:px-0 md:py-4">
+                    <span className="size-2 rounded-full bg-[#665cff]" />
+                    <span>gist is still checking sources.</span>
+                  </div>
+                )}
+                {sectionIndex === sections.length - 1 && (
+                  <ChatError error={error} />
+                )}
+              </>
+            ) : (
+              <>
+                {/* User message */}
+                <div className="flex flex-col gap-2 md:gap-4 mb-2 md:mb-4">
                   <RenderMessage
-                    message={assistantMessage}
-                    messageId={assistantMessage.id}
+                    message={section.userMessage}
+                    messageId={section.userMessage.id}
                     getIsOpen={(id, partType, hasNextPart) =>
-                      getIsOpen(id, partType, hasNextPart, assistantMessage)
+                      getIsOpen(id, partType, hasNextPart, section.userMessage)
                     }
                     onOpenChange={handleOpenChange}
                     chatId={chatId}
@@ -262,26 +273,62 @@ export function ChatMessages({
                     addToolResult={addToolResult}
                     onUpdateMessage={onUpdateMessage}
                     reload={reload}
-                    isLatestMessage={isLatestMessage}
                     citationMaps={allCitationMaps}
                   />
                 </div>
-              )
-            })}
-            {/* Show assistant logo and footer message after assistant messages */}
-            {showAssistantLogo && sectionIndex === sections.length - 1 && (
-              <div className="flex items-center gap-3 py-1 md:py-4">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--native-hairline)] bg-card text-[var(--indigo)] shadow-[0_10px_28px_hsl(0_0%_0%_/_0.08)]">
-                  <NativeIcon
-                    name={isLoading ? 'research' : 'checkCircle'}
-                    className="size-5"
-                  />
-                </span>
-                <ChatFooterMessage isLoading={isLoading} />
-              </div>
-            )}
-            {sectionIndex === sections.length - 1 && (
-              <ChatError error={error} />
+
+                {/* Assistant messages */}
+                {section.assistantMessages.map(
+                  (assistantMessage, messageIndex) => {
+                    // Check if this is the latest assistant message in the latest section
+                    const isLatestMessage =
+                      sectionIndex === sections.length - 1 &&
+                      messageIndex === section.assistantMessages.length - 1
+
+                    return (
+                      <div
+                        key={assistantMessage.id}
+                        className="flex flex-col gap-2 md:gap-4"
+                      >
+                        <RenderMessage
+                          message={assistantMessage}
+                          messageId={assistantMessage.id}
+                          getIsOpen={(id, partType, hasNextPart) =>
+                            getIsOpen(
+                              id,
+                              partType,
+                              hasNextPart,
+                              assistantMessage
+                            )
+                          }
+                          onOpenChange={handleOpenChange}
+                          chatId={chatId}
+                          isGuest={isGuest}
+                          status={status}
+                          addToolResult={addToolResult}
+                          onUpdateMessage={onUpdateMessage}
+                          reload={reload}
+                          isLatestMessage={isLatestMessage}
+                          citationMaps={allCitationMaps}
+                        />
+                      </div>
+                    )
+                  }
+                )}
+                {/* Show assistant logo and footer message after assistant messages */}
+                {showAssistantLogo && sectionIndex === sections.length - 1 && (
+                  <div className="flex items-center gap-3 py-1 md:py-4">
+                    <AnimatedLogo
+                      className="size-10 shrink-0"
+                      animate={isLoading}
+                    />
+                    <ChatFooterMessage isLoading={isLoading} />
+                  </div>
+                )}
+                {sectionIndex === sections.length - 1 && (
+                  <ChatError error={error} />
+                )}
+              </>
             )}
           </div>
         ))}

@@ -59,12 +59,11 @@ describe('TabBar', () => {
     expect(homeTab.getAttribute('aria-selected')).toBe('false')
   })
 
-  it('navigates via router.push on tab tap', () => {
+  it('renders navigable hrefs for tab destinations', () => {
     mockPathname = '/'
     render(<TabBar items={defaultItems} />)
 
-    fireEvent.click(screen.getByLabelText('Search'))
-    expect(mockPush).toHaveBeenCalledWith('/search')
+    expect(screen.getByLabelText('Search')).toHaveAttribute('href', '/search')
   })
 
   it('calls onScrollToTop instead of navigating when tapping active tab', () => {
@@ -76,6 +75,17 @@ describe('TabBar', () => {
     fireEvent.click(screen.getByLabelText('Home'))
     expect(onScrollToTop).toHaveBeenCalled()
     expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('does not treat stale router state as active when browser location differs', () => {
+    mockPathname = '/discovery'
+    window.history.replaceState(null, '', '/')
+    const onScrollToTop = vi.fn()
+
+    render(<TabBar items={defaultItems} onScrollToTop={onScrollToTop} />)
+
+    fireEvent.click(screen.getByLabelText('Library'))
+    expect(onScrollToTop).not.toHaveBeenCalled()
   })
 
   it('fires hapticLight on native runtimes', () => {

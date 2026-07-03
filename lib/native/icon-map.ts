@@ -9,6 +9,7 @@ import {
   CheckCircle,
   Clock,
   Compass,
+  ControlSlider,
   Copy,
   EditPencil,
   GitCompare,
@@ -22,6 +23,7 @@ import {
   Link as LinkIcon,
   LogIn,
   LogOut,
+  MagicWand,
   Map as MapIcon,
   MapPin,
   MapsArrow,
@@ -50,8 +52,6 @@ import {
   XmarkCircle
 } from 'iconoir-react'
 
-import { IconLogoOutline } from '@/components/ui/icons'
-
 export type NativeIconComponent = ComponentType<SVGProps<SVGSVGElement>>
 
 export const nativeIconMap = {
@@ -67,6 +67,7 @@ export const nativeIconMap = {
   closeCircle: XmarkCircle,
   compare: GitCompare,
   compass: Compass,
+  controls: ControlSlider,
   copy: Copy,
   discover: Globe,
   error: XmarkCircle,
@@ -105,7 +106,7 @@ export const nativeIconMap = {
   trash: Trash,
   upload: Upload,
   warning: WarningTriangle,
-  adaptive: IconLogoOutline
+  adaptive: MagicWand
 } satisfies Record<string, NativeIconComponent>
 
 export type NativeIconName = keyof typeof nativeIconMap

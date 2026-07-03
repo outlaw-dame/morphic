@@ -28,26 +28,34 @@ export function ChatHistoryClient() {
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const [isPending, startTransition] = useTransition()
 
+  const fetchChatPage = useCallback(async (offset: number) => {
+    const response = await fetch(`/api/chats?offset=${offset}&limit=20`, {
+      cache: 'no-store'
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch chat history')
+    }
+
+    return (await response.json()) as ChatPageResponse
+  }, [])
+
   const fetchInitialChats = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/chats?offset=0&limit=20`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch initial chat history')
-      }
       const { chats: dbChats, nextOffset: newNextOffset } =
-        (await response.json()) as ChatPageResponse
+        await fetchChatPage(0)
 
       setChats(dbChats)
       setNextOffset(newNextOffset)
     } catch (error) {
-      console.error('Failed to load initial chats:', error)
-      toast.error('Failed to load chat history.')
+      console.warn('Chat history unavailable; continuing without it.', error)
+      setChats([])
       setNextOffset(null)
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [fetchChatPage])
 
   useEffect(() => {
     fetchInitialChats()
@@ -70,12 +78,8 @@ export function ChatHistoryClient() {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/chats?offset=${nextOffset}&limit=20`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch more chat history')
-      }
       const { chats: dbChats, nextOffset: newNextOffset } =
-        (await response.json()) as ChatPageResponse
+        await fetchChatPage(nextOffset)
 
       setChats(prevChats => [...prevChats, ...dbChats])
       setNextOffset(newNextOffset)
@@ -86,7 +90,7 @@ export function ChatHistoryClient() {
     } finally {
       setIsLoading(false)
     }
-  }, [nextOffset, isLoading])
+  }, [fetchChatPage, nextOffset, isLoading])
 
   useEffect(() => {
     const observerRefValue = loadMoreRef.current

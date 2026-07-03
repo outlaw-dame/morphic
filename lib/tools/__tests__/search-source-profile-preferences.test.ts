@@ -50,6 +50,12 @@ vi.mock('@/lib/actions/source-preferences', () => ({
     mockListSourcePreferences(...args)
 }))
 
+vi.mock('@/lib/entities/knowledge-graph', () => ({
+  enrichSearchResultsWithKnowledgeGraph: vi.fn((results: unknown) =>
+    Promise.resolve(results)
+  )
+}))
+
 vi.mock('../search/providers', () => ({
   DEFAULT_PROVIDER: 'qwant',
   createSearchProvider: vi.fn(() => ({

@@ -12,6 +12,7 @@ import { enrichSearchResultsWithKnowledgeGraph } from '@/lib/entities/knowledge-
 import { getSearchSchemaForModel } from '@/lib/schema/search'
 import { getEffectiveSourcePreferencesForQuery } from '@/lib/sources/source-preference-profiles'
 import { applySourcePreferencesToSearchResults } from '@/lib/sources/source-preferences'
+import { applySourceQualityToSearchResults } from '@/lib/sources/source-quality'
 import { SearchResultItem, SearchResults } from '@/lib/types'
 import {
   getGeneralSearchProviderType,
@@ -19,6 +20,7 @@ import {
 } from '@/lib/utils/search-config'
 import { getBaseUrlString } from '@/lib/utils/url'
 
+import { createDegradedSearchResult } from './search/degraded'
 import { blendConfiguredFeedResults } from './search/feed-blending'
 import { getSearchProviderFallbackPlan } from './search/provider-fallbacks'
 import {
@@ -26,6 +28,76 @@ import {
   DEFAULT_PROVIDER,
   SearchProviderType
 } from './search/providers'
+import { isPublicSearXNGEnabled } from './search/providers/searxng-public-instances'
+
+const SEARCH_PROVIDER_CONFIG: Record<
+  SearchProviderType,
+  { env?: string; searxngBacked?: boolean }
+> = {
+  qwant: { env: 'SEARXNG_API_URL', searxngBacked: true },
+  duckduckgo: {},
+  searxng: { env: 'SEARXNG_API_URL', searxngBacked: true },
+  tavily: { env: 'TAVILY_API_KEY' },
+  brave: { env: 'BRAVE_SEARCH_API_KEY' },
+  kagi: { env: 'KAGI_SEARCH_API_KEY' },
+  exa: { env: 'EXA_API_KEY' },
+  firecrawl: { env: 'FIRECRAWL_API_KEY' }
+}
+
+const SEARCH_FALLBACK_ORDER: SearchProviderType[] = [
+  'tavily',
+  'duckduckgo',
+  'brave',
+  'kagi',
+  'exa',
+  'firecrawl',
+  'searxng'
+]
+
+function isSearchProviderConfigured(provider: SearchProviderType): boolean {
+  if (SEARCH_PROVIDER_CONFIG[provider].searxngBacked) {
+    return Boolean(process.env.SEARXNG_API_URL) || isPublicSearXNGEnabled()
+  }
+
+  const envName = SEARCH_PROVIDER_CONFIG[provider].env
+  return envName ? Boolean(process.env[envName]) : true
+}
+
+function shouldSkipFallbackProvider(
+  provider: SearchProviderType,
+  failedProvider: SearchProviderType
+): boolean {
+  if (provider === failedProvider) {
+    return true
+  }
+
+  const failedConfig = SEARCH_PROVIDER_CONFIG[failedProvider]
+  const fallbackConfig = SEARCH_PROVIDER_CONFIG[provider]
+
+  return Boolean(failedConfig.searxngBacked && fallbackConfig.searxngBacked)
+}
+
+function getConfiguredSearchProvider(
+  requestedProvider: SearchProviderType
+): SearchProviderType {
+  if (isSearchProviderConfigured(requestedProvider)) {
+    return requestedProvider
+  }
+
+  const fallbackProvider = SEARCH_FALLBACK_ORDER.find(
+    provider =>
+      provider !== requestedProvider && isSearchProviderConfigured(provider)
+  )
+
+  if (fallbackProvider) {
+    console.warn(
+      `[Search] ${requestedProvider} is not configured; using ${fallbackProvider}.`
+    )
+    return fallbackProvider
+  }
+
+  return requestedProvider
+}
 
 /**
  * Creates a search tool with the appropriate schema for the given model.
@@ -61,7 +133,7 @@ export function createSearchTool(fullModel: string) {
 
       // Use the original query as is - any provider-specific handling will be done in the provider
       const filledQuery = query
-      let searchResult: SearchResults | undefined
+      let searchResult: SearchResults | null = null
 
       // Determine which provider to use based on type
       let searchAPI: SearchProviderType
@@ -83,6 +155,8 @@ export function createSearchTool(fullModel: string) {
         searchAPI =
           (process.env.SEARCH_API as SearchProviderType) || DEFAULT_PROVIDER
       }
+
+      searchAPI = getConfiguredSearchProvider(searchAPI)
 
       const effectiveSearchDepthForAPI =
         searchAPI === 'searxng' &&
@@ -178,33 +252,36 @@ export function createSearchTool(fullModel: string) {
       try {
         searchResult = await runProviderSearch(searchAPI)
       } catch (error) {
-        const fallbackProviders = getSearchProviderFallbackPlan(searchAPI)
+        const fallbackProviders = [
+          ...getSearchProviderFallbackPlan(searchAPI),
+          ...SEARCH_FALLBACK_ORDER
+        ].filter((provider, index, providers) => {
+          return (
+            providers.indexOf(provider) === index &&
+            !shouldSkipFallbackProvider(provider, searchAPI) &&
+            isSearchProviderConfigured(provider)
+          )
+        })
         console.error('Search API error:', error)
 
-        let lastError = error
         for (const fallbackProvider of fallbackProviders) {
           try {
             console.warn(
-              `[Search] ${searchAPI} failed; falling back to ${fallbackProvider}.`
+              `[Search] Falling back from ${searchAPI} to ${fallbackProvider}.`
             )
             searchResult = await runProviderSearch(fallbackProvider)
             searchAPI = fallbackProvider
-            lastError = undefined
             break
           } catch (fallbackError) {
-            console.error(
+            console.warn(
               `[Search] fallback provider ${fallbackProvider} failed:`,
               fallbackError
             )
-            lastError = fallbackError
           }
         }
 
         if (!searchResult) {
-          // Re-throw the error to let AI SDK handle it properly
-          throw lastError instanceof Error
-            ? lastError
-            : new Error('Unknown search error')
+          searchResult = createDegradedSearchResult(filledQuery)
         }
       }
 
@@ -212,6 +289,18 @@ export function createSearchTool(fullModel: string) {
         query: filledQuery,
         contentTypes: content_types as Array<'web' | 'video' | 'image' | 'news'>
       })
+
+      if (searchResult.results.length > 0) {
+        const rankedResults = applySourceQualityToSearchResults(
+          searchResult.results,
+          filledQuery
+        )
+        searchResult = {
+          ...searchResult,
+          results: rankedResults,
+          number_of_results: rankedResults.length
+        }
+      }
 
       try {
         const userId = await getCurrentUserId()

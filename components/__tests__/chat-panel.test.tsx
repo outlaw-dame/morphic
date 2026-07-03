@@ -19,27 +19,12 @@ vi.mock('../action-buttons', () => ({
   ActionButtons: () => null
 }))
 
-vi.mock('../file-upload-button', () => ({
-  FileUploadButton: () => null
-}))
-
 vi.mock('../message-navigation-dots', () => ({
   MessageNavigationDots: () => null
 }))
 
-vi.mock('../model-selector-client', () => ({
-  ModelSelectorClient: () => null
-}))
-
 vi.mock('../uploaded-file-list', () => ({
   UploadedFileList: () => null
-}))
-
-vi.mock('../ui/icons', () => ({
-  IconBlinkingLogo: () => <div data-testid="logo" />,
-  IconLogoOutline: ({ className }: { className?: string }) => (
-    <span className={className} data-testid="adaptive-icon" />
-  )
 }))
 
 describe('ChatPanel', () => {

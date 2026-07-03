@@ -49,7 +49,7 @@ export function KeyboardShortcutHandler() {
     const current = getCookie('searchMode') || 'quick'
     const next: SearchMode = current === 'quick' ? 'adaptive' : 'quick'
     setCookie('searchMode', next)
-    toast.info(`Search mode: ${SEARCH_MODE_LABELS[next]}`)
+    toast.info(`Mode changed to ${SEARCH_MODE_LABELS[next]}`)
   })
 
   useKeyboardShortcut(SHORTCUTS.showShortcuts, () => {

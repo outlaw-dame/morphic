@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
+import { readFileSync } from 'node:fs'
 import postgres from 'postgres'
 
 import * as relations from './relations'
@@ -9,6 +10,11 @@ import * as schema from './schema'
 // Use restricted user for application if available, otherwise fall back to regular user
 const isDevelopment = process.env.NODE_ENV === 'development'
 const isTest = process.env.NODE_ENV === 'test'
+type AppDb = ReturnType<typeof drizzle<typeof schema & typeof relations>>
+
+const globalForDb = globalThis as typeof globalThis & {
+  __gistDb?: AppDb
+}
 
 /**
  * Resolve database connection string.
@@ -27,13 +33,24 @@ function getConnectionString(): string | undefined {
   return undefined
 }
 
-// SSL configuration: Use environment variable to control SSL
-// DATABASE_SSL_DISABLED=true disables SSL completely (for local/Docker PostgreSQL)
-// Default is to enable SSL with certificate verification (for cloud databases like Neon, Supabase)
-const sslConfig =
-  process.env.DATABASE_SSL_DISABLED === 'true'
-    ? false // Disable SSL entirely for local PostgreSQL
-    : { rejectUnauthorized: true } // Enable SSL with verification for cloud DBs
+// SSL configuration: Use environment variables to control SSL.
+// DATABASE_SSL_DISABLED=true disables SSL completely for local/Docker PostgreSQL.
+// DATABASE_SSL_CA_PATH points to a CA bundle for cloud databases with custom CAs.
+function getSslConfig() {
+  if (process.env.DATABASE_SSL_DISABLED === 'true') {
+    return false
+  }
+
+  const caPath = process.env.DATABASE_SSL_CA_PATH
+  if (caPath) {
+    return {
+      rejectUnauthorized: true,
+      ca: readFileSync(caPath, 'utf8')
+    }
+  }
+
+  return { rejectUnauthorized: true }
+}
 
 /**
  * Lazy-initialized database client.
@@ -42,8 +59,7 @@ const sslConfig =
  * If DATABASE_URL is not set, we defer the error until the database is actually
  * used at runtime — this allows the build to succeed without a live database.
  */
-let _db: ReturnType<typeof drizzle<typeof schema & typeof relations>> | null =
-  null
+let _db: AppDb | null = isDevelopment ? (globalForDb.__gistDb ?? null) : null
 
 function createDb() {
   const connectionString = getConnectionString()
@@ -65,15 +81,30 @@ function createDb() {
     )
   }
 
+  const maxConnections = Number.parseInt(
+    process.env.DATABASE_POOL_MAX ?? (isDevelopment || isTest ? '3' : '10'),
+    10
+  )
+
   const client = postgres(connectionString, {
-    ssl: sslConfig,
+    ssl: getSslConfig(),
     prepare: false,
-    max: 20 // Max 20 connections
+    connect_timeout: 10,
+    idle_timeout: 20,
+    max_lifetime: 60 * 30,
+    max:
+      Number.isFinite(maxConnections) && maxConnections > 0 ? maxConnections : 3
   })
 
-  return drizzle(client, {
+  const instance = drizzle(client, {
     schema: { ...schema, ...relations }
   })
+
+  if (isDevelopment) {
+    globalForDb.__gistDb = instance
+  }
+
+  return instance
 }
 
 export const db = new Proxy({} as ReturnType<typeof createDb>, {

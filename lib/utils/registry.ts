@@ -4,13 +4,15 @@ import { cookies } from 'next/headers'
 import { anthropic } from '@ai-sdk/anthropic'
 import { createGateway } from '@ai-sdk/gateway'
 import { google } from '@ai-sdk/google'
-import { mistral } from '@ai-sdk/mistral'
+import { createMistral } from '@ai-sdk/mistral'
 import { createOpenAI, openai } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { createProviderRegistry, LanguageModel } from 'ai'
 import { createOllama } from 'ai-sdk-ollama'
 
+import { appendMistralServerToolsToRequest } from '@/lib/agents/mistral-server-tools'
 import { appendOpenRouterServerToolsToRequest } from '@/lib/agents/openrouter-server-tools'
+import { getConfiguredMistralApiKey } from '@/lib/mistral/api-key'
 import { getOllamaChatSettings } from '@/lib/models/ollama-capabilities'
 import { getConfiguredOllamaCloudApiKey } from '@/lib/ollama/cloud-api-key'
 
@@ -27,7 +29,30 @@ const providers: Record<string, any> = {
   openai,
   anthropic,
   google,
-  mistral,
+  mistral: createMistral({
+    apiKey: process.env.MISTRAL_API_KEY,
+    fetch: async (url, options) => {
+      let apiKey = process.env.MISTRAL_API_KEY
+      try {
+        const cookieStore = await cookies()
+        apiKey = getConfiguredMistralApiKey(cookieStore)
+      } catch (e) {
+        apiKey = getConfiguredMistralApiKey()
+      }
+
+      const headers = new Headers(options?.headers)
+      if (apiKey) {
+        headers.set('Authorization', `Bearer ${apiKey}`)
+      }
+      const body = appendMistralServerToolsToRequest(options?.body, headers)
+
+      return fetch(url, {
+        ...options,
+        headers,
+        body
+      })
+    }
+  }),
   'openai-compatible': createOpenAICompatible({
     // Keep the SDK provider key stable. OPENAI_COMPATIBLE_PROVIDER_NAME is
     // only a UI label used by the model selector.
@@ -183,7 +208,7 @@ export function isProviderEnabled(
     case 'nvidia':
       return !!process.env.NVIDIA_API_KEY
     case 'mistral':
-      return !!process.env.MISTRAL_API_KEY
+      return !!getConfiguredMistralApiKey(cookieStore)
     case 'openrouter': {
       const hasCookie = cookieStore
         ? !!cookieStore.get('openrouter_api_key')?.value

@@ -1,14 +1,13 @@
 'use client'
 
 import { useCallback, useState } from 'react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 import { User } from '@supabase/supabase-js'
 
-import { SidebarTrigger } from '@/components/ui/sidebar'
-
 import { FeedbackModal } from '@/components/feedback-modal'
-import GuestMenu from '@/components/guest-menu'
+import { NativeIcon } from '@/components/native/native-icon'
 import UserMenu from '@/components/user-menu'
 
 import { AppNavBar } from './app-nav-bar'
@@ -46,48 +45,43 @@ export function ShellLayout({
   const [scrollOffset, setScrollOffset] = useState(0)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
 
-  const isAuthPage = pathname.startsWith('/auth')
   const showBack = pathname.startsWith('/search/') && pathname !== '/'
   const isSearchPage = pathname === '/' || pathname.startsWith('/search')
-
-  // Derive page title from route
-  const getTitle = () => {
-    if (pathname === '/') return 'gist.'
-    if (pathname.startsWith('/search')) return 'Search'
-    if (pathname.startsWith('/discovery')) return 'Discover'
-    if (pathname.startsWith('/library')) return 'Library'
-    if (pathname.startsWith('/settings')) return 'gist.'
-    if (pathname.startsWith('/reader')) return 'Reader'
-    if (isAuthPage) return 'gist.'
-    return 'gist.'
-  }
+  const isImmersiveRoute = pathname === '/discovery'
 
   const scrollToTop = useCallback(() => {
     const container = document.querySelector('[data-scroll-container]')
     container?.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
 
-  const trailingActions = isAuthPage
-    ? []
-    : [
-        user ? (
-          <UserMenu
-            key="user-menu"
-            user={user}
-            onFeedback={() => setFeedbackOpen(true)}
-          />
-        ) : (
-          <GuestMenu
-            key="guest-menu"
-            onFeedback={() => setFeedbackOpen(true)}
-          />
-        )
-      ]
+  const settingsAction = (
+    <Link
+      href="/settings"
+      aria-label="Open settings"
+      className="inline-flex size-11 items-center justify-center rounded-full bg-zinc-900/80 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] transition-transform duration-[140ms] hover:scale-[1.02] dark:bg-zinc-900"
+    >
+      <NativeIcon name="settings" className="size-5" />
+    </Link>
+  )
 
-  const leadingAction =
-    showSidebar && !isAuthPage ? (
-      <SidebarTrigger className="gist-icon-button size-10 animate-fade-in" />
-    ) : undefined
+  const trailingActions = user
+    ? [
+        <UserMenu
+          key="user-menu"
+          user={user}
+          onFeedback={() => setFeedbackOpen(true)}
+        />
+      ]
+    : [
+        <Link
+          key="guest-login"
+          href="/auth/login"
+          aria-label="Sign in"
+          className="inline-flex size-11 items-center justify-center rounded-full bg-linear-to-br from-indigo-500 to-fuchsia-500 text-sm font-bold text-white shadow-[0_12px_34px_rgba(99,102,241,0.32)]"
+        >
+          s
+        </Link>
+      ]
 
   return (
     <>
@@ -99,16 +93,18 @@ export function ShellLayout({
         <ShellFrame
           className="flex-1 min-w-0 native-app-frame"
           navBar={
-            <AppNavBar
-              title={getTitle()}
-              leadingAction={leadingAction}
-              showBack={showBack}
-              trailingActions={trailingActions}
-              scrollOffset={scrollOffset}
-            />
+            isImmersiveRoute ? undefined : (
+              <AppNavBar
+                title="gist."
+                leadingAction={settingsAction}
+                showBack={showBack}
+                trailingActions={trailingActions}
+                scrollOffset={scrollOffset}
+              />
+            )
           }
           tabBar={
-            isAuthPage ? undefined : (
+            isImmersiveRoute ? undefined : (
               <TabBar items={TAB_ITEMS} onScrollToTop={scrollToTop} />
             )
           }

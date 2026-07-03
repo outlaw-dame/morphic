@@ -376,6 +376,95 @@ export const readingItems = pgTable(
 
 export type ReadingItem = InferSelectModel<typeof readingItems>
 
+// Subscribed feed table
+export const subscribedFeeds = pgTable(
+  'subscribed_feeds',
+  {
+    id: varchar('id', { length: ID_LENGTH })
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    userId: varchar('user_id', { length: USER_ID_LENGTH }).notNull(),
+    url: text('url').notNull(),
+    canonicalUrl: text('canonical_url').notNull(),
+    title: text('title'),
+    description: text('description'),
+    siteUrl: text('site_url'),
+    faviconUrl: text('favicon_url'),
+    imageUrl: text('image_url'),
+    format: varchar('format', {
+      length: VARCHAR_LENGTH,
+      enum: ['rss2', 'rss1', 'atom', 'json', 'unknown']
+    })
+      .notNull()
+      .default('unknown'),
+    isPodcast: boolean('is_podcast').notNull().default(false),
+    status: varchar('status', {
+      length: VARCHAR_LENGTH,
+      enum: ['active', 'paused', 'error', 'archived']
+    })
+      .notNull()
+      .default('active'),
+    refreshIntervalMinutes: integer('refresh_interval_minutes')
+      .notNull()
+      .default(60),
+    lastFetchedAt: timestamp('last_fetched_at'),
+    nextFetchAt: timestamp('next_fetch_at'),
+    failureCount: integer('failure_count').notNull().default(0),
+    lastError: text('last_error'),
+    etag: text('etag'),
+    lastModified: text('last_modified'),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at')
+  },
+  table => [
+    uniqueIndex('subscribed_feeds_user_canonical_url_idx').on(
+      table.userId,
+      table.canonicalUrl
+    ),
+    index('subscribed_feeds_user_status_next_fetch_idx').on(
+      table.userId,
+      table.status,
+      table.nextFetchAt
+    ),
+    index('subscribed_feeds_user_updated_at_idx').on(
+      table.userId,
+      table.updatedAt.desc()
+    ),
+    index('subscribed_feeds_status_next_fetch_idx').on(
+      table.status,
+      table.nextFetchAt
+    ),
+
+    check(
+      'subscribed_feeds_format_valid',
+      sql`${table.format} IN ('rss2', 'rss1', 'atom', 'json', 'unknown')`
+    ),
+    check(
+      'subscribed_feeds_status_valid',
+      sql`${table.status} IN ('active', 'paused', 'error', 'archived')`
+    ),
+    check(
+      'subscribed_feeds_refresh_interval_valid',
+      sql`${table.refreshIntervalMinutes} >= 5 AND ${table.refreshIntervalMinutes} <= 10080`
+    ),
+    check(
+      'subscribed_feeds_failure_count_valid',
+      sql`${table.failureCount} >= 0`
+    ),
+
+    pgPolicy('users_manage_own_subscribed_feeds', {
+      as: 'permissive',
+      for: 'all',
+      to: 'public',
+      using: sql`user_id = current_setting('app.current_user_id', true)`,
+      withCheck: sql`user_id = current_setting('app.current_user_id', true)`
+    })
+  ]
+).enableRLS()
+
+export type SubscribedFeed = InferSelectModel<typeof subscribedFeeds>
+
 // Source preference profile table
 export const sourcePreferenceProfiles = pgTable(
   'source_preference_profiles',

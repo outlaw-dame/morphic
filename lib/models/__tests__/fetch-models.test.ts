@@ -39,6 +39,11 @@ describe('fetch-models', () => {
     delete process.env.OPENROUTER_FUSION_JUDGE_MODEL
     delete process.env.OPENROUTER_ADVISOR_MODEL
     delete process.env.OPENROUTER_ADVISOR_TOOLS
+    delete process.env.MISTRAL_NATIVE_WEB_SEARCH_ENABLED
+    delete process.env.MISTRAL_NATIVE_WEB_SEARCH_TOOL
+    delete process.env.MISTRAL_NATIVE_WEB_SEARCH_PREMIUM_ENABLED
+    delete process.env.MISTRAL_NATIVE_WEB_SEARCH_MAX_RETRIES
+    delete process.env.MISTRAL_NATIVE_WEB_SEARCH_TIMEOUT_MS
   })
 
   it('filters non-chat and snapshot OpenAI models', async () => {
@@ -775,6 +780,64 @@ describe('fetch-models', () => {
           }
         }
       })
+    })
+  })
+
+  describe('fetchMistralModels', () => {
+    it('adds validated Mistral native web-search provider options from env', async () => {
+      mockIsProviderEnabled.mockImplementation(
+        providerId => providerId === 'mistral'
+      )
+      process.env.MISTRAL_API_KEY = 'mistral-test-key'
+      process.env.MISTRAL_NATIVE_WEB_SEARCH_ENABLED = 'true'
+      process.env.MISTRAL_NATIVE_WEB_SEARCH_TOOL = 'web_search'
+
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: async () => ({
+          data: [{ id: 'mistral-large-latest' }]
+        })
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const models = await fetchModels.fetchMistralModels()
+
+      expect(models[0].providerOptions).toEqual({
+        mistral: {
+          serverTools: {
+            enabled: true,
+            webSearch: {
+              enabled: true,
+              tool: 'web_search'
+            }
+          }
+        }
+      })
+    })
+
+    it('does not attach premium Mistral native web search without premium opt-in', async () => {
+      mockIsProviderEnabled.mockImplementation(
+        providerId => providerId === 'mistral'
+      )
+      process.env.MISTRAL_API_KEY = 'mistral-test-key'
+      process.env.MISTRAL_NATIVE_WEB_SEARCH_ENABLED = 'true'
+      process.env.MISTRAL_NATIVE_WEB_SEARCH_TOOL = 'web_search_premium'
+
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: async () => ({
+          data: [{ id: 'mistral-large-latest' }]
+        })
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const models = await fetchModels.fetchMistralModels()
+
+      expect(models[0].providerOptions).toBeUndefined()
     })
   })
 })

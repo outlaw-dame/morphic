@@ -7,19 +7,19 @@ import {
 
 import { NativeIcon } from '@/components/native/native-icon'
 
-interface LeavingMorphicDialogProps {
+interface LeavingAppDialogProps {
   href: string
   appOrigin: string
   onContinue: () => void
   onCancel: () => void
 }
 
-export function LeavingMorphicDialog({
+export function LeavingAppDialog({
   href,
   appOrigin,
   onContinue,
   onCancel
-}: LeavingMorphicDialogProps) {
+}: LeavingAppDialogProps) {
   const assessment: ExternalNavigationAssessment = assessExternalNavigation(
     href,
     appOrigin
@@ -35,7 +35,7 @@ export function LeavingMorphicDialog({
         <NativeIcon name="warning" className="h-5 w-5 shrink-0" />
         <div className="space-y-3">
           <div>
-            <h2 className="font-semibold">Leaving Morphic</h2>
+            <h2 className="font-semibold">Leaving gist</h2>
             <p className="text-sm text-muted-foreground">{assessment.reason}</p>
           </div>
 
@@ -51,7 +51,7 @@ export function LeavingMorphicDialog({
               className="rounded-md border px-3 py-2 text-sm"
               onClick={onCancel}
             >
-              Stay in Morphic
+              Stay in gist
             </button>
 
             <button

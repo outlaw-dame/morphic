@@ -69,7 +69,95 @@ Every source should know where it came from:
 - map/place provider;
 - future connector.
 
-### 2.5 Treat cost and abuse controls as product requirements
+### 2.5 Keep provider-native tools behind the source-first boundary
+
+Some model providers expose native server-side tools that can perform web
+search, code execution, document-library retrieval, or connector access. These
+can improve the agentic research layer, but they must not bypass Gist's
+source-first retrieval, ranking, citation, safety, and audit controls.
+
+Mistral is the current example: its Chat Completions and Beta Agents APIs expose
+tool contracts such as `web_search`, `web_search_premium`,
+`DocumentLibraryTool`, code interpreter, image generation, and custom
+connectors. That makes Mistral useful as a provider-native research subagent,
+especially when the user selects a Mistral model or when the router needs an
+additional independent evidence path.
+
+Integration rules:
+
+- Treat Mistral native search as an agent-layer capability, not as a normal
+  search provider replacement.
+- Keep app-native retrieval providers, configured feeds, source preferences,
+  Safe Browsing, source quality scoring, claim verification, and citation cards
+  as the authoritative user-facing source pipeline.
+- Normalize any provider-native web/search citations into the same source model
+  used by Qwant, DuckDuckGo, SearXNG, Tavily, Kagi, Exa, Brave, feeds, and
+  fetched URLs before rendering them.
+- Disable provider-native tools by default and enable them only with explicit
+  feature flags.
+- Require separate opt-in for premium/cost-amplifying tools such as
+  `web_search_premium`.
+- Fail closed when a provider-native tool config is invalid, unsupported by the
+  selected model, or cannot be normalized safely.
+- Do not persist provider-created agent IDs or document-library references as
+  trusted state unless they are scoped to the user and covered by deletion,
+  access-control, and audit behavior.
+
+Recommended Mistral adapter shape:
+
+```text
+lib/agents/mistral-server-tools.ts
+- read and sanitize Mistral native-tool environment config
+- validate allowed tool names and premium opt-in
+- expose model/provider capability metadata for the router
+- convert provider-native citations/results into NormalizedSource candidates
+- provide tests for disabled defaults, premium lockout, invalid config, and
+  normalization failures
+```
+
+Initial flags should be conservative:
+
+```bash
+MISTRAL_NATIVE_WEB_SEARCH_ENABLED=false
+MISTRAL_NATIVE_WEB_SEARCH_TOOL=web_search
+MISTRAL_NATIVE_WEB_SEARCH_PREMIUM_ENABLED=false
+```
+
+This mirrors the OpenRouter server-tools approach: validate the schema before
+the AI SDK/provider call, keep the contract provider-specific, and only attach
+native tool contracts for the matching provider.
+
+Implemented initial Mistral slice:
+
+- Added a Mistral native web-search adapter with strict config validation.
+- Attached validated Mistral provider options to discovered Mistral models only
+  when native web search is enabled by deployment config or explicit user
+  setting.
+- Added secure user Mistral key/settings support. User keys are stored in
+  HttpOnly cookies, and the Settings page can enable standard Mistral native
+  `web_search` without exposing premium tools.
+- Kept `web_search_premium` disabled unless
+  `MISTRAL_NATIVE_WEB_SEARCH_PREMIUM_ENABLED=true`.
+- Propagated validated Mistral native-tool config through the researcher
+  `prepareCall` path using an internal header.
+- Stripped the internal header in the Mistral provider wrapper before the
+  outbound API request and appended the validated native web-search tool to the
+  request body.
+- Added researcher guidance that folds Mistral native search into the
+  source-first architecture: native web search is supplemental cross-checking
+  only, while app-native search, feeds, fetch, source preferences, Safe
+  Browsing, source quality, and citation cards remain the user-facing evidence
+  path.
+
+Still deferred:
+
+- Normalizing Mistral-returned citations into persisted source cards once the
+  exact response shape is validated against live API responses.
+- Mistral document-library tools, custom connectors, and persistent beta agents.
+- Router policy for when to prefer app-native retrieval versus Mistral-native
+  web search.
+
+### 2.6 Treat cost and abuse controls as product requirements
 
 Adaptive mode, deep fetching, extraction APIs, and model verification can get expensive. Every phase that increases tool calls should include:
 

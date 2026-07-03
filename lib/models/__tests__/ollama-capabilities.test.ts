@@ -31,7 +31,7 @@ describe('Ollama capability inference', () => {
     })
   })
 
-  it('does not route embedding-only models into Morphic chat', () => {
+  it('does not route embedding-only models into Gist chat', () => {
     expect(inferOllamaModelCapabilities('nomic-embed-text')).toEqual([
       'embeddings'
     ])

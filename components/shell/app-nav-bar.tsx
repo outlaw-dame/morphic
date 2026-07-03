@@ -22,24 +22,6 @@ export interface AppNavBarProps {
 
 const COLLAPSE_THRESHOLD = 60
 
-function isGistTitle(title: string) {
-  return title.trim().toLocaleLowerCase() === 'gist.'
-}
-
-function GistWordmark({ className }: { className?: string }) {
-  return (
-    <span
-      className={cn('gist-wordmark font-semibold', className)}
-      data-gist-wordmark
-    >
-      gist
-      <span className="gist-wordmark-dot" data-gist-wordmark-accent>
-        .
-      </span>
-    </span>
-  )
-}
-
 /**
  * Adaptive top navigation bar with platform-specific behavior.
  *
@@ -56,13 +38,8 @@ export function AppNavBar({
 }: AppNavBarProps) {
   const platform = usePlatform()
   const { handleBack } = useBackButton()
-
-  const isAppleMobile = platform.isAppleLike
   const isAndroid = platform.family === 'android'
   const isCollapsed = scrollOffset >= COLLAPSE_THRESHOLD
-
-  // Collapse progress for smooth interpolation (0 = expanded, 1 = collapsed)
-  const collapseProgress = Math.min(scrollOffset / COLLAPSE_THRESHOLD, 1)
 
   const renderLeading = () => {
     if (leadingAction) return leadingAction
@@ -72,7 +49,7 @@ export function AppNavBar({
       <button
         type="button"
         onClick={handleBack}
-        className="gist-icon-button flex items-center justify-center"
+        className="flex items-center justify-center"
         style={{
           minWidth: 'var(--native-min-touch-target)',
           minHeight: 'var(--native-min-touch-target)'
@@ -107,7 +84,7 @@ export function AppNavBar({
         {hasOverflow && (
           <button
             type="button"
-            className="gist-icon-button flex items-center justify-center"
+            className="flex items-center justify-center"
             style={{
               minWidth: 'var(--native-min-touch-target)',
               minHeight: 'var(--native-min-touch-target)'
@@ -124,58 +101,23 @@ export function AppNavBar({
   return (
     <header
       className={cn(
-        'shell-nav-bar relative flex flex-col justify-end px-4',
+        'shell-nav-bar relative flex items-center bg-black px-5 text-white',
         isAndroid && 'shadow-[0_2px_4px_rgba(0,0,0,0.08)]'
       )}
       style={{
-        height:
-          isAppleMobile && !isCollapsed
-            ? `${96 - (96 - 52) * collapseProgress}px`
-            : 'var(--native-toolbar-height)'
+        height: 'var(--native-toolbar-height)'
       }}
       data-collapsed={isCollapsed}
     >
-      {/* Inline bar: always present */}
-      <div
-        className="flex items-center justify-between w-full"
-        style={{ height: 'var(--native-toolbar-height)' }}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          {renderLeading()}
-          {/* Inline title: always visible on Android/desktop, fades in on iOS collapse */}
-          <h1
-            className={cn(
-              'truncate text-base font-semibold',
-              isAppleMobile && 'transition-opacity duration-200',
-              isAppleMobile && !isCollapsed && 'opacity-0',
-              isAppleMobile && isCollapsed && 'opacity-100',
-              !isAppleMobile && 'opacity-100'
-            )}
-          >
-            {isGistTitle(title) ? <GistWordmark /> : title}
-          </h1>
-        </div>
+      <div className="flex min-w-0 flex-1 items-center justify-start">
+        {renderLeading()}
+      </div>
+      <h1 className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 truncate text-[2rem] font-bold leading-none tracking-normal text-white">
+        {title}
+      </h1>
+      <div className="flex min-w-0 flex-1 items-center justify-end">
         {renderTrailing()}
       </div>
-
-      {/* Large title: only on Apple-like mobile, fades out on collapse */}
-      {isAppleMobile && (
-        <div
-          className="pb-2 transition-opacity duration-200"
-          style={{
-            opacity: 1 - collapseProgress
-          }}
-          aria-hidden={isCollapsed}
-        >
-          <h1 className="truncate text-[34px] font-bold leading-tight">
-            {isGistTitle(title) ? (
-              <GistWordmark className="font-bold" />
-            ) : (
-              title
-            )}
-          </h1>
-        </div>
-      )}
     </header>
   )
 }

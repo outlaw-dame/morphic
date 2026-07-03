@@ -34,8 +34,10 @@ export interface BuildDiscoveryPageDataOptions {
 }
 
 const DEFAULT_MAX_ITEMS_PER_FEED = 8
+const DEFAULT_FEED_READ_TIMEOUT_MS = 4_000
 const MAX_FEEDS = 12
 const MAX_CLUSTERS = 12
+const MAX_FEED_READ_TIMEOUT_MS = 15_000
 const STOP_WORDS = new Set([
   'about',
   'after',
@@ -88,6 +90,52 @@ function getMaxItemsPerFeed(env: DiscoveryEnv) {
   }
 
   return Math.min(parsed, 25)
+}
+
+function positiveIntegerFromEnv(
+  value: string | undefined,
+  fallback: number,
+  max: number
+) {
+  const parsed = value ? Number.parseInt(value, 10) : NaN
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback
+  }
+
+  return Math.min(parsed, max)
+}
+
+async function readFeedWithTimeout({
+  feedUrl,
+  maxItems,
+  readFeed,
+  timeoutMs
+}: {
+  feedUrl: string
+  maxItems: number
+  readFeed: FeedRead
+  timeoutMs: number
+}) {
+  let timeout: ReturnType<typeof setTimeout> | undefined
+
+  try {
+    return await Promise.race([
+      readFeed(feedUrl, maxItems),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => {
+          reject(
+            new Error(
+              `Discovery feed read timed out after ${timeoutMs}ms: ${feedUrl}`
+            )
+          )
+        }, timeoutMs)
+      })
+    ])
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout)
+    }
+  }
 }
 
 function slugPart(value: string) {
@@ -198,12 +246,22 @@ export async function buildDiscoveryPageData({
 }: BuildDiscoveryPageDataOptions = {}): Promise<DiscoveryPageData> {
   const feedUrls = getDiscoveryFeedUrls(env)
   const maxItems = getMaxItemsPerFeed(env)
+  const feedReadTimeoutMs = positiveIntegerFromEnv(
+    env.DISCOVERY_FEED_READ_TIMEOUT_MS,
+    DEFAULT_FEED_READ_TIMEOUT_MS,
+    MAX_FEED_READ_TIMEOUT_MS
+  )
   const feedErrors: string[] = []
   const sources: NormalizedSource[] = []
 
   for (const feedUrl of feedUrls) {
     try {
-      const feed = await readFeed(feedUrl, maxItems)
+      const feed = await readFeedWithTimeout({
+        feedUrl,
+        maxItems,
+        readFeed,
+        timeoutMs: feedReadTimeoutMs
+      })
       sources.push(
         ...normalizeFeedResults({
           action: 'read',

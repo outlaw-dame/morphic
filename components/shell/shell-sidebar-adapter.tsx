@@ -5,7 +5,6 @@ import Link from 'next/link'
 
 import { cn } from '@/lib/utils'
 
-import { IconLogo } from '@/components/ui/icons'
 import { useSidebar } from '@/components/ui/sidebar'
 
 import { NativeIcon } from '@/components/native/native-icon'
@@ -46,8 +45,7 @@ export function ShellSidebarAdapter() {
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b">
           <Link href="/" className="flex items-center gap-2 px-1">
-            <IconLogo className="size-5" />
-            <span className="font-semibold text-sm">Morphic</span>
+            <span className="text-lg font-bold tracking-normal">gist.</span>
           </Link>
           <button
             type="button"
@@ -68,7 +66,7 @@ export function ShellSidebarAdapter() {
           <SidebarLink
             href="/"
             icon="newChat"
-            label="New Chat"
+            label="New search"
             onClick={handleClose}
           />
           <SidebarLink

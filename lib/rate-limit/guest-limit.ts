@@ -5,7 +5,11 @@ import {
   recordEmergencyRateLimitAttempt
 } from './failure-policy'
 
-const DEFAULT_GUEST_DAILY_LIMIT = 10
+const DEFAULT_GUEST_DAILY_LIMIT = 3
+
+export function isGuestChatEnabled(): boolean {
+  return process.env.ENABLE_GUEST_CHAT !== 'false'
+}
 
 function getGuestDailyLimit(): number {
   const raw = process.env.GUEST_CHAT_DAILY_LIMIT
@@ -39,14 +43,28 @@ async function checkGuestLimit(ip: string): Promise<{
   emergencyLimit?: number
 }> {
   if (process.env.MORPHIC_CLOUD_DEPLOYMENT !== 'true') {
-    return { allowed: true, remaining: Infinity, resetAt: 0, limit: 0 }
+    const attempt = recordEmergencyRateLimitAttempt('guest', ip)
+    return {
+      allowed: attempt.allowed,
+      remaining: attempt.remaining,
+      resetAt: attempt.resetAt,
+      limit: attempt.limit
+    }
   }
 
   if (
     !process.env.UPSTASH_REDIS_REST_URL ||
     !process.env.UPSTASH_REDIS_REST_TOKEN
   ) {
-    return { allowed: true, remaining: Infinity, resetAt: 0, limit: 0 }
+    const attempt = recordEmergencyRateLimitAttempt('guest', ip)
+    return {
+      allowed: attempt.allowed,
+      remaining: attempt.remaining,
+      resetAt: attempt.resetAt,
+      limit: attempt.limit,
+      unavailable: true,
+      emergencyLimit: attempt.limit
+    }
   }
 
   try {
@@ -112,9 +130,12 @@ async function checkGuestLimit(ip: string): Promise<{
 export async function checkAndEnforceGuestLimit(
   ip: string | null
 ): Promise<Response | null> {
-  if (!ip) return null
-
-  const result = await checkGuestLimit(ip)
+  const result = await checkGuestLimit(
+    ip ??
+      (process.env.MORPHIC_CLOUD_DEPLOYMENT === 'true'
+        ? 'unidentified'
+        : 'local-development')
+  )
   if (!result.allowed) {
     return new Response(
       JSON.stringify({

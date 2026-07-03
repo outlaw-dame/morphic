@@ -2,7 +2,17 @@ import { cookies } from 'next/headers'
 
 import { createGateway } from '@ai-sdk/gateway'
 
+import {
+  createMistralServerToolsProviderOptionsForUser,
+  createMistralServerToolsProviderOptionsFromEnv
+} from '@/lib/agents/mistral-server-tools'
 import { createOpenRouterServerToolsProviderOptionsFromEnv } from '@/lib/agents/openrouter-server-tools'
+import {
+  getConfiguredMistralApiKey,
+  getConfiguredMistralNativeWebSearchEnabled,
+  getMistralApiKeyFromCookieStore,
+  getMistralNativeWebSearchEnabledFromCookieStore
+} from '@/lib/mistral/api-key'
 import { getConfiguredOllamaCloudApiKey } from '@/lib/ollama/cloud-api-key'
 import { Model } from '@/lib/types/models'
 import { isProviderEnabled } from '@/lib/utils/registry'
@@ -17,6 +27,8 @@ import {
 export type ModelsByProvider = Record<string, Model[]>
 
 const MODEL_CACHE_TTL_MS = 2 * 60 * 1000
+const MODEL_FETCH_TIMEOUT_MS = 5_000
+const PROVIDER_MODEL_FETCH_TIMEOUT_MS = 7_500
 const DATE_SNAPSHOT_SUFFIX_REGEX = /-\d{4}-\d{2}-\d{2}$/
 const GOOGLE_PREVIEW_SNAPSHOT_REGEX = /preview-\d{2}-\d{2,4}$/i
 const OPENAI_ALLOWED_PREFIXES = ['gpt-5', 'o1', 'o3', 'o4']
@@ -287,6 +299,28 @@ function withOpenRouterProviderOptions(models: Model[]): Model[] {
   }))
 }
 
+function withMistralProviderOptions(
+  models: Model[],
+  cookieStore?: Awaited<ReturnType<typeof cookies>>
+): Model[] {
+  const providerOptions = cookieStore
+    ? createMistralServerToolsProviderOptionsForUser(
+        getConfiguredMistralNativeWebSearchEnabled(cookieStore)
+      )
+    : createMistralServerToolsProviderOptionsFromEnv()
+  if (!providerOptions.mistral) {
+    return models
+  }
+
+  return models.map(model => ({
+    ...model,
+    providerOptions: {
+      ...(model.providerOptions ?? {}),
+      ...providerOptions
+    }
+  }))
+}
+
 function passesGatewayFilters(id: string): boolean {
   if (hasDateSnapshotSuffix(id)) {
     return false
@@ -319,7 +353,11 @@ async function fetchJson(
   url: string,
   headers: HeadersInit
 ): Promise<Record<string, any>> {
-  const response = await fetch(url, { headers, method: 'GET' })
+  const response = await fetch(url, {
+    headers,
+    method: 'GET',
+    signal: AbortSignal.timeout(MODEL_FETCH_TIMEOUT_MS)
+  })
   if (!response.ok) {
     const error = new Error(
       `HTTP ${response.status}: ${response.statusText}`
@@ -328,6 +366,32 @@ async function fetchJson(
     throw error
   }
   return (await response.json()) as Record<string, any>
+}
+
+async function withProviderModelTimeout(
+  label: string,
+  promise: Promise<Model[]>
+): Promise<Model[]> {
+  return new Promise(resolve => {
+    const timeout = setTimeout(() => {
+      console.warn(
+        `[ModelFetch] ${label} model discovery timed out after ${PROVIDER_MODEL_FETCH_TIMEOUT_MS}ms`
+      )
+      resolve([])
+    }, PROVIDER_MODEL_FETCH_TIMEOUT_MS)
+
+    promise.then(
+      models => {
+        clearTimeout(timeout)
+        resolve(models)
+      },
+      error => {
+        clearTimeout(timeout)
+        console.warn(`[ModelFetch] ${label} model discovery failed:`, error)
+        resolve([])
+      }
+    )
+  })
 }
 
 export async function fetchOpenAIModels(): Promise<Model[]> {
@@ -713,40 +777,49 @@ export async function fetchGatewayModels(): Promise<Model[]> {
 }
 
 export async function fetchMistralModels(): Promise<Model[]> {
-  if (!isProviderEnabled('mistral')) {
+  let cookieStore: Awaited<ReturnType<typeof cookies>> | undefined
+  try {
+    cookieStore = await cookies()
+  } catch (e) {}
+
+  if (!isProviderEnabled('mistral', cookieStore)) {
     return []
   }
 
-  const fallbacks = [
-    {
-      id: 'mistral-large-latest',
-      name: 'Mistral Large',
-      provider: 'Mistral',
-      providerId: 'mistral'
-    },
-    {
-      id: 'mistral-medium-latest',
-      name: 'Mistral Medium',
-      provider: 'Mistral',
-      providerId: 'mistral'
-    },
-    {
-      id: 'mistral-small-latest',
-      name: 'Mistral Small',
-      provider: 'Mistral',
-      providerId: 'mistral'
-    },
-    {
-      id: 'codestral-latest',
-      name: 'Codestral',
-      provider: 'Mistral',
-      providerId: 'mistral'
-    }
-  ]
+  const apiKey = getConfiguredMistralApiKey(cookieStore)
+  const fallbacks = withMistralProviderOptions(
+    [
+      {
+        id: 'mistral-large-latest',
+        name: 'Mistral Large',
+        provider: 'Mistral',
+        providerId: 'mistral'
+      },
+      {
+        id: 'mistral-medium-latest',
+        name: 'Mistral Medium',
+        provider: 'Mistral',
+        providerId: 'mistral'
+      },
+      {
+        id: 'mistral-small-latest',
+        name: 'Mistral Small',
+        provider: 'Mistral',
+        providerId: 'mistral'
+      },
+      {
+        id: 'codestral-latest',
+        name: 'Codestral',
+        provider: 'Mistral',
+        providerId: 'mistral'
+      }
+    ],
+    cookieStore
+  )
 
   try {
     const json = await fetchJson('https://api.mistral.ai/v1/models', {
-      Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`
+      Authorization: `Bearer ${apiKey}`
     })
 
     const data = Array.isArray(json?.data) ? json.data : []
@@ -756,21 +829,24 @@ export async function fetchMistralModels(): Promise<Model[]> {
 
     const excluded = ['embed', 'moderation', 'ocr']
 
-    return data
-      .map((m: Record<string, unknown>) => String(m?.id ?? ''))
-      .filter(Boolean)
-      .filter(
-        (id: string) => !excluded.some(kw => id.toLowerCase().includes(kw))
-      )
-      .map((id: string) => ({
-        id,
-        name: id
-          .replace(/-latest$/, '')
-          .replace(/-/g, ' ')
-          .replace(/\b\w/g, c => c.toUpperCase()),
-        provider: 'Mistral',
-        providerId: 'mistral'
-      }))
+    return withMistralProviderOptions(
+      data
+        .map((m: Record<string, unknown>) => String(m?.id ?? ''))
+        .filter(Boolean)
+        .filter(
+          (id: string) => !excluded.some(kw => id.toLowerCase().includes(kw))
+        )
+        .map((id: string) => ({
+          id,
+          name: id
+            .replace(/-latest$/, '')
+            .replace(/-/g, ' ')
+            .replace(/\b\w/g, c => c.toUpperCase()),
+          provider: 'Mistral',
+          providerId: 'mistral'
+        })),
+      cookieStore
+    )
   } catch (error) {
     console.error('Error fetching Mistral models:', error)
     return fallbacks
@@ -957,8 +1033,21 @@ export async function fetchAvailableModels(options?: {
 }): Promise<ModelsByProvider> {
   const forceRefresh = options?.forceRefresh === true
   const now = Date.now()
+  let requestCookieStore: Awaited<ReturnType<typeof cookies>> | undefined
+  try {
+    requestCookieStore = await cookies()
+  } catch (e) {}
+  const hasUserScopedMistralConfig =
+    Boolean(getMistralApiKeyFromCookieStore(requestCookieStore)) ||
+    getMistralNativeWebSearchEnabledFromCookieStore(requestCookieStore) !==
+      undefined
 
-  if (!forceRefresh && modelsCache && modelsCache.expiresAt > now) {
+  if (
+    !forceRefresh &&
+    !hasUserScopedMistralConfig &&
+    modelsCache &&
+    modelsCache.expiresAt > now
+  ) {
     return modelsCache.value
   }
 
@@ -975,17 +1064,20 @@ export async function fetchAvailableModels(options?: {
     mistralModels,
     openrouterModels
   ] = await Promise.all([
-    fetchOpenAIModels(),
-    fetchAnthropicModels(),
-    fetchGoogleModels(),
-    fetchOpenAICompatibleModels(),
-    fetchNvidiaModels(),
-    fetchOllamaModels(),
-    fetchOllamaCloudModels(),
-    fetchGatewayModels(),
-    fetchCloudflareModels(),
-    fetchMistralModels(),
-    fetchOpenRouterModels()
+    withProviderModelTimeout('OpenAI', fetchOpenAIModels()),
+    withProviderModelTimeout('Anthropic', fetchAnthropicModels()),
+    withProviderModelTimeout('Google', fetchGoogleModels()),
+    withProviderModelTimeout(
+      'OpenAI-compatible',
+      fetchOpenAICompatibleModels()
+    ),
+    withProviderModelTimeout('NVIDIA NIM', fetchNvidiaModels()),
+    withProviderModelTimeout('Ollama', fetchOllamaModels()),
+    withProviderModelTimeout('Ollama Cloud', fetchOllamaCloudModels()),
+    withProviderModelTimeout('Gateway', fetchGatewayModels()),
+    withProviderModelTimeout('Cloudflare', fetchCloudflareModels()),
+    withProviderModelTimeout('Mistral', fetchMistralModels()),
+    withProviderModelTimeout('OpenRouter', fetchOpenRouterModels())
   ])
 
   const grouped = groupByProvider(
@@ -1012,9 +1104,11 @@ export async function fetchAvailableModels(options?: {
     ])
   )
 
-  modelsCache = {
-    value: normalized,
-    expiresAt: now + MODEL_CACHE_TTL_MS
+  if (!hasUserScopedMistralConfig) {
+    modelsCache = {
+      value: normalized,
+      expiresAt: now + MODEL_CACHE_TTL_MS
+    }
   }
 
   return normalized

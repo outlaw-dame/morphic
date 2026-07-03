@@ -1,26 +1,28 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
-import { ModelSelectorClient } from '../model-selector-client'
+import { ChatBarOptions } from '../chat-bar-options'
 
-describe('ModelSelectorClient', () => {
+describe('ChatBarOptions model selector', () => {
   it('adopts a newly available server-selected model after refresh', () => {
     const { rerender } = render(
-      <ModelSelectorClient
-        data={{
+      <ChatBarOptions
+        modelSelectorData={{
           enabled: true,
           modelsByProvider: {},
           selectedModelKey: '',
           hasAvailableModels: false
         }}
+        onFileSelect={() => {}}
       />
     )
 
-    expect(screen.getByText('No enabled model available')).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('Open model and search options'))
+    expect(screen.getByText('No enabled model available.')).toBeInTheDocument()
 
     rerender(
-      <ModelSelectorClient
-        data={{
+      <ChatBarOptions
+        modelSelectorData={{
           enabled: true,
           modelsByProvider: {
             'Ollama Cloud': [
@@ -35,9 +37,10 @@ describe('ModelSelectorClient', () => {
           selectedModelKey: 'ollama-cloud:gpt-oss:20b',
           hasAvailableModels: true
         }}
+        onFileSelect={() => {}}
       />
     )
 
-    expect(screen.getByRole('combobox')).toHaveTextContent('gpt-oss:20b')
+    expect(screen.getByText('gpt-oss:20b')).toBeInTheDocument()
   })
 })

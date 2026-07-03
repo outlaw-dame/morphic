@@ -1,4 +1,7 @@
-import { render, screen } from '@testing-library/react'
+import { hydrateRoot } from 'react-dom/client'
+import { renderToString } from 'react-dom/server'
+
+import { act, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // Mock platform provider
@@ -12,6 +15,11 @@ let mockPlatform: Record<string, unknown> = {
 }
 vi.mock('@/components/platform/platform-provider', () => ({
   usePlatform: () => mockPlatform
+}))
+
+let mockIsMobile = true
+vi.mock('@/lib/hooks/use-media-query', () => ({
+  useMediaQuery: () => mockIsMobile
 }))
 
 // Mock useBackButton
@@ -38,6 +46,7 @@ describe('AppNavBar', () => {
       isStandalone: true,
       classes: []
     }
+    mockIsMobile = true
     vi.clearAllMocks()
   })
 
@@ -51,20 +60,52 @@ describe('AppNavBar', () => {
   it('renders the gist wordmark with an accent dot on the home title', () => {
     const { container } = render(<AppNavBar title="gist." />)
 
-    const wordmark = container.querySelector('[data-gist-wordmark]')
-    expect(wordmark).not.toBeNull()
-    expect(wordmark?.textContent).toBe('gist.')
-    expect(
-      container.querySelector('[data-gist-wordmark-accent]')
-    ).not.toBeNull()
+    const title = container.querySelector('h1')
+    expect(title).not.toBeNull()
+    expect(title?.textContent).toBe('gist.')
+    expect(title?.className).toContain('text-[2rem]')
   })
 
-  it('renders large title on Apple-like platforms', () => {
+  it('renders compact centered title on Apple-like platforms', () => {
     render(<AppNavBar title="Home" scrollOffset={0} />)
-    // The large title has 34px font
-    const largeTitle = document.querySelector('.text-\\[34px\\]')
-    expect(largeTitle).not.toBeNull()
-    expect(largeTitle?.textContent).toBe('Home')
+    const title = screen.getByRole('heading', { name: 'Home' })
+    expect(title).toHaveClass('absolute')
+    expect(title).toHaveClass('text-[2rem]')
+  })
+
+  it('does not render the large title on Apple-like desktop layouts', () => {
+    mockIsMobile = false
+
+    render(<AppNavBar title="Home" scrollOffset={0} />)
+
+    expect(screen.getByRole('heading', { name: 'Home' })).toHaveClass(
+      'text-[2rem]'
+    )
+  })
+
+  it('hydrates Apple-like navigation without changing the server markup', async () => {
+    const browserWindow = globalThis.window
+    vi.stubGlobal('window', undefined)
+    const serverHtml = renderToString(<AppNavBar title="Home" />)
+    vi.stubGlobal('window', browserWindow)
+
+    const container = document.createElement('div')
+    container.innerHTML = serverHtml
+    document.body.appendChild(container)
+    const recoverableErrors: unknown[] = []
+
+    let root: ReturnType<typeof hydrateRoot> | undefined
+    await act(async () => {
+      root = hydrateRoot(container, <AppNavBar title="Home" />, {
+        onRecoverableError: error => recoverableErrors.push(error)
+      })
+    })
+
+    await act(async () => root?.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+
+    expect(recoverableErrors).toEqual([])
   })
 
   it('collapses large title after 60px scroll', () => {
@@ -74,9 +115,7 @@ describe('AppNavBar', () => {
     const header = container.querySelector('[data-collapsed="true"]')
     expect(header).not.toBeNull()
 
-    // Inline title should be visible (opacity-100)
-    const inlineTitle = container.querySelector('.opacity-100')
-    expect(inlineTitle).not.toBeNull()
+    expect(screen.getByRole('heading', { name: 'Home' })).toBeVisible()
   })
 
   it('renders Android variant with elevation shadow', () => {

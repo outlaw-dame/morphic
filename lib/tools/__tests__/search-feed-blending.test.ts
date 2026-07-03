@@ -111,14 +111,26 @@ describe('search tool feed blending', () => {
         contentTypes: ['news']
       }
     )
-    expect(chunks.at(-1)).toEqual({
+    const finalChunk = chunks.at(-1)
+    expect(finalChunk).toMatchObject({
       state: 'complete',
-      ...blendedResults,
+      query: blendedResults.query,
+      number_of_results: 2,
       toolCallId: 'search-call',
       citationMap: {
-        1: blendedResults.results[0],
-        2: blendedResults.results[1]
+        1: expect.objectContaining({ url: 'https://example.com/search' }),
+        2: expect.objectContaining({ url: 'https://example.com/feed-item' })
       }
     })
+    expect(finalChunk?.state).toBe('complete')
+    if (finalChunk?.state !== 'complete') {
+      throw new Error('Expected final search chunk to be complete')
+    }
+    expect(finalChunk.results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ url: 'https://example.com/search' }),
+        expect.objectContaining({ url: 'https://example.com/feed-item' })
+      ])
+    )
   })
 })

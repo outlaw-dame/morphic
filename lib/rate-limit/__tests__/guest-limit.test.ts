@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { clearEmergencyRateLimitCounters } from '@/lib/rate-limit/failure-policy'
+import * as guestLimitModule from '@/lib/rate-limit/guest-limit'
 import { checkAndEnforceGuestLimit } from '@/lib/rate-limit/guest-limit'
 
 const mockRedisIncr = vi.fn()
@@ -22,15 +24,35 @@ describe('checkAndEnforceGuestLimit', () => {
     delete process.env.GUEST_CHAT_DAILY_LIMIT
     delete process.env.GUEST_RATE_LIMIT_FAILURE_MODE
     delete process.env.GUEST_RATE_LIMIT_EMERGENCY_CAP
+    delete process.env.ENABLE_GUEST_CHAT
+    clearEmergencyRateLimitCounters()
   })
 
-  it('returns null when ip is missing', async () => {
+  it('enables the three-search guest trial by default with an explicit opt-out', () => {
+    expect(guestLimitModule.isGuestChatEnabled?.()).toBe(true)
+
+    process.env.ENABLE_GUEST_CHAT = 'false'
+    expect(guestLimitModule.isGuestChatEnabled?.()).toBe(false)
+  })
+
+  it('allows three local guest searches and gates the fourth without an ip', async () => {
+    process.env.MORPHIC_CLOUD_DEPLOYMENT = 'false'
+
+    expect(await checkAndEnforceGuestLimit(null)).toBeNull()
+    expect(await checkAndEnforceGuestLimit(null)).toBeNull()
+    expect(await checkAndEnforceGuestLimit(null)).toBeNull()
+
     const response = await checkAndEnforceGuestLimit(null)
-    expect(response).toBeNull()
+    expect(response?.status).toBe(401)
+    await expect(response?.json()).resolves.toMatchObject({
+      authRequired: true,
+      limit: 3,
+      remaining: 0
+    })
   })
 
   it('returns 401 when over the default limit', async () => {
-    mockRedisIncr.mockResolvedValue(11)
+    mockRedisIncr.mockResolvedValue(4)
     mockRedisExpire.mockResolvedValue(1)
 
     const response = await checkAndEnforceGuestLimit('1.2.3.4')
@@ -39,7 +61,7 @@ describe('checkAndEnforceGuestLimit', () => {
     const body = await response!.json()
     expect(body.error).toBe('Please sign in to continue.')
     expect(body.authRequired).toBe(true)
-    expect(body.limit).toBe(10)
+    expect(body.limit).toBe(3)
   })
 
   it('uses configured limit when set', async () => {
@@ -52,6 +74,23 @@ describe('checkAndEnforceGuestLimit', () => {
     expect(response?.status).toBe(401)
     const body = await response!.json()
     expect(body.limit).toBe(5)
+  })
+
+  it('uses the three-search emergency cap when cloud redis is unavailable', async () => {
+    delete process.env.UPSTASH_REDIS_REST_URL
+    delete process.env.UPSTASH_REDIS_REST_TOKEN
+
+    expect(await checkAndEnforceGuestLimit('4.3.2.1')).toBeNull()
+    expect(await checkAndEnforceGuestLimit('4.3.2.1')).toBeNull()
+    expect(await checkAndEnforceGuestLimit('4.3.2.1')).toBeNull()
+
+    const response = await checkAndEnforceGuestLimit('4.3.2.1')
+    expect(response?.status).toBe(401)
+    await expect(response?.json()).resolves.toMatchObject({
+      authRequired: true,
+      rateLimitUnavailable: true,
+      emergencyLimit: 3
+    })
   })
 
   it('allows request under the limit', async () => {

@@ -11,7 +11,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 
-import { LeavingMorphicDialog } from './leaving-morphic-dialog'
+import { LeavingAppDialog } from './leaving-app-dialog'
 
 type GuardedExternalLinkProps =
   React.AnchorHTMLAttributes<HTMLAnchorElement> & {
@@ -68,11 +68,11 @@ export function GuardedExternalLink({
       </a>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="border-0 bg-transparent p-0 shadow-none sm:max-w-md">
-          <DialogTitle className="sr-only">Leaving Morphic</DialogTitle>
+          <DialogTitle className="sr-only">Leaving gist</DialogTitle>
           <DialogDescription className="sr-only">
             Review the destination before opening this external source.
           </DialogDescription>
-          <LeavingMorphicDialog
+          <LeavingAppDialog
             href={href}
             appOrigin={appOrigin}
             onCancel={() => setOpen(false)}

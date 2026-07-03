@@ -32,16 +32,9 @@ import {
 import { useArtifact } from './artifact/artifact-context'
 import { NativeIcon } from './native/native-icon'
 import { NativePressable } from './native/native-pressable'
-import { Button } from './ui/button'
-import { ActionButtons } from './action-buttons'
-import { FileUploadButton } from './file-upload-button'
+import { ChatBarOptions } from './chat-bar-options'
 import { MessageNavigationDots } from './message-navigation-dots'
-import { ModelSelectorClient } from './model-selector-client'
-import { SearchModeSelector } from './search-mode-selector'
 import { UploadedFileList } from './uploaded-file-list'
-
-// Constants for timing delays
-const INPUT_UPDATE_DELAY_MS = 10 // Delay to ensure input value is updated before form submission
 
 function getSearchModeSnapshot(): SearchMode {
   return getCookie('searchMode') === 'adaptive' ? 'adaptive' : 'quick'
@@ -106,6 +99,7 @@ export function ChatPanel({
   const [isInputFocused, setIsInputFocused] = useState(false) // Track input focus
   const { close: closeArtifact } = useArtifact()
   const isLoading = status === 'submitted' || status === 'streaming'
+  const isHome = messages.length === 0
   const hasAvailableModels =
     isCloudDeployment || modelSelectorData?.hasAvailableModels !== false
   const searchMode = useSyncExternalStore(
@@ -212,6 +206,59 @@ export function ChatPanel({
     },
     [setUploadedFiles]
   )
+
+  const handleFileSelect = useCallback(
+    async (files: File[]) => {
+      const newFiles: UploadedFile[] = files.map(file => ({
+        file,
+        status: 'uploading'
+      }))
+      setUploadedFiles(prev => [...prev, ...newFiles])
+
+      await Promise.all(
+        newFiles.map(async uf => {
+          const formData = new FormData()
+          formData.append('file', uf.file)
+          formData.append('chatId', chatId)
+
+          try {
+            const res = await fetch('/api/upload', {
+              method: 'POST',
+              body: formData
+            })
+
+            if (!res.ok) {
+              throw new Error('Upload failed')
+            }
+
+            const { file: uploaded } = await res.json()
+            setUploadedFiles(prev =>
+              prev.map(f =>
+                f.file === uf.file
+                  ? {
+                      ...f,
+                      status: 'uploaded',
+                      url: uploaded.url,
+                      name: uploaded.filename,
+                      key: uploaded.key
+                    }
+                  : f
+              )
+            )
+          } catch (e) {
+            toast.error(`Failed to upload ${uf.file.name}`)
+            setUploadedFiles(prev =>
+              prev.map(f =>
+                f.file === uf.file ? { ...f, status: 'error' } : f
+              )
+            )
+          }
+        })
+      )
+    },
+    [chatId, setUploadedFiles]
+  )
+
   // Scroll to the bottom of the container
   const handleScrollToBottom = () => {
     const scrollContainer = scrollContainerRef.current
@@ -227,9 +274,9 @@ export function ChatPanel({
     <div
       className={cn(
         'w-full group/form-container shrink-0',
-        messages.length > 0
-          ? 'sticky bottom-0 px-2 pb-2 md:pb-4 bg-linear-to-t from-background via-background/95 to-transparent pt-8'
-          : 'px-4 md:px-6'
+        !isHome
+          ? 'sticky bottom-0 bg-black/88 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur-xl md:pb-4'
+          : 'sticky bottom-0 bg-black px-5 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 md:px-6 md:pb-5'
       )}
     >
       {uploadedFiles.length > 0 && (
@@ -253,8 +300,28 @@ export function ChatPanel({
           setIsInputFocused(false)
           inputRef.current?.blur()
         }}
-        className={cn('max-w-full md:max-w-3xl w-full mx-auto relative')}
+        className={cn(
+          'max-w-full md:max-w-3xl w-full mx-auto relative flex items-center gap-3',
+          isHome && 'max-w-[620px]'
+        )}
       >
+        {(messages.length > 0 || isHome) && (
+          <NativePressable
+            onClick={handleNewChat}
+            className={cn(
+              'flex shrink-0 items-center justify-center bg-white/10 text-white shadow-[0_12px_32px_rgba(0,0,0,0.28)]',
+              isHome
+                ? 'size-14 rounded-[18px] bg-[#1f1f22]/95'
+                : 'size-12 rounded-[16px] bg-[#1f1f22]/95'
+            )}
+            type="button"
+            disabled={isLoading}
+            title="Back to home"
+          >
+            <NativeIcon name="home" className="size-6" />
+          </NativePressable>
+        )}
+
         {/* Scroll to bottom button */}
         {messages.length > 0 && (
           <div
@@ -291,26 +358,37 @@ export function ChatPanel({
 
         <div
           className={cn(
-            'native-composer-surface relative flex w-full flex-col gap-2 rounded-[var(--native-radius-sheet)] border border-[var(--native-hairline)] bg-[color-mix(in_oklch,var(--card)_86%,transparent)] shadow-[var(--native-shadow-card)] transition-[border-color,box-shadow,transform] duration-[140ms] ease-[var(--motion-ease-out)]',
+            'relative flex min-h-[56px] w-full flex-1 items-center gap-1 rounded-full border border-white/10 bg-[#1f1f22] px-2 py-1 text-white shadow-[0_16px_48px_rgba(0,0,0,0.3)] backdrop-blur-xl transition-[box-shadow] duration-[140ms] ease-[var(--motion-ease-out)]',
             isInputFocused &&
-              'border-[color-mix(in_oklch,var(--indigo)_38%,var(--native-hairline))] ring-1 ring-[color-mix(in_oklch,var(--indigo)_18%,transparent)] ring-offset-1 ring-offset-background/50'
+              'ring-1 ring-[#665cff]/70 ring-offset-1 ring-offset-black/80'
           )}
         >
+          <ChatBarOptions
+            modelSelectorData={modelSelectorData}
+            isGuest={isGuest}
+            isAdaptiveAuthRequired={isAdaptiveAuthRequired}
+            onAdaptiveAuthRequired={onAdaptiveModeAuthRequired}
+            onFileSelect={handleFileSelect}
+          />
           <Textarea
             ref={inputRef}
             name="input"
-            rows={2}
-            maxRows={5}
+            rows={1}
+            maxRows={4}
             tabIndex={0}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
             onFocus={() => setIsInputFocused(true)}
             onBlur={() => setIsInputFocused(false)}
-            placeholder={messages.length > 0 ? 'Reply...' : 'Ask anything...'}
+            placeholder={
+              messages.length > 0 ? 'Ask anything...' : 'Ask anything...'
+            }
             spellCheck={false}
             value={input}
             disabled={isLoading || isToolInvocationInProgress()}
-            className="resize-none w-full min-h-12 bg-transparent border-0 px-4 pt-4 pb-1 text-[17px] leading-relaxed placeholder:text-muted-foreground focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 md:px-5"
+            className={cn(
+              'min-h-0 w-full flex-1 resize-none border-0 bg-transparent px-2 py-2 text-base leading-6 text-white placeholder:text-white/42 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 md:text-base'
+            )}
             onChange={handleInputChange}
             onKeyDown={e => {
               // e.nativeEvent.isComposing stays true on the keydown that
@@ -358,138 +436,29 @@ export function ChatPanel({
             }}
           />
 
-          {/* Bottom menu area */}
-          <div className="flex items-center justify-between gap-2 px-2 pb-2 md:px-3 md:pb-3">
-            <div className="flex items-center gap-2">
-              {!isGuest && (
-                <FileUploadButton
-                  onFileSelect={async files => {
-                    const newFiles: UploadedFile[] = files.map(file => ({
-                      file,
-                      status: 'uploading'
-                    }))
-                    setUploadedFiles(prev => [...prev, ...newFiles])
-                    await Promise.all(
-                      newFiles.map(async uf => {
-                        const formData = new FormData()
-                        formData.append('file', uf.file)
-                        formData.append('chatId', chatId)
-                        try {
-                          const res = await fetch('/api/upload', {
-                            method: 'POST',
-                            body: formData
-                          })
-
-                          if (!res.ok) {
-                            throw new Error('Upload failed')
-                          }
-
-                          const { file: uploaded } = await res.json()
-                          setUploadedFiles(prev =>
-                            prev.map(f =>
-                              f.file === uf.file
-                                ? {
-                                    ...f,
-                                    status: 'uploaded',
-                                    url: uploaded.url,
-                                    name: uploaded.filename,
-                                    key: uploaded.key
-                                  }
-                                : f
-                            )
-                          )
-                        } catch (e) {
-                          toast.error(`Failed to upload ${uf.file.name}`)
-                          setUploadedFiles(prev =>
-                            prev.map(f =>
-                              f.file === uf.file ? { ...f, status: 'error' } : f
-                            )
-                          )
-                        }
-                      })
-                    )
-                  }}
-                />
-              )}
-              <SearchModeSelector
-                isAdaptiveAuthRequired={isAdaptiveAuthRequired}
-                onAdaptiveAuthRequired={onAdaptiveModeAuthRequired}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              {!isCloudDeployment && modelSelectorData && (
-                <ModelSelectorClient data={modelSelectorData} />
-              )}
-              {messages.length > 0 && (
-                <NativePressable
-                  onClick={handleNewChat}
-                  className="gist-icon-button group flex size-8 shrink-0 items-center justify-center md:size-10"
-                  type="button"
-                  disabled={isLoading}
-                >
-                  <NativeIcon
-                    name="newChat"
-                    className="size-4 transition-transform duration-[140ms] ease-[var(--motion-ease-out)] group-hover:rotate-12"
-                  />
-                </NativePressable>
-              )}
-              <NativePressable
-                type={isLoading ? 'button' : 'submit'}
-                className={cn(
-                  'flex size-10 items-center justify-center rounded-full bg-[var(--indigo)] text-white shadow-[0_10px_28px_color-mix(in_oklch,var(--indigo)_28%,transparent)] transition-[opacity,transform,box-shadow] duration-[140ms] ease-[var(--motion-ease-out)] md:size-11',
-                  !isLoading && 'hover:scale-[1.03] active:scale-[0.97]',
-                  isLoading && 'animate-pulse',
-                  ((input.length === 0 && !isLoading) || !hasAvailableModels) &&
-                    'pointer-events-none opacity-50'
-                )}
-                disabled={
-                  (input.length === 0 && !isLoading) || !hasAvailableModels
-                }
-                onClick={isLoading ? stop : undefined}
-                title={
-                  hasAvailableModels
-                    ? undefined
-                    : 'No enabled model is available'
-                }
-              >
-                {isLoading ? (
-                  <NativeIcon name="stop" className="size-4 md:size-5" />
-                ) : (
-                  <NativeIcon name="send" className="size-4 md:size-5" />
-                )}
-              </NativePressable>
-            </div>
-          </div>
+          <NativePressable
+            type={isLoading ? 'button' : 'submit'}
+            className={cn(
+              'grid size-11 shrink-0 place-items-center rounded-full bg-[#665cff] text-white',
+              isLoading && 'animate-pulse',
+              ((input.length === 0 && !isLoading) || !hasAvailableModels) &&
+                'pointer-events-none opacity-50'
+            )}
+            disabled={(input.length === 0 && !isLoading) || !hasAvailableModels}
+            onClick={isLoading ? stop : undefined}
+            title={
+              hasAvailableModels ? undefined : 'No enabled model is available'
+            }
+          >
+            {isLoading ? (
+              <NativeIcon name="stop" className="size-5" />
+            ) : isHome ? (
+              <NativeIcon name="search" className="size-5" />
+            ) : (
+              <NativeIcon name="send" className="size-5" />
+            )}
+          </NativePressable>
         </div>
-
-        {/* Action buttons for prompt suggestions */}
-        {messages.length === 0 && (
-          <ActionButtons
-            onSelectPrompt={message => {
-              // Set the input value and submit
-              handleInputChange({
-                target: { value: message }
-              } as React.ChangeEvent<HTMLTextAreaElement>)
-              // Submit the form after a small delay to ensure the input is updated
-              setTimeout(() => {
-                inputRef.current?.form?.requestSubmit()
-                // Reset focus state after action button submission
-                setIsInputFocused(false)
-                inputRef.current?.blur()
-              }, INPUT_UPDATE_DELAY_MS)
-            }}
-            onCategoryClick={category => {
-              // Set the category in the input
-              handleInputChange({
-                target: { value: category }
-              } as React.ChangeEvent<HTMLTextAreaElement>)
-              // Focus the input
-              inputRef.current?.focus()
-            }}
-            inputRef={inputRef}
-            className="mt-2 hidden md:block"
-          />
-        )}
       </form>
     </div>
   )

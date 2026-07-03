@@ -10,7 +10,10 @@ import { calculateConversationTurn, trackChatEvent } from '@/lib/analytics'
 import { getCurrentUserId } from '@/lib/auth/get-current-user'
 import { checkAndEnforceAdaptiveLimit } from '@/lib/rate-limit/adaptive-limit'
 import { checkAndEnforceOverallChatLimit } from '@/lib/rate-limit/chat-limits'
-import { checkAndEnforceGuestLimit } from '@/lib/rate-limit/guest-limit'
+import {
+  checkAndEnforceGuestLimit,
+  isGuestChatEnabled
+} from '@/lib/rate-limit/guest-limit'
 import {
   ADAPTIVE_MODE_AUTH_REQUIRED_MESSAGE,
   isAdaptiveModeAuthBlocked
@@ -73,9 +76,8 @@ export async function POST(req: Request) {
       })
     }
 
-    const guestChatEnabled = process.env.ENABLE_GUEST_CHAT === 'true'
     const isGuest = !userId
-    if (isGuest && !guestChatEnabled) {
+    if (isGuest && !isGuestChatEnabled()) {
       return new Response('Authentication required', {
         status: 401,
         statusText: 'Unauthorized'

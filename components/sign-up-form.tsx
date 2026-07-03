@@ -33,17 +33,16 @@ export function SignUpForm({
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
-    if (password !== repeatPassword) {
-      setError('Passwords do not match')
-      setIsLoading(false)
-      return
-    }
-
     try {
+      if (password !== repeatPassword) {
+        setError('Passwords do not match')
+        return
+      }
+
+      const supabase = createClient()
       const { error } = await supabase.auth.signUp({
         email,
         password,

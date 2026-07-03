@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 
 import { hapticLight } from '@/lib/native/haptics'
 import type { NativeIconName } from '@/lib/native/icon-map'
@@ -38,25 +38,24 @@ export interface TabBarProps {
  * - Haptic feedback on native runtimes
  */
 export function TabBar({ items, onScrollToTop, hidden = false }: TabBarProps) {
-  const router = useRouter()
   const pathname = usePathname()
 
   const handleTabPress = useCallback(
-    (href: string) => {
+    (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
       // Fire haptic on native runtimes
       if (isNative()) {
         hapticLight()
       }
 
-      // If already on this tab, scroll to top
-      if (pathname === href || pathname.startsWith(href + '/')) {
-        onScrollToTop?.()
-        return
-      }
+      const currentPath =
+        typeof window === 'undefined' ? pathname : window.location.pathname
 
-      router.push(href)
+      if (currentPath === href || currentPath.startsWith(href + '/')) {
+        event.preventDefault()
+        onScrollToTop?.()
+      }
     },
-    [pathname, router, onScrollToTop]
+    [pathname, onScrollToTop]
   )
 
   const isActive = (href: string) =>
@@ -65,7 +64,7 @@ export function TabBar({ items, onScrollToTop, hidden = false }: TabBarProps) {
   return (
     <nav
       className={cn(
-        'shell-tab-bar flex items-center justify-around',
+        'shell-tab-bar flex items-center justify-around border-t border-white/10 bg-black/95 text-white backdrop-blur-sm',
         'transition-transform duration-200',
         hidden && 'translate-y-full'
       )}
@@ -78,13 +77,13 @@ export function TabBar({ items, onScrollToTop, hidden = false }: TabBarProps) {
       {items.map(item => {
         const active = isActive(item.href)
         return (
-          <button
+          <a
             key={item.href}
-            type="button"
+            href={item.href}
             role="tab"
             aria-selected={active}
             aria-label={item.label}
-            onClick={() => handleTabPress(item.href)}
+            onClick={event => handleTabPress(event, item.href)}
             className={cn(
               'flex flex-col items-center justify-center gap-0.5 flex-1',
               'transition-colors duration-150'
@@ -97,20 +96,17 @@ export function TabBar({ items, onScrollToTop, hidden = false }: TabBarProps) {
             <NativeIcon
               name={item.icon}
               size={22}
-              className={cn(
-                'rounded-full p-0.5 transition-colors duration-150',
-                active ? 'gist-tab-icon-active' : 'text-muted-foreground'
-              )}
+              className={cn(active ? 'text-white' : 'text-white/48')}
             />
             <span
               className={cn(
                 'text-[10px] font-medium leading-tight',
-                active ? 'text-foreground' : 'text-muted-foreground'
+                active ? 'text-white' : 'text-white/48'
               )}
             >
               {item.label}
             </span>
-          </button>
+          </a>
         )
       })}
     </nav>

@@ -142,10 +142,10 @@ export function buildExternalNavigationReason(
   risk: Exclude<NavigationRisk, 'none'>
 ): string {
   if (risk === 'sensitive-external') {
-    return `You are leaving Morphic for a sensitive page on ${url.host}. Check the address before entering credentials, payment details, or API keys.`
+    return `You are leaving gist for a sensitive page on ${url.host}. Check the address before entering credentials, payment details, or API keys.`
   }
 
-  return `You are leaving Morphic for ${url.host}. Check the address before continuing.`
+  return `You are leaving gist for ${url.host}. Check the address before continuing.`
 }
 
 export function shouldShowLeavingAppWarning(

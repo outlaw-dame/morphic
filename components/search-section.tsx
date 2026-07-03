@@ -72,6 +72,7 @@ export function SearchSection({
     (searchResults?.results?.length || 0) +
     (searchResults?.videos?.length || 0) +
     (searchResults?.images?.length || 0)
+  const hasSearchWarning = Boolean(searchResults?.warnings?.length)
 
   const header = (
     <ProcessHeader
@@ -175,12 +176,23 @@ export function SearchSection({
               </Section>
             ) : (isLoading && isToolLoading) || isSearching ? (
               <SearchSkeleton />
-            ) : searchResults?.results &&
-              searchResults.results.length > 0 &&
-              !compactResults ? (
-              <Section title="Sources">
-                <SearchResults results={searchResults.results} />
-              </Section>
+            ) : searchResults ? (
+              <>
+                {hasSearchWarning && (
+                  <Section>
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-200">
+                      {searchResults.warnings?.[0]}
+                    </div>
+                  </Section>
+                )}
+                {searchResults.results &&
+                searchResults.results.length > 0 &&
+                !compactResults ? (
+                  <Section title="Sources">
+                    <SearchResults results={searchResults.results} />
+                  </Section>
+                ) : null}
+              </>
             ) : null}
           </div>
         </div>

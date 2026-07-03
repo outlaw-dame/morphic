@@ -312,6 +312,81 @@ export const readingItems = pgTable(
   ]
 )
 
+export const subscribedFeeds = pgTable(
+  'subscribed_feeds',
+  {
+    id: varchar({ length: 191 }).primaryKey().notNull(),
+    userId: varchar('user_id', { length: 255 }).notNull(),
+    url: text().notNull(),
+    canonicalUrl: text('canonical_url').notNull(),
+    title: text(),
+    description: text(),
+    siteUrl: text('site_url'),
+    faviconUrl: text('favicon_url'),
+    imageUrl: text('image_url'),
+    format: varchar({ length: 256 }).default('unknown').notNull(),
+    isPodcast: boolean('is_podcast').default(false).notNull(),
+    status: varchar({ length: 256 }).default('active').notNull(),
+    refreshIntervalMinutes: integer('refresh_interval_minutes')
+      .default(60)
+      .notNull(),
+    lastFetchedAt: timestamp('last_fetched_at', { mode: 'string' }),
+    nextFetchAt: timestamp('next_fetch_at', { mode: 'string' }),
+    failureCount: integer('failure_count').default(0).notNull(),
+    lastError: text('last_error'),
+    etag: text(),
+    lastModified: text('last_modified'),
+    metadata: jsonb(),
+    createdAt: timestamp('created_at', { mode: 'string' })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'string' })
+  },
+  table => [
+    index('subscribed_feeds_user_status_next_fetch_idx').using(
+      'btree',
+      table.userId.asc().nullsLast().op('text_ops'),
+      table.status.asc().nullsLast().op('text_ops'),
+      table.nextFetchAt.asc().nullsLast().op('timestamp_ops')
+    ),
+    index('subscribed_feeds_user_updated_at_idx').using(
+      'btree',
+      table.userId.asc().nullsLast().op('text_ops'),
+      table.updatedAt.desc().nullsLast().op('timestamp_ops')
+    ),
+    index('subscribed_feeds_status_next_fetch_idx').using(
+      'btree',
+      table.status.asc().nullsLast().op('text_ops'),
+      table.nextFetchAt.asc().nullsLast().op('timestamp_ops')
+    ),
+    uniqueIndex('subscribed_feeds_user_canonical_url_idx').using(
+      'btree',
+      table.userId.asc().nullsLast().op('text_ops'),
+      table.canonicalUrl.asc().nullsLast().op('text_ops')
+    ),
+    pgPolicy('users_manage_own_subscribed_feeds', {
+      as: 'permissive',
+      for: 'all',
+      to: ['public'],
+      using: sql`user_id = current_setting('app.current_user_id', true)`,
+      withCheck: sql`user_id = current_setting('app.current_user_id', true)`
+    }),
+    check(
+      'subscribed_feeds_format_valid',
+      sql`((format)::text = ANY ((ARRAY['rss2'::character varying, 'rss1'::character varying, 'atom'::character varying, 'json'::character varying, 'unknown'::character varying])::text[]))`
+    ),
+    check(
+      'subscribed_feeds_status_valid',
+      sql`((status)::text = ANY ((ARRAY['active'::character varying, 'paused'::character varying, 'error'::character varying, 'archived'::character varying])::text[]))`
+    ),
+    check(
+      'subscribed_feeds_refresh_interval_valid',
+      sql`((refresh_interval_minutes >= 5) AND (refresh_interval_minutes <= 10080))`
+    ),
+    check('subscribed_feeds_failure_count_valid', sql`(failure_count >= 0)`)
+  ]
+)
+
 export const feedback = pgTable(
   'feedback',
   {

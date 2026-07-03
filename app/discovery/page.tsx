@@ -3,7 +3,7 @@ import { buildDiscoveryPageData } from '@/lib/discovery/discovery'
 import { DiscoveryPageContent } from '@/components/discovery/discovery-page-content'
 
 export const metadata = {
-  title: 'Discovery — Morphic',
+  title: 'Discovery - gist.',
   description: 'Source-backed stories from configured feeds.'
 }
 

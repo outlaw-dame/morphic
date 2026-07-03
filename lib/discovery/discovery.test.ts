@@ -89,6 +89,40 @@ describe('Discovery data', () => {
     warnSpy.mockRestore()
   })
 
+  test('times out slow feed reads and still returns page data', async () => {
+    vi.useFakeTimers()
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const readFeed = vi.fn(
+        () => new Promise<ParsedFeed>(() => undefined)
+      ) as unknown as (url: string, maxItems: number) => Promise<ParsedFeed>
+
+      const pending = buildDiscoveryPageData({
+        env: {
+          DEFAULT_NEWS_FEEDS: 'https://slow.example.com/rss.xml',
+          DISCOVERY_FEED_READ_TIMEOUT_MS: '50'
+        },
+        readFeed
+      })
+
+      vi.advanceTimersByTime(60)
+      await Promise.resolve()
+      const data = await pending
+
+      expect(data.sources).toEqual([])
+      expect(data.clusters).toEqual([])
+      expect(data.feedErrors).toEqual(['https://slow.example.com/rss.xml'])
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[Discovery] Feed read failed:',
+        'https://slow.example.com/rss.xml',
+        expect.any(Error)
+      )
+    } finally {
+      warnSpy.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
   test('builds ranked clusters from fresh and diverse feed sources', () => {
     // Use a controlled `now` so freshness scores are always meaningful
     // regardless of when the test runs. Items are 2h and 4d old, respectively.

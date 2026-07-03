@@ -221,7 +221,13 @@ export function applySourcePreferencesToSearchResults(
       }
     })
     .filter(item => item.score !== Number.NEGATIVE_INFINITY)
-    .sort((left, right) => right.score - left.score || left.index - right.index)
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        (right.result.sourceQuality?.score ?? 0) -
+          (left.result.sourceQuality?.score ?? 0) ||
+        left.index - right.index
+    )
     .map(item => ({
       ...item.result,
       ...(item.match && { sourcePreference: item.match })

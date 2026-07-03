@@ -33,7 +33,6 @@ import { getCookie } from '@/lib/utils/cookies'
 import { useFileDropzone } from '@/hooks/use-file-dropzone'
 
 import { NativeIcon } from './native/native-icon'
-import { NativePressable } from './native/native-pressable'
 import { ChatMessages } from './chat-messages'
 import { ChatPanel } from './chat-panel'
 import { DragOverlay } from './drag-overlay'
@@ -46,85 +45,288 @@ interface ChatSection {
   assistantMessages: UIMessage[]
 }
 
-const homePrompts = [
-  {
-    label: 'Latest',
-    prompt: 'Find me the latest important world news today.',
-    icon: 'latest' as const,
-    tint: 'bg-[color-mix(in_oklch,var(--indigo)_8%,var(--card))]'
-  },
-  {
-    label: 'Research',
-    prompt: 'Research the most important AI developments this week.',
-    icon: 'research' as const,
-    tint: 'bg-[color-mix(in_oklch,var(--muted)_72%,var(--card))]'
-  },
-  {
-    label: 'Local',
-    prompt: 'Find highly rated coffee shops near me and compare the sources.',
-    icon: 'mapPin' as const,
-    tint: 'bg-[color-mix(in_oklch,var(--indigo)_5%,var(--background))]'
-  }
-]
-
-function formatHomeDate() {
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric'
-  }).format(new Date())
+const homeWeather = {
+  city: 'San Francisco',
+  temp: 64,
+  condition: 'Partly Cloudy',
+  hi: 71,
+  lo: 56,
+  hourly: [
+    { time: 'Now', temp: 64, icon: 'cloud' },
+    { time: '8AM', temp: 66, icon: 'cloud' },
+    { time: '9AM', temp: 68, icon: 'sun' },
+    { time: '10AM', temp: 70, icon: 'sun' },
+    { time: '11AM', temp: 71, icon: 'sun' },
+    { time: '12PM', temp: 71, icon: 'cloud' }
+  ]
 }
 
-function HomeBriefing({
-  onSelectPrompt
-}: {
-  onSelectPrompt: (prompt: string) => void
-}) {
-  return (
-    <section className="flex w-full flex-1 items-start justify-center overflow-y-auto px-4 pb-28 pt-6 md:pb-36">
-      <div className="w-full max-w-3xl space-y-5">
-        <div className="space-y-3">
-          <p className="text-xs font-medium uppercase text-muted-foreground">
-            {formatHomeDate()}
-          </p>
-          <h1 className="font-[var(--font-display)] text-5xl font-semibold leading-none text-foreground md:text-6xl">
-            Good evening.
-            <br />
-            Here&apos;s your <span className="text-[var(--indigo)]">gist.</span>
-          </h1>
-          <p className="max-w-2xl text-base leading-7 text-muted-foreground md:text-[17px]">
-            A quieter answer engine for source-backed search, local discovery,
-            feeds, saved reading, and model-routed research.
-          </p>
-        </div>
+const homeBriefingItems = [
+  {
+    id: 'pwa-hooks',
+    kind: 'article',
+    kicker: 'TECH',
+    title: 'Apple opens deeper PWA hooks to home-screen apps',
+    source: 'The Verge',
+    readTime: '4 min read',
+    sourceType: 'RSS',
+    thumb: 'linear-gradient(135deg,#3b3a54 0%,#74749b 100%)',
+    initials: 'V'
+  },
+  {
+    id: 'hard-fork-pwa',
+    kind: 'podcast',
+    kicker: 'HARD FORK',
+    title: 'The web that installs itself — PWAs grow up',
+    source: 'S3 E42',
+    date: 'Jun 3',
+    duration: '52 min',
+    chapters: 5,
+    thumb: 'linear-gradient(135deg,#6d5cff 0%,#4822a8 65%,#251442 100%)',
+    initials: 'HF'
+  },
+  {
+    id: 'serif-headline',
+    kind: 'article',
+    kicker: 'DESIGN',
+    title: 'The quiet return of the serif headline',
+    source: "It's Nice That",
+    readTime: '6 min read',
+    sourceType: 'JSON Feed',
+    thumb: 'linear-gradient(135deg,#c9b89d 0%,#8b7459 100%)',
+    initials: 'IN'
+  },
+  {
+    id: 'carbon-cycle',
+    kind: 'article',
+    kicker: 'SCIENCE',
+    title: 'A new map of the deep-ocean carbon cycle',
+    source: 'Quanta',
+    readTime: '8 min read',
+    sourceType: 'Feed',
+    thumb: 'linear-gradient(135deg,#173d57 0%,#2bbfa0 100%)',
+    initials: 'Q'
+  }
+] as const
 
-        <div className="grid gap-3 md:grid-cols-3">
-          {homePrompts.map((item, index) => (
-            <NativePressable
-              key={item.label}
-              type="button"
-              className={cn(
-                'min-h-28 flex-col justify-between rounded-[var(--native-radius-card)] border border-[var(--native-hairline)] p-4 text-left shadow-[0_12px_36px_hsl(0_0%_0%_/_0.06)] transition-transform duration-[140ms] ease-[var(--motion-ease-out)] active:scale-[0.99] md:flex',
-                item.tint,
-                index === 0 ? 'flex' : 'hidden'
-              )}
-              onClick={() => onSelectPrompt(item.prompt)}
-            >
-              <span className="flex size-8 items-center justify-center rounded-full bg-background/70 text-[var(--indigo)]">
-                <NativeIcon name={item.icon} className="size-5" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  {item.label}
-                </p>
-                <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                  {item.prompt}
-                </p>
-              </div>
-            </NativePressable>
-          ))}
+function WeatherIcon({
+  type,
+  className
+}: {
+  type: string
+  className?: string
+}) {
+  if (type === 'sun') {
+    return <NativeIcon name="themeLight" className={className} />
+  }
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      className={cn('shrink-0', className)}
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M6.7 18h10.6a3.7 3.7 0 0 0 .5-7.37 6.1 6.1 0 0 0-11.75-1.6A4.52 4.52 0 0 0 6.7 18Z" />
+    </svg>
+  )
+}
+
+function WeatherCard() {
+  return (
+    <section
+      aria-label="Weather"
+      className="rounded-[22px] border border-white/10 bg-zinc-900/80 px-8 py-6 text-white shadow-[0_22px_70px_rgba(0,0,0,0.34)] backdrop-blur-2xl md:px-9"
+    >
+      <div className="flex items-start justify-between gap-6">
+        <div>
+          <p className="text-[1.38rem] leading-none text-white/56">
+            {homeWeather.city}
+          </p>
+          <div className="mt-3 flex items-start">
+            <span className="text-[4.8rem] font-light leading-[0.86] tracking-normal text-white md:text-[5.25rem]">
+              {homeWeather.temp}
+            </span>
+            <span className="mt-1 text-[2.2rem] font-light leading-none text-white">
+              °
+            </span>
+          </div>
+        </div>
+        <div className="pt-2 text-right">
+          <WeatherIcon type="cloud" className="ml-auto size-10 text-white" />
+          <p className="mt-4 text-[1.25rem] leading-tight text-white/60">
+            {homeWeather.condition}
+          </p>
+          <p className="text-[1.13rem] leading-tight text-white/58">
+            H:{homeWeather.hi}° L:{homeWeather.lo}°
+          </p>
         </div>
       </div>
+      <div className="mt-7 grid grid-cols-6 border-t border-white/10 pt-5">
+        {homeWeather.hourly.map(hour => (
+          <div
+            key={hour.time}
+            className="flex min-w-0 flex-col items-center gap-2 text-center"
+          >
+            <span className="text-[0.95rem] leading-none text-white/56">
+              {hour.time}
+            </span>
+            <WeatherIcon
+              type={hour.icon}
+              className="size-[18px] text-white/88"
+            />
+            <span className="text-[1.25rem] leading-none text-white">
+              {hour.temp}°
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function SourceBadge({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.055] px-2 py-1 align-middle font-mono text-[0.72rem] font-medium leading-none text-white/42">
+      <NativeIcon name="discover" className="size-3" />
+      {label}
+    </span>
+  )
+}
+
+function PlayGlyph({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={cn('shrink-0', className)}
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M8 5.2v13.6L18.7 12 8 5.2Z" />
+    </svg>
+  )
+}
+
+function StoryThumb({ thumb, initials }: { thumb: string; initials: string }) {
+  return (
+    <div
+      className="relative grid size-[84px] shrink-0 place-items-center overflow-hidden rounded-[18px] border border-white/10 text-[2.15rem] font-semibold text-white shadow-[inset_0_0_0_1px_rgba(0,0,0,0.18)] md:size-24"
+      style={{ background: thumb }}
+      aria-hidden="true"
+    >
+      <span className="drop-shadow-[0_2px_12px_rgba(0,0,0,0.32)]">
+        {initials}
+      </span>
+    </div>
+  )
+}
+
+function PodcastCard({
+  item
+}: {
+  item: Extract<(typeof homeBriefingItems)[number], { kind: 'podcast' }>
+}) {
+  return (
+    <article className="my-5 rounded-[22px] border border-white/10 bg-zinc-900/78 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.24)]">
+      <div className="flex items-center gap-4">
+        <div
+          className="relative grid size-28 shrink-0 place-items-center overflow-hidden rounded-[18px] text-[2.55rem] font-semibold text-white"
+          style={{ background: item.thumb }}
+          aria-hidden="true"
+        >
+          <span>{item.initials}</span>
+          <span className="absolute bottom-3 right-3 grid size-10 place-items-center rounded-full bg-black/32 text-white backdrop-blur-md">
+            <PlayGlyph className="size-5 translate-x-px" />
+          </span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[0.92rem] font-semibold uppercase tracking-[0.12em] text-indigo-400">
+            {item.kicker}
+          </p>
+          <h3 className="mt-1 font-serif text-[1.55rem] leading-[1.05] tracking-normal text-white">
+            {item.title}
+          </h3>
+          <p className="mt-2 text-[0.98rem] leading-none text-white/52">
+            {item.source} <span className="px-1.5">·</span> {item.date}{' '}
+            <span className="px-1.5">·</span> {item.duration}
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <span className="inline-flex items-center gap-2 rounded-full bg-white/[0.08] px-3 py-1.5 text-sm font-semibold text-white/56">
+          <NativeIcon name="sidebarOpen" className="size-4 text-indigo-400" />
+          {item.chapters} chapters
+        </span>
+        <span className="inline-flex items-center gap-2 rounded-full bg-white/[0.08] px-3 py-1.5 text-sm font-semibold text-white/56">
+          <NativeIcon name="sidebarOpen" className="size-4 text-indigo-400" />
+          Transcript
+        </span>
+      </div>
+    </article>
+  )
+}
+
+function BriefingRow({
+  item
+}: {
+  item: Exclude<(typeof homeBriefingItems)[number], { kind: 'podcast' }>
+}) {
+  return (
+    <article className="flex gap-4 border-b border-white/10 py-5">
+      <div className="min-w-0 flex-1">
+        <p className="text-[0.88rem] font-semibold uppercase tracking-[0.14em] text-indigo-400">
+          {item.kicker}
+        </p>
+        <h3 className="mt-2 max-w-[18rem] font-serif text-[1.72rem] leading-[1.02] tracking-normal text-white md:max-w-none md:text-[2rem]">
+          {item.title}
+        </h3>
+        <p className="mt-3 text-[1.05rem] leading-snug text-white/52">
+          {item.source} <span className="px-1">·</span> {item.readTime}{' '}
+          <SourceBadge label={item.sourceType} />
+        </p>
+      </div>
+      <StoryThumb thumb={item.thumb} initials={item.initials} />
+    </article>
+  )
+}
+
+function GistHomeSurface() {
+  return (
+    <section
+      className="mx-auto flex min-h-0 w-full max-w-[620px] flex-1 flex-col overflow-y-auto px-5 pb-36 pt-2 text-white md:max-w-2xl md:px-6"
+      aria-label="Home"
+    >
+      <p className="pb-8 pt-5 font-serif text-[1.82rem] leading-tight tracking-normal text-white md:text-[2.4rem]">
+        Good morning. Here&apos;s your gist.
+      </p>
+
+      <WeatherCard />
+
+      <section className="mt-10" aria-label="For you">
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h2 className="text-[1rem] font-medium uppercase tracking-[0.18em] text-white/54">
+            For You
+          </h2>
+          <span className="inline-flex items-center gap-2 text-[1rem] text-white/54">
+            <NativeIcon name="discover" className="size-4 text-indigo-400" />8
+            feeds
+          </span>
+        </div>
+
+        {homeBriefingItems.map(item =>
+          item.kind === 'podcast' ? (
+            <PodcastCard key={item.id} item={item} />
+          ) : (
+            <BriefingRow key={item.id} item={item} />
+          )
+        )}
+      </section>
     </section>
   )
 }
@@ -135,7 +337,8 @@ export function Chat({
   query,
   isGuest = false,
   isCloudDeployment = false,
-  modelSelectorData
+  modelSelectorData,
+  presentation
 }: {
   id?: string
   savedMessages?: UIMessage[]
@@ -143,6 +346,7 @@ export function Chat({
   isGuest?: boolean
   isCloudDeployment?: boolean
   modelSelectorData?: ModelSelectorData
+  presentation?: 'chat' | 'results'
 }) {
   const router = useRouter()
 
@@ -324,21 +528,6 @@ export function Chat({
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value)
   }
-
-  const submitPrompt = useCallback(
-    (prompt: string) => {
-      if (status === 'submitted' || status === 'streaming') {
-        return
-      }
-
-      safeSendMessage({ role: 'user', parts: [{ type: 'text', text: prompt }] })
-
-      if (!isGuest && window.location.pathname === '/') {
-        window.history.pushState({}, '', `/search/${chatId}`)
-      }
-    },
-    [chatId, isGuest, safeSendMessage, status]
-  )
 
   // Convert messages array to sections array.
   // Deduplicate by message.id — @ai-sdk/react useChat can occasionally
@@ -594,24 +783,27 @@ export function Chat({
   const dragHandlers = isGuest
     ? guestDragHandlers
     : { isDragging, handleDragOver, handleDragLeave, handleDrop }
+  const effectivePresentation =
+    presentation ?? (messages.length > 0 ? 'results' : 'chat')
 
   return (
     <ChatProvider sendMessage={safeSendMessage} isStreamingRef={isStreamingRef}>
       <div
         className={cn(
           'relative flex h-full min-w-0 flex-1 flex-col',
-          messages.length === 0 ? 'items-center justify-center' : ''
+          (effectivePresentation === 'results' || messages.length === 0) &&
+            'bg-black text-white',
+          messages.length === 0 ? 'items-stretch justify-start' : ''
         )}
         data-testid="full-chat"
         onDragOver={dragHandlers.handleDragOver}
         onDragLeave={dragHandlers.handleDragLeave}
         onDrop={dragHandlers.handleDrop}
       >
-        {messages.length === 0 ? (
-          <HomeBriefing onSelectPrompt={submitPrompt} />
-        ) : null}
+        {messages.length === 0 && <GistHomeSurface />}
         <ChatMessages
           sections={sections}
+          presentation={effectivePresentation}
           status={status}
           chatId={chatId}
           isGuest={isGuest}

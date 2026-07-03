@@ -9,6 +9,8 @@ export type SearchResults = {
   videos?: SerperSearchResultItem[]
   number_of_results?: number
   query: string
+  degraded?: boolean
+  warnings?: string[]
   toolCallId?: string // ID of the search tool call
   citationMap?: Record<number, SearchResultItem> // Maps citation number to search result
   entities?: KnowledgeGraphEntity[]
@@ -50,6 +52,11 @@ export type SearchResultItem = {
   publishedAt?: string
   updatedAt?: string
   siteName?: string
+  sourceQuality?: {
+    score: number
+    tier: 'high' | 'medium' | 'low'
+    signals: string[]
+  }
   sourcePreference?: {
     preference: 'trust' | 'prefer' | 'mute' | 'block'
     matchedBy: 'domain' | 'url'

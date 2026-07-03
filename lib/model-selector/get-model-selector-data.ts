@@ -69,6 +69,36 @@ function resolveSelectedModelKey(
       : ''
 }
 
+function ensureEnabledDefaultModel(
+  modelsByProvider: Record<string, Model[]>,
+  cookieStore: Awaited<ReturnType<typeof cookies>>
+): Record<string, Model[]> {
+  if (!isProviderEnabled(DEFAULT_MODEL.providerId, cookieStore)) {
+    return modelsByProvider
+  }
+
+  const hasDefaultModel = Object.values(modelsByProvider)
+    .flat()
+    .some(
+      model =>
+        model.providerId === DEFAULT_MODEL.providerId &&
+        model.id === DEFAULT_MODEL.id &&
+        isSearchCompatibleModel(model.providerId, model.id)
+    )
+
+  if (hasDefaultModel) {
+    return modelsByProvider
+  }
+
+  return {
+    ...modelsByProvider,
+    [DEFAULT_MODEL.provider]: [
+      ...(modelsByProvider[DEFAULT_MODEL.provider] ?? []),
+      DEFAULT_MODEL
+    ]
+  }
+}
+
 export async function getModelSelectorData(): Promise<ModelSelectorData> {
   if (process.env.MORPHIC_CLOUD_DEPLOYMENT === 'true') {
     return {
@@ -79,12 +109,13 @@ export async function getModelSelectorData(): Promise<ModelSelectorData> {
     }
   }
 
-  const modelsByProvider = await fetchAvailableModels()
-  const fallbackModel = pickFirstAvailableModel(modelsByProvider)
   const cookieStore = await cookies()
-  const hasAvailableModels =
-    fallbackModel !== null ||
-    isProviderEnabled(DEFAULT_MODEL.providerId, cookieStore)
+  const modelsByProvider = ensureEnabledDefaultModel(
+    await fetchAvailableModels(),
+    cookieStore
+  )
+  const fallbackModel = pickFirstAvailableModel(modelsByProvider)
+  const hasAvailableModels = fallbackModel !== null
   const selectedModelKey = resolveSelectedModelKey(
     modelsByProvider,
     fallbackModel,

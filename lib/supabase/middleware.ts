@@ -4,10 +4,52 @@ import { createServerClient } from '@supabase/ssr'
 
 import { getSupabasePublishableKey } from './keys'
 
+const MIDDLEWARE_AUTH_TIMEOUT_MS = 4_000
+
+async function getUserWithTimeout(
+  getUser: () => Promise<{
+    data: { user: unknown }
+  }>
+) {
+  return new Promise<unknown | null>(resolve => {
+    const timeout = setTimeout(() => {
+      console.warn(
+        `[SupabaseMiddleware] auth.getUser timed out after ${MIDDLEWARE_AUTH_TIMEOUT_MS}ms`
+      )
+      resolve(null)
+    }, MIDDLEWARE_AUTH_TIMEOUT_MS)
+
+    getUser().then(
+      result => {
+        clearTimeout(timeout)
+        resolve(result.data.user)
+      },
+      error => {
+        clearTimeout(timeout)
+        console.warn('[SupabaseMiddleware] auth.getUser failed', error)
+        resolve(null)
+      }
+    )
+  })
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request
   })
+  const pathname = request.nextUrl.pathname
+  const isPublicPath =
+    pathname === '/' ||
+    pathname.startsWith('/auth') ||
+    pathname === '/discovery' ||
+    pathname.startsWith('/search') ||
+    pathname.startsWith('/share') ||
+    pathname.startsWith('/api')
+
+  if (isPublicPath) {
+    return supabaseResponse
+  }
+
   const supabaseKey = getSupabasePublishableKey()
 
   const supabase = createServerClient(
@@ -39,23 +81,11 @@ export async function updateSession(request: NextRequest) {
 
   // IMPORTANT: DO NOT REMOVE auth.getUser()
 
-  const {
-    data: { user }
-  } = await supabase.auth.getUser()
-
   // Define public paths that don't require authentication
-  const publicPaths = [
-    '/', // Root path
-    '/auth', // Auth-related pages
-    '/share', // Share pages
-    '/api' // API routes
-    // Add other public paths here if needed
-  ]
-
-  const pathname = request.nextUrl.pathname
+  const user = await getUserWithTimeout(() => supabase.auth.getUser())
 
   // Redirect to login if the user is not authenticated and the path is not public
-  if (!user && !publicPaths.some(path => pathname.startsWith(path))) {
+  if (!user) {
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'

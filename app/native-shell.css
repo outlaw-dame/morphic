@@ -69,6 +69,15 @@
     var(--background);
 }
 
+.dark .native-app-frame,
+.dark .shell-nav-bar,
+.dark .shell-tab-bar,
+.dim .native-app-frame,
+.dim .shell-nav-bar,
+.dim .shell-tab-bar {
+  background: #000;
+}
+
 .native-app-main {
   min-height: 0;
   isolation: isolate;

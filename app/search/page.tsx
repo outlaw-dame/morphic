@@ -28,6 +28,7 @@ export default async function SearchPage(props: {
       isGuest={!userId}
       isCloudDeployment={isCloudDeployment}
       modelSelectorData={modelSelectorData}
+      presentation="results"
     />
   )
 }

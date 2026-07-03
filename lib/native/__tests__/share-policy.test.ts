@@ -165,6 +165,6 @@ describe('buildSearchShareData', () => {
 
   it('uses default title when none provided', () => {
     const data = buildSearchShareData('abc123')
-    expect(data.title).toContain('Morphic')
+    expect(data.title).toContain('gist')
   })
 })
