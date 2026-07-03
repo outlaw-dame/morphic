@@ -248,9 +248,7 @@ async function advancedSearchXNGSearch(
     const pageno = Math.ceil(maxResults / resultsPerPage)
     url.searchParams.append('pageno', String(pageno))
 
-    const data:
-      | SearXNGResponse
-      | { error: string; status: number; data: string } =
+    const data: SearXNGResponse | { error: string; status: number; data: string } =
       await fetchJsonWithRetry(url.toString(), 3)
 
     if ('error' in data) {
