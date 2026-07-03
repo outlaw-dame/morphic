@@ -54,10 +54,6 @@ export default defineConfig([
     'build/**',
     'next-env.d.ts',
     // Project tooling config; Prettier reads this directly, ESLint does not need to lint it.
-    'prettier.config.js',
-    // Phase AI-1 advanced-search files need a follow-up style-only normalization pass.
-    'app/api/advanced-search/route.ts',
-    'lib/tools/search/advanced-search.ts',
-    'lib/tools/search/advanced-search.test.ts'
+    'prettier.config.js'
   ])
 ])
