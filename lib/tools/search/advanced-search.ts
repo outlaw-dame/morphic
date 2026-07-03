@@ -267,7 +267,8 @@ export function extractContentFromHtml(
   }
 
   const metaDescription =
-    document.querySelector('meta[name="description"]')?.getAttribute('content') || ''
+    document.querySelector('meta[name="description"]')?.getAttribute('content') ||
+    ''
   const metaKeywords =
     document.querySelector('meta[name="keywords"]')?.getAttribute('content') || ''
   const ogTitle =
