@@ -358,6 +358,8 @@ export async function mapWithConcurrency<T, R>(
   concurrency: number,
   mapper: (item: T, index: number) => Promise<R>
 ): Promise<R[]> {
+  if (items.length === 0) return []
+
   const results = new Array<R>(items.length)
   const workerCount = Math.min(Math.max(concurrency, 1), items.length)
   let nextIndex = 0
