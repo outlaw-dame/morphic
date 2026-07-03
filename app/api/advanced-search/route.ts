@@ -10,10 +10,10 @@ import {
   domainMatchesFilter,
   isQualityContent,
   mapWithConcurrency,
-  parseAdvancedSearchRequest
+  parseAdvancedSearchRequest,
+  type SearchDepth
 } from '@/lib/tools/search/advanced-search'
-import type { SearchDepth } from '@/lib/tools/search/advanced-search'
-import {
+import type {
   SearchResultItem,
   SearXNGResponse,
   SearXNGResult,
