@@ -76,12 +76,12 @@ describe('advanced search cache keys', () => {
 
 describe('advanced search filtering and content extraction', () => {
   it('applies include and exclude domain filters defensively', () => {
-    expect(domainMatchesFilter('https://docs.example.com/page', ['example.com'], [])).toBe(
-      true
-    )
-    expect(domainMatchesFilter('https://docs.example.com/page', [], ['example.com'])).toBe(
-      false
-    )
+    expect(
+      domainMatchesFilter('https://docs.example.com/page', ['example.com'], [])
+    ).toBe(true)
+    expect(
+      domainMatchesFilter('https://docs.example.com/page', [], ['example.com'])
+    ).toBe(false)
     expect(domainMatchesFilter('not a url', [], [])).toBe(false)
   })
 
@@ -140,7 +140,9 @@ describe('advanced search filtering and content extraction', () => {
     )
 
     expect(strongScore).toBeGreaterThan(weakScore)
-    expect(isQualityContent('Content unavailable due to crawling error.')).toBe(false)
+    expect(isQualityContent('Content unavailable due to crawling error.')).toBe(
+      false
+    )
   })
 })
 
@@ -159,5 +161,11 @@ describe('advanced search concurrency limiter', () => {
 
     expect(results).toEqual([2, 4, 6, 8, 10])
     expect(maxActive).toBeLessThanOrEqual(2)
+  })
+
+  it('returns an empty array without spawning workers for empty inputs', async () => {
+    await expect(mapWithConcurrency([], 3, async value => value)).resolves.toEqual(
+      []
+    )
   })
 })
