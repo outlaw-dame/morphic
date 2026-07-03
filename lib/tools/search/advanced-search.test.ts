@@ -164,8 +164,8 @@ describe('advanced search concurrency limiter', () => {
   })
 
   it('returns an empty array without spawning workers for empty inputs', async () => {
-    await expect(mapWithConcurrency([], 3, async value => value)).resolves.toEqual(
-      []
-    )
+    await expect(
+      mapWithConcurrency([], 3, async value => value)
+    ).resolves.toEqual([])
   })
 })
