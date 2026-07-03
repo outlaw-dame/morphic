@@ -30,7 +30,9 @@ describe('SSRF guard network paths', () => {
   })
 
   it('blocks private IP literals before DNS or fetch', async () => {
-    await expect(validateOutboundUrl('http://127.0.0.1/admin')).rejects.toMatchObject({
+    await expect(
+      validateOutboundUrl('http://127.0.0.1/admin')
+    ).rejects.toMatchObject({
       name: 'SSRFError',
       reason: 'Blocked IP: 127.0.0.1'
     })
@@ -38,7 +40,9 @@ describe('SSRF guard network paths', () => {
   })
 
   it('blocks known internal hostnames before fetch', async () => {
-    await expect(validateOutboundUrl('http://localhost:3000')).rejects.toMatchObject({
+    await expect(
+      validateOutboundUrl('http://localhost:3000')
+    ).rejects.toMatchObject({
       name: 'SSRFError',
       reason: 'Blocked hostname: localhost'
     })
@@ -70,7 +74,9 @@ describe('SSRF guard network paths', () => {
       }
     })
 
-    await expect(readResponseWithLimit(response, 3)).rejects.toBeInstanceOf(SSRFError)
+    await expect(readResponseWithLimit(response, 3)).rejects.toBeInstanceOf(
+      SSRFError
+    )
   })
 
   it('rejects streamed responses that exceed the byte cap while reading', async () => {
