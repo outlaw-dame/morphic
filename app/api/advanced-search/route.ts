@@ -10,9 +10,9 @@ import {
   domainMatchesFilter,
   isQualityContent,
   mapWithConcurrency,
-  parseAdvancedSearchRequest,
-  SearchDepth
+  parseAdvancedSearchRequest
 } from '@/lib/tools/search/advanced-search'
+import type { SearchDepth } from '@/lib/tools/search/advanced-search'
 import {
   SearchResultItem,
   SearXNGResponse,
@@ -46,7 +46,10 @@ const CRAWL_MAX_REDIRECTS = parseInt(
 )
 const CRAWL_CONCURRENCY = Math.max(
   1,
-  Math.min(10, parseInt(process.env.ADVANCED_SEARCH_CRAWL_CONCURRENCY || '5', 10))
+  Math.min(
+    10,
+    parseInt(process.env.ADVANCED_SEARCH_CRAWL_CONCURRENCY || '5', 10)
+  )
 )
 
 let redisClient: Redis | ReturnType<typeof createClient> | null = null
