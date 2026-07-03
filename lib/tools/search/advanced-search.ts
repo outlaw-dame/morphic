@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 
 import { JSDOM, VirtualConsole } from 'jsdom'
 
-import { SearXNGResult } from '@/lib/types'
+import type { SearXNGResult } from '@/lib/types'
 import { readResponseWithLimit, safeFetch } from '@/lib/utils/ssrf-guard'
 
 export type SearchDepth = 'basic' | 'advanced'
