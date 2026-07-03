@@ -83,19 +83,18 @@ The safety patch updates advanced search to:
 - avoid JSDOM external resource loading during content extraction;
 - enforce bounded crawl fan-out via `ADVANCED_SEARCH_CRAWL_CONCURRENCY`;
 - extract advanced-search helper logic into `lib/tools/search/advanced-search.ts`;
-- add unit tests for request parsing, cache-key hashing, domain filtering, HTML extraction, relevance scoring, quality filtering, and concurrency limiting.
+- add unit tests for request parsing, cache-key hashing, domain filtering, HTML extraction, relevance scoring, quality filtering, and concurrency limiting;
+- add SSRF guard network-path tests for private IP literals, internal hostnames, redirect-to-private-IP blocking, content-length size rejection, and streamed body overflow.
 
 ## Remaining Phase AI-1 work
 
-This PR completes the initial advanced-search hardening slice, but Phase AI-1 should continue with deeper network-path tests and configured-service validation:
+This PR completes the initial advanced-search hardening slice and adds direct SSRF guard network-path coverage, but Phase AI-1 should continue with configured-service validation and route-specific coverage:
 
-- Integration-style tests for advanced-search blocked private IP URLs.
-- Integration-style tests for redirect-to-private-IP behavior through `safeFetch()`.
-- Integration-style tests for oversized crawled response handling.
-- Integration-style tests for non-HTML/non-text crawl responses.
+- Advanced-search-level tests for non-HTML/non-text crawl response handling through `fetchHtmlWithSafety()`.
 - A focused review of whether the configured SearXNG API URL should remain an internal trusted fetch path or use a separate allowlist validator for configured service URLs.
 - Optional route-level tests for the `POST` handler once the project has a route-handler test pattern.
+- Style-only normalization to remove the narrow temporary Prettier/ESLint deferrals for the advanced-search files once formatter/linter diagnostics are available locally or untruncated.
 
 ## Next phase after this PR
 
-After this safety slice lands, continue Phase AI-1 until the remaining network-path tests and configured-service URL policy are in place. Only then should implementation proceed to Phase AI-2 shared schemas and model capability routing.
+After this safety slice lands, continue Phase AI-1 until configured-service URL policy is in place. Only then should implementation proceed to Phase AI-2 shared schemas and model capability routing.
