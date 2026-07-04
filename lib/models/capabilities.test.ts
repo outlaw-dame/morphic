@@ -33,6 +33,11 @@ describe('model capability profiles', () => {
     expect(profile.capabilities).toContain('tool_calling')
   })
 
+  it('preserves legacy search compatibility for non-NVIDIA providers', () => {
+    expect(isModelSearchCapable('ollama', 'local-streaming-model')).toBe(true)
+    expect(isModelSearchCapable('google', 'gemini-3-flash-preview')).toBe(true)
+  })
+
   it('keeps NVIDIA search compatibility restricted to known instruct models', () => {
     expect(isModelSearchCapable('nvidia', 'meta/llama-3.1-8b-instruct')).toBe(
       true
