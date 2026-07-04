@@ -56,7 +56,9 @@ function normalizeCapability(capability: string): ModelCapability | null {
   }
 }
 
-function uniqueCapabilities(capabilities: ModelCapability[]): ModelCapability[] {
+function uniqueCapabilities(
+  capabilities: ModelCapability[]
+): ModelCapability[] {
   return Array.from(new Set(capabilities))
 }
 
