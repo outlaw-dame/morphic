@@ -9,9 +9,7 @@ describe('AI role prompt registry', () => {
     const roles = ModelRoleSchema.options
     const prompts = listRolePrompts()
 
-    expect(prompts.map(prompt => prompt.role).sort()).toEqual(
-      [...roles].sort()
-    )
+    expect(prompts.map(prompt => prompt.role).sort()).toEqual([...roles].sort())
   })
 
   it('returns versioned prompt metadata for individual roles', () => {
