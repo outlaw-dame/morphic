@@ -1,0 +1,58 @@
+import { describe, expect, it } from 'vitest'
+
+import {
+  getMissingCapabilitiesForRole,
+  inferModelCapabilityProfile,
+  isModelSearchCapable,
+  modelSupportsRole
+} from './capabilities'
+
+describe('model capability profiles', () => {
+  it('infers standard provider defaults for hosted tool-capable providers', () => {
+    const profile = inferModelCapabilityProfile({
+      providerId: 'google',
+      id: 'gemini-3-flash-preview',
+      capabilities: []
+    })
+
+    expect(profile.capabilities).toContain('tool_calling')
+    expect(profile.capabilities).toContain('structured_output')
+    expect(profile.capabilities).toContain('streaming')
+    expect(profile.reliability).toBe('standard')
+  })
+
+  it('preserves configured model capabilities when present', () => {
+    const profile = inferModelCapabilityProfile({
+      providerId: 'ollama',
+      id: 'local-json-model',
+      capabilities: ['structured_outputs', 'function_calling']
+    })
+
+    expect(profile.capabilities).toContain('local_execution')
+    expect(profile.capabilities).toContain('structured_output')
+    expect(profile.capabilities).toContain('tool_calling')
+  })
+
+  it('keeps NVIDIA search compatibility restricted to known instruct models', () => {
+    expect(isModelSearchCapable('nvidia', 'meta/llama-3.1-8b-instruct')).toBe(
+      true
+    )
+    expect(isModelSearchCapable('nvidia', 'meta/llama-3.1-8b-base')).toBe(
+      false
+    )
+  })
+
+  it('reports role support and missing capabilities', () => {
+    const localStreamingOnly = {
+      providerId: 'ollama',
+      id: 'local-streaming-model',
+      capabilities: []
+    }
+
+    expect(modelSupportsRole(localStreamingOnly, 'answer_composer')).toBe(true)
+    expect(modelSupportsRole(localStreamingOnly, 'router')).toBe(false)
+    expect(getMissingCapabilitiesForRole(localStreamingOnly, 'router')).toEqual([
+      'structured_output'
+    ])
+  })
+})
