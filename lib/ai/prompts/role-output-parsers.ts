@@ -45,7 +45,11 @@ export type RoleOutputParseResult<Role extends ModelRole> =
   | RoleOutputParseSuccess<Role>
   | RoleOutputParseFailure<Role>
 
-const ROLE_OUTPUT_SCHEMAS = {
+type RoleOutputSchemas = {
+  [Role in ModelRole]: z.ZodType<ParsedRoleOutputByRole[Role]>
+}
+
+const ROLE_OUTPUT_SCHEMAS: RoleOutputSchemas = {
   router: RoutePlanSchema,
   coordinator: CoordinatorDecisionSchema,
   retriever: z.array(EvidenceItemSchema),
@@ -55,7 +59,7 @@ const ROLE_OUTPUT_SCHEMAS = {
   advisor: z.array(AdvisorFindingSchema),
   citation_verifier: z.array(AdvisorFindingSchema),
   repair: z.unknown()
-} satisfies Record<ModelRole, z.ZodType<unknown>>
+}
 
 function summarizeIssues(error: z.ZodError): string[] {
   return error.issues.map(issue => {
@@ -75,7 +79,7 @@ export function parseRoleOutput<Role extends ModelRole>(
     return {
       ok: true,
       role,
-      value: parsed.data as ParsedRoleOutputByRole[Role]
+      value: parsed.data
     }
   }
 
