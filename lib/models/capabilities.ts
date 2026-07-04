@@ -111,12 +111,11 @@ function inferModelSpecificCapabilities(
     capabilities.push('vision')
   }
 
-  if (providerId === 'nvidia') {
-    return NVIDIA_SEARCH_COMPATIBLE_PATTERNS.some(pattern =>
-      pattern.test(modelId)
-    )
-      ? ['tool_calling']
-      : []
+  if (
+    providerId === 'nvidia' &&
+    NVIDIA_SEARCH_COMPATIBLE_PATTERNS.some(pattern => pattern.test(modelId))
+  ) {
+    capabilities.push('tool_calling')
   }
 
   return capabilities
