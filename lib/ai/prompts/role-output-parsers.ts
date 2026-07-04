@@ -1,17 +1,17 @@
 import { z } from 'zod'
 
 import {
-  AdvisorFindingSchema,
-  CoordinatorDecisionSchema,
-  EvidenceItemSchema,
-  RoutePlanSchema,
-  SourceQualityAssessmentSchema,
   type AdvisorFinding,
+  AdvisorFindingSchema,
   type CoordinatorDecision,
+  CoordinatorDecisionSchema,
   type EvidenceItem,
+  EvidenceItemSchema,
   type ModelRole,
   type RoutePlan,
-  type SourceQualityAssessment
+  RoutePlanSchema,
+  type SourceQualityAssessment,
+  SourceQualityAssessmentSchema
 } from '@/lib/ai/schemas'
 
 export type ParsedRoleOutputByRole = {
