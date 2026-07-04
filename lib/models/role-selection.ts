@@ -34,18 +34,21 @@ const RELIABILITY_SCORE: Record<ModelCapabilityProfile['reliability'], number> =
     unknown: 3
   }
 
-function scoreRoleCandidate(candidate: ModelRoleCandidate): number {
-  const capabilityBonus = candidate.profile.capabilities.length / 100
-  const reliabilityScore = RELIABILITY_SCORE[candidate.profile.reliability]
-  return reliabilityScore - capabilityBonus
-}
-
 function sortRoleCandidates(
   candidates: ModelRoleCandidate[]
 ): ModelRoleCandidate[] {
   return [...candidates].sort((a, b) => {
-    const scoreDiff = scoreRoleCandidate(a) - scoreRoleCandidate(b)
-    if (scoreDiff !== 0) return scoreDiff
+    const aReliability = RELIABILITY_SCORE[a.profile.reliability]
+    const bReliability = RELIABILITY_SCORE[b.profile.reliability]
+    if (aReliability !== bReliability) {
+      return aReliability - bReliability
+    }
+
+    const aCapabilityCount = a.profile.capabilities.length
+    const bCapabilityCount = b.profile.capabilities.length
+    if (aCapabilityCount !== bCapabilityCount) {
+      return bCapabilityCount - aCapabilityCount
+    }
 
     const providerDiff = a.model.providerId.localeCompare(b.model.providerId)
     if (providerDiff !== 0) return providerDiff
