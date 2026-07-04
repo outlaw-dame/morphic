@@ -175,6 +175,10 @@ export function isModelSearchCapable(
   modelId: string,
   capabilities: string[] = []
 ): boolean {
+  if (providerId !== 'nvidia') {
+    return true
+  }
+
   return modelSupportsRole(
     {
       providerId,
