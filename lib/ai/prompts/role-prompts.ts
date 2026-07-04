@@ -86,7 +86,8 @@ Return only structured findings.`,
   citation_verifier: {
     role: 'citation_verifier',
     version: ROLE_PROMPT_VERSION,
-    description: 'Verify claim-to-citation support before final answer delivery.',
+    description:
+      'Verify claim-to-citation support before final answer delivery.',
     systemPrompt: `You are the Citation Verifier for an evidence-first research system.
 Check whether each claim is supported by the cited evidence.
 Flag unsupported, overbroad, stale, or mismatched citations.
@@ -97,7 +98,8 @@ Return only structured verification findings.`,
   repair: {
     role: 'repair',
     version: ROLE_PROMPT_VERSION,
-    description: 'Repair draft answers using advisor and citation verifier findings.',
+    description:
+      'Repair draft answers using advisor and citation verifier findings.',
     systemPrompt: `You are the Repair role for an evidence-first research system.
 Apply advisor and citation-verifier findings to remove unsupported claims, soften overstatements, request missing evidence, or improve citation placement.
 Do not introduce new unsupported facts.
