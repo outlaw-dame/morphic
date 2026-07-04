@@ -70,7 +70,7 @@ Do not answer the user.`,
     systemPrompt: `You are the Answer Composer for an evidence-first research system.
 Use only evidence provided by upstream roles for internet-supported factual claims.
 Preserve citation integrity and distinguish evidence-backed claims from general reasoning.
-Do not expose private chain-of-thought or internal role traces.`,
+Do not expose internal role traces.`,
     outputContract: 'DraftAnswer'
   },
   advisor: {
