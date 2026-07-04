@@ -42,8 +42,7 @@ export type RoleOutputParseFailure<Role extends ModelRole> = {
 }
 
 export type RoleOutputParseResult<Role extends ModelRole> =
-  | RoleOutputParseSuccess<Role>
-  | RoleOutputParseFailure<Role>
+  RoleOutputParseSuccess<Role> | RoleOutputParseFailure<Role>
 
 type RoleOutputSchemas = {
   [Role in ModelRole]: z.ZodType<ParsedRoleOutputByRole[Role]>
