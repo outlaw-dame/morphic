@@ -1,10 +1,21 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const { readResponseWithLimitMock, safeFetchMock } = vi.hoisted(() => ({
+  readResponseWithLimitMock: vi.fn(),
+  safeFetchMock: vi.fn()
+}))
+
+vi.mock('@/lib/utils/ssrf-guard', () => ({
+  readResponseWithLimit: readResponseWithLimitMock,
+  safeFetch: safeFetchMock
+}))
 
 import {
   buildAdvancedSearchCacheKey,
   calculateRelevanceScore,
   domainMatchesFilter,
   extractContentFromHtml,
+  fetchHtmlWithSafety,
   isQualityContent,
   mapWithConcurrency,
   parseAdvancedSearchRequest,
@@ -12,6 +23,11 @@ import {
   parseSearchDepth,
   toStringArray
 } from './advanced-search'
+
+beforeEach(() => {
+  readResponseWithLimitMock.mockReset()
+  safeFetchMock.mockReset()
+})
 
 describe('advanced search request parsing', () => {
   it('rejects missing or blank queries', () => {
@@ -143,6 +159,46 @@ describe('advanced search filtering and content extraction', () => {
     expect(isQualityContent('Content unavailable due to crawling error.')).toBe(
       false
     )
+  })
+})
+
+describe('advanced search crawl content-type safety', () => {
+  it('rejects non-HTML and non-text crawl responses before reading the body', async () => {
+    safeFetchMock.mockResolvedValue(
+      new Response('{"ok":true}', {
+        headers: {
+          'content-type': 'application/json'
+        }
+      })
+    )
+
+    await expect(
+      fetchHtmlWithSafety('https://example.com/data.json', {
+        timeoutMs: 1000,
+        maxRedirects: 1,
+        maxResponseBytes: 1024
+      })
+    ).rejects.toThrow('Unsupported content type: application/json')
+    expect(readResponseWithLimitMock).not.toHaveBeenCalled()
+  })
+
+  it('allows text/plain crawl responses and still uses bounded body reads', async () => {
+    const response = new Response('plain text', {
+      headers: {
+        'content-type': 'text/plain; charset=utf-8'
+      }
+    })
+    safeFetchMock.mockResolvedValue(response)
+    readResponseWithLimitMock.mockResolvedValue('plain text')
+
+    await expect(
+      fetchHtmlWithSafety('https://example.com/plain.txt', {
+        timeoutMs: 1000,
+        maxRedirects: 1,
+        maxResponseBytes: 1024
+      })
+    ).resolves.toBe('plain text')
+    expect(readResponseWithLimitMock).toHaveBeenCalledWith(response, 1024)
   })
 })
 
