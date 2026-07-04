@@ -24,7 +24,12 @@ export type SourceQualityAssessment = z.infer<
   typeof SourceQualityAssessmentSchema
 >
 
-export const AdvisorSeveritySchema = z.enum(['info', 'warning', 'error', 'blocker'])
+export const AdvisorSeveritySchema = z.enum([
+  'info',
+  'warning',
+  'error',
+  'blocker'
+])
 export type AdvisorSeverity = z.infer<typeof AdvisorSeveritySchema>
 
 export const AdvisorFindingSchema = z.object({
