@@ -38,13 +38,11 @@ describe('model capability profiles', () => {
     expect(isModelSearchCapable('google', 'gemini-3-flash-preview')).toBe(true)
   })
 
-  it('keeps NVIDIA search compatibility restricted to known instruct models', () => {
+  it('keeps NVIDIA search compatibility scoped to known models', () => {
     expect(isModelSearchCapable('nvidia', 'meta/llama-3.1-8b-instruct')).toBe(
       true
     )
-    expect(isModelSearchCapable('nvidia', 'meta/llama-3.1-8b-base')).toBe(
-      false
-    )
+    expect(isModelSearchCapable('nvidia', 'meta/llama-3.1-8b-base')).toBe(false)
   })
 
   it('reports role support and missing capabilities', () => {
@@ -56,8 +54,8 @@ describe('model capability profiles', () => {
 
     expect(modelSupportsRole(localStreamingOnly, 'answer_composer')).toBe(true)
     expect(modelSupportsRole(localStreamingOnly, 'router')).toBe(false)
-    expect(getMissingCapabilitiesForRole(localStreamingOnly, 'router')).toEqual([
-      'structured_output'
-    ])
+    expect(getMissingCapabilitiesForRole(localStreamingOnly, 'router')).toEqual(
+      ['structured_output']
+    )
   })
 })
