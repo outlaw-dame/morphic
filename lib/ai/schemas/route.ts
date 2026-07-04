@@ -17,14 +17,14 @@ export const RoutePlanSchema = z.object({
   needsEntityGrounding: z.boolean().default(false),
   needsAdvisorReview: z.boolean().default(false),
   needsCitationVerification: z.boolean().default(true),
-  maxToolCalls: z.number().int().positive().max(100),
+  maxToolCalls: z.number().int().positive().max(100).default(20),
   rationale: z.string().min(1)
 })
 export type RoutePlan = z.infer<typeof RoutePlanSchema>
 
 export const CoordinatorDecisionSchema = z.object({
   routePlan: RoutePlanSchema,
-  activeModelRoles: z.array(ModelRoleSchema),
+  activeModelRoles: z.array(ModelRoleSchema).default([]),
   retrievalPaths: z.array(z.string().min(1)).default([]),
   parallelizable: z.boolean().default(false),
   stopConditions: z.array(z.string().min(1)).default([]),
@@ -39,10 +39,10 @@ export const EvidenceItemSchema = z.object({
   sourceClass: SourceClassSchema,
   evidenceRole: EvidenceRoleSchema,
   claimIds: z.array(z.string().min(1)).default([]),
-  quotedText: z.string().optional(),
+  quotedText: z.string().nullish(),
   summary: z.string().min(1),
   retrievalPath: z.string().min(1),
-  publishedAt: z.string().datetime().optional(),
+  publishedAt: z.string().datetime().nullish(),
   retrievedAt: z.string().datetime(),
   confidence: z.number().min(0).max(1)
 })
