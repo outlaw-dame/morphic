@@ -4,9 +4,9 @@ import type { Model } from '@/lib/types/models'
 import {
   getMissingCapabilitiesForRole,
   inferModelCapabilityProfile,
-  modelSupportsRole,
-  type ModelCapabilityProfile
+  modelSupportsRole
 } from './capabilities'
+import type { ModelCapabilityProfile } from './capabilities'
 
 export type ModelRoleCandidate = {
   model: Model
