@@ -84,17 +84,28 @@ The safety patch updates advanced search to:
 - enforce bounded crawl fan-out via `ADVANCED_SEARCH_CRAWL_CONCURRENCY`;
 - extract advanced-search helper logic into `lib/tools/search/advanced-search.ts`;
 - add unit tests for request parsing, cache-key hashing, domain filtering, HTML extraction, relevance scoring, quality filtering, and concurrency limiting;
+- add advanced-search-level tests for non-HTML/non-text crawl response rejection and text crawl response bounded reads;
 - add SSRF guard network-path tests for private IP literals, internal hostnames, redirect-to-private-IP blocking, content-length size rejection, and streamed body overflow.
+
+## Configured SearXNG service URL policy
+
+The configured `SEARXNG_API_URL` path is treated as a trusted deployment setting, not a user-supplied URL. It should remain separate from normal user-controlled fetch validation because local and private SearXNG deployments are legitimate production topologies for self-hosted Morphic installs.
+
+That trust boundary still needs guardrails:
+
+- `SEARXNG_API_URL` must never be derived from request input, cookies, query parameters, user profile data, or chat content.
+- Cloud-hosted deployments should prefer an explicit allowlist or deployment-time validation for configured service URLs.
+- User-controlled result URLs must continue to flow through `safeFetch()` and redirect-hop revalidation.
+- Future Router/Fusion integrations must not reuse configured-service fetch paths for arbitrary user URLs.
 
 ## Remaining Phase AI-1 work
 
-This PR completes the initial advanced-search hardening slice and adds direct SSRF guard network-path coverage, but Phase AI-1 should continue with configured-service validation and route-specific coverage:
+This PR completes the initial advanced-search hardening slice and adds direct SSRF guard network-path coverage, but Phase AI-1 should continue with route-specific coverage and service-configuration guardrails:
 
-- Advanced-search-level tests for non-HTML/non-text crawl response handling through `fetchHtmlWithSafety()`.
-- A focused review of whether the configured SearXNG API URL should remain an internal trusted fetch path or use a separate allowlist validator for configured service URLs.
 - Optional route-level tests for the `POST` handler once the project has a route-handler test pattern.
+- Optional deployment-time validation for configured service URLs, especially cloud-hosted `SEARXNG_API_URL` allowlisting.
 - Style-only normalization to remove the narrow temporary Prettier/ESLint deferrals for the advanced-search files once formatter/linter diagnostics are available locally or untruncated.
 
 ## Next phase after this PR
 
-After this safety slice lands, continue Phase AI-1 until configured-service URL policy is in place. Only then should implementation proceed to Phase AI-2 shared schemas and model capability routing.
+After this safety slice lands, Phase AI-1 can continue with route-level coverage and configured-service URL guardrails. If those are intentionally deferred, implementation can proceed to Phase AI-2 shared schemas and model capability routing without expanding crawling or retrieval scope further.
