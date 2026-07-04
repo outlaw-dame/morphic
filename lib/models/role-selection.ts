@@ -25,15 +25,13 @@ export type SelectModelForRoleResult = {
   rejected: RejectedModelRoleCandidate[]
 }
 
-const RELIABILITY_SCORE: Record<
-  ModelCapabilityProfile['reliability'],
-  number
-> = {
-  strong: 0,
-  standard: 1,
-  experimental: 2,
-  unknown: 3
-}
+const RELIABILITY_SCORE: Record<ModelCapabilityProfile['reliability'], number> =
+  {
+    strong: 0,
+    standard: 1,
+    experimental: 2,
+    unknown: 3
+  }
 
 function scoreRoleCandidate(candidate: ModelRoleCandidate): number {
   const capabilityBonus = candidate.profile.capabilities.length / 100
