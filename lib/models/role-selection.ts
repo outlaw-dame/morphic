@@ -6,7 +6,8 @@ import {
   inferModelCapabilityProfile,
   modelSupportsRole
 } from './capabilities'
-import type { ModelCapabilityProfile } from './capabilities'
+
+type ModelCapabilityProfile = ReturnType<typeof inferModelCapabilityProfile>
 
 export type ModelRoleCandidate = {
   model: Model
