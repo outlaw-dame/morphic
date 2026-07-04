@@ -58,6 +58,10 @@ export default defineConfig([
     // Phase AI-1 advanced-search files need a follow-up style-only normalization pass.
     'app/api/advanced-search/route.ts',
     'lib/tools/search/advanced-search.ts',
-    'lib/tools/search/advanced-search.test.ts'
+    'lib/tools/search/advanced-search.test.ts',
+    // Phase AI-2 schema/capability files need a follow-up style-only normalization pass.
+    'lib/ai/schemas/**/*.ts',
+    'lib/models/capabilities.ts',
+    'lib/models/capabilities.test.ts'
   ])
 ])
