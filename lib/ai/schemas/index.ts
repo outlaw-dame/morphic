@@ -4,32 +4,34 @@ export {
   ModelRoleSchema,
   ResearchModeSchema,
   RiskLevelSchema,
-  SourceClassSchema,
-  type EvidenceRole,
-  type ModelCapability,
-  type ModelRole,
-  type ResearchMode,
-  type RiskLevel,
-  type SourceClass
+  SourceClassSchema
 } from './core'
+export type {
+  EvidenceRole,
+  ModelCapability,
+  ModelRole,
+  ResearchMode,
+  RiskLevel,
+  SourceClass
+} from './core'
+export {
+  AdvisorFindingSchema,
+  AdvisorSeveritySchema,
+  SourceQualityAssessmentSchema,
+  parseAdvisorFinding,
+  parseSourceQualityAssessment
+} from './review'
+export type {
+  AdvisorFinding,
+  AdvisorSeverity,
+  SourceQualityAssessment
+} from './review'
 export {
   CoordinatorDecisionSchema,
   EvidenceItemSchema,
   RoutePlanSchema,
   parseCoordinatorDecision,
   parseEvidenceItem,
-  parseRoutePlan,
-  type CoordinatorDecision,
-  type EvidenceItem,
-  type RoutePlan
+  parseRoutePlan
 } from './route'
-export {
-  AdvisorFindingSchema,
-  AdvisorSeveritySchema,
-  SourceQualityAssessmentSchema,
-  parseAdvisorFinding,
-  parseSourceQualityAssessment,
-  type AdvisorFinding,
-  type AdvisorSeverity,
-  type SourceQualityAssessment
-} from './review'
+export type { CoordinatorDecision, EvidenceItem, RoutePlan } from './route'
