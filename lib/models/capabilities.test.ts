@@ -45,6 +45,18 @@ describe('model capability profiles', () => {
     expect(isModelSearchCapable('nvidia', 'meta/llama-3.1-8b-base')).toBe(false)
   })
 
+  it('preserves NVIDIA model-specific capabilities when adding search compatibility', () => {
+    const profile = inferModelCapabilityProfile({
+      providerId: 'nvidia',
+      id: 'nvidia/llama-3.1-nemotron-reason-vision-instruct',
+      capabilities: []
+    })
+
+    expect(profile.capabilities).toContain('tool_calling')
+    expect(profile.capabilities).toContain('reasoning')
+    expect(profile.capabilities).toContain('vision')
+  })
+
   it('reports role support and missing capabilities', () => {
     const localStreamingOnly = {
       providerId: 'ollama',
