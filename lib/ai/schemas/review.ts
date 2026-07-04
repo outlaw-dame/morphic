@@ -16,7 +16,7 @@ export const SourceQualityAssessmentSchema = z.object({
   userPreferenceModifier: z.number().min(-1).max(1).default(0),
   finalWeight: z.number().min(0).max(1),
   influenceCap: z.number().min(0).max(1),
-  requiresCorroboration: z.boolean(),
+  requiresCorroboration: z.boolean().default(false),
   allowedClaimTypes: z.array(z.string().min(1)).default([]),
   disallowedClaimTypes: z.array(z.string().min(1)).default([])
 })
@@ -34,7 +34,7 @@ export type AdvisorSeverity = z.infer<typeof AdvisorSeveritySchema>
 
 export const AdvisorFindingSchema = z.object({
   severity: AdvisorSeveritySchema,
-  claimId: z.string().min(1).optional(),
+  claimId: z.string().min(1).nullish(),
   finding: z.string().min(1),
   recommendation: z.string().min(1),
   requiresRepair: z.boolean().default(false)
