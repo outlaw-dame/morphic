@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-export const ResearchModeSchema = z.enum(['quick', 'adaptive', 'deep', 'critical'])
+export const ResearchModeSchema = z.enum([
+  'quick',
+  'adaptive',
+  'deep',
+  'critical'
+])
 export type ResearchMode = z.infer<typeof ResearchModeSchema>
 
 export const RiskLevelSchema = z.enum(['low', 'medium', 'high', 'critical'])
