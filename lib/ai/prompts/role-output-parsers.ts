@@ -5,15 +5,13 @@ import {
   CoordinatorDecisionSchema,
   EvidenceItemSchema,
   RoutePlanSchema,
-  SourceQualityAssessmentSchema
-} from '@/lib/ai/schemas'
-import type {
-  AdvisorFinding,
-  CoordinatorDecision,
-  EvidenceItem,
-  ModelRole,
-  RoutePlan,
-  SourceQualityAssessment
+  SourceQualityAssessmentSchema,
+  type AdvisorFinding,
+  type CoordinatorDecision,
+  type EvidenceItem,
+  type ModelRole,
+  type RoutePlan,
+  type SourceQualityAssessment
 } from '@/lib/ai/schemas'
 
 export type ParsedRoleOutputByRole = {
