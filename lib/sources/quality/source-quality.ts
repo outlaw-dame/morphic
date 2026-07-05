@@ -84,14 +84,41 @@ const SOURCE_HOST_HINTS: Array<{
   sourceClass: SourceClass
   matches: (host: string) => boolean
 }> = [
-  { sourceClass: 'government_or_regulator', matches: host => host.endsWith('.gov') },
-  { sourceClass: 'academic_or_peer_reviewed', matches: host => host.endsWith('.edu') },
-  { sourceClass: 'standards_body', matches: host => host.includes('ietf.org') || host.includes('w3.org') },
+  {
+    sourceClass: 'government_or_regulator',
+    matches: host => host.endsWith('.gov')
+  },
+  {
+    sourceClass: 'academic_or_peer_reviewed',
+    matches: host => host.endsWith('.edu')
+  },
+  {
+    sourceClass: 'standards_body',
+    matches: host => host.includes('ietf.org') || host.includes('w3.org')
+  },
   { sourceClass: 'forum_or_reddit', matches: host => host.includes('reddit.com') },
-  { sourceClass: 'social_media', matches: host => ['x.com', 'twitter.com', 'facebook.com', 'instagram.com', 'tiktok.com', 'bsky.app'].some(domain => host === domain || host.endsWith(`.${domain}`)) },
-  { sourceClass: 'wiki_or_knowledge_graph', matches: host => host.includes('wikipedia.org') || host.includes('wikidata.org') || host.includes('dbpedia.org') },
-  { sourceClass: 'scraper_or_aggregator', matches: host => host.includes('jina.ai') || host.includes('archive.is') },
-  { sourceClass: 'content_farm', matches: host => host.includes('medium.com') || host.includes('substack.com') }
+  {
+    sourceClass: 'social_media',
+    matches: host =>
+      ['x.com', 'twitter.com', 'facebook.com', 'instagram.com', 'tiktok.com', 'bsky.app'].some(
+        domain => host === domain || host.endsWith(`.${domain}`)
+      )
+  },
+  {
+    sourceClass: 'wiki_or_knowledge_graph',
+    matches: host =>
+      host.includes('wikipedia.org') ||
+      host.includes('wikidata.org') ||
+      host.includes('dbpedia.org')
+  },
+  {
+    sourceClass: 'scraper_or_aggregator',
+    matches: host => host.includes('jina.ai') || host.includes('archive.is')
+  },
+  {
+    sourceClass: 'content_farm',
+    matches: host => host.includes('medium.com') || host.includes('substack.com')
+  }
 ]
 
 const FACTUAL_CLAIM_TYPES = [
@@ -114,6 +141,11 @@ const RESTRICTED_FACTUAL_CLAIM_TYPES = [
 function clamp01(value: number): number {
   if (Number.isNaN(value)) return 0
   return Math.max(0, Math.min(1, value))
+}
+
+function clampPreference(value: number): number {
+  if (Number.isNaN(value)) return 0
+  return Math.max(-1, Math.min(1, value))
 }
 
 function normalizeDate(input: string | Date | null | undefined): Date | null {
@@ -141,7 +173,10 @@ export function classifySource(input: Pick<SourceQualityInput, 'url' | 'sourceCl
   return SOURCE_HOST_HINTS.find(hint => hint.matches(host))?.sourceClass ?? 'unknown'
 }
 
-export function inferEvidenceRole(sourceClass: SourceClass, explicitRole?: EvidenceRole): EvidenceRole {
+export function inferEvidenceRole(
+  sourceClass: SourceClass,
+  explicitRole?: EvidenceRole
+): EvidenceRole {
   if (explicitRole) return explicitRole
 
   switch (sourceClass) {
@@ -199,7 +234,10 @@ function scoreTransparency(signals: SourceQualitySignals | undefined): number {
   return clamp01(score)
 }
 
-function scoreOriginality(sourceClass: SourceClass, signals: SourceQualitySignals | undefined): number {
+function scoreOriginality(
+  sourceClass: SourceClass,
+  signals: SourceQualitySignals | undefined
+): number {
   if (signals?.isScrapedOrRepublished) return 0.12
   if (sourceClass === 'scraper_or_aggregator') return 0.1
   if (sourceClass === 'content_farm') return 0.22
@@ -209,7 +247,10 @@ function scoreOriginality(sourceClass: SourceClass, signals: SourceQualitySignal
   return 0.62
 }
 
-function spamPenalty(sourceClass: SourceClass, signals: SourceQualitySignals | undefined): number {
+function spamPenalty(
+  sourceClass: SourceClass,
+  signals: SourceQualitySignals | undefined
+): number {
   let penalty = 0
   if (sourceClass === 'content_farm') penalty += 0.35
   if (sourceClass === 'scraper_or_aggregator') penalty += 0.4
@@ -277,7 +318,7 @@ export function assessSourceQuality(input: SourceQualityInput): SourceQualityAss
   const corroboration = corroborationScore(input.corroboratingIndependentSources)
   const conflictOfInterestPenalty = sourceClass === 'company_or_vendor' ? 0.2 : 0
   const spamOrContentFarmPenalty = spamPenalty(sourceClass, input.signals)
-  const userPreferenceModifier = clamp01((input.userPreferenceModifier ?? 0) + 1) - 1
+  const userPreferenceModifier = clampPreference(input.userPreferenceModifier ?? 0)
   const influenceCap = INFLUENCE_CAPS[sourceClass]
 
   const rawWeight =
