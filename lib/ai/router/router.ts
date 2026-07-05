@@ -109,7 +109,8 @@ export function routeResearchRequest(input: RouterInput): RouterResult {
     needsEntityGrounding,
     needsAdvisorReview,
     needsCitationVerification: true,
-    maxToolCalls: mode === 'critical' ? 50 : mode === 'adaptive' ? 35 : 20,
+    maxToolCalls:
+      mode === 'critical' ? 50 : mode === 'adaptive' ? 35 : 20,
     rationale: `Deterministic router classified the request as ${mode} with ${riskLevel} risk.`
   } satisfies Omit<RoutePlan, 'requiredModelRoles'>
 
