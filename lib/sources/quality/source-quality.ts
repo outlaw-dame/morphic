@@ -185,7 +185,9 @@ export function classifySource(
   const host = getHost(input.url)
   if (!host) return 'unknown'
 
-  return SOURCE_HOST_HINTS.find(hint => hint.matches(host))?.sourceClass ?? 'unknown'
+  return (
+    SOURCE_HOST_HINTS.find(hint => hint.matches(host))?.sourceClass ?? 'unknown'
+  )
 }
 
 export function inferEvidenceRole(
@@ -335,21 +337,30 @@ function requiresCorroboration(
   )
 }
 
-export function assessSourceQuality(input: SourceQualityInput): SourceQualityAssessment {
+export function assessSourceQuality(
+  input: SourceQualityInput
+): SourceQualityAssessment {
   const assessedAt = normalizeDate(input.assessedAt) ?? new Date()
   const publishedAt = normalizeDate(input.publishedAt)
   const sourceClass = classifySource(input)
   const evidenceRole = inferEvidenceRole(sourceClass, input.evidenceRole)
   const sourceClassScore = SOURCE_CLASS_BASE[sourceClass]
   const evidenceRoleScore = EVIDENCE_ROLE_BASE[evidenceRole]
-  const topicalAuthorityScore = clamp01((sourceClassScore + evidenceRoleScore) / 2)
+  const topicalAuthorityScore = clamp01(
+    (sourceClassScore + evidenceRoleScore) / 2
+  )
   const transparencyScore = scoreTransparency(input.signals)
   const originalityScore = scoreOriginality(sourceClass, input.signals)
   const freshnessScore = scoreFreshness(publishedAt, assessedAt)
-  const corroboration = corroborationScore(input.corroboratingIndependentSources)
-  const conflictOfInterestPenalty = sourceClass === 'company_or_vendor' ? 0.2 : 0
+  const corroboration = corroborationScore(
+    input.corroboratingIndependentSources
+  )
+  const conflictOfInterestPenalty =
+    sourceClass === 'company_or_vendor' ? 0.2 : 0
   const spamOrContentFarmPenalty = spamPenalty(sourceClass, input.signals)
-  const userPreferenceModifier = clampPreference(input.userPreferenceModifier ?? 0)
+  const userPreferenceModifier = clampPreference(
+    input.userPreferenceModifier ?? 0
+  )
   const influenceCap = INFLUENCE_CAPS[sourceClass]
 
   const rawWeight =
