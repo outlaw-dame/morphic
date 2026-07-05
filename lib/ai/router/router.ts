@@ -35,10 +35,7 @@ const HIGH_RISK_PATTERNS = [
   /\bsupreme\s+court\b/i,
   /\bcourt\s+ruling\b/i,
   new RegExp(
-    '\\b(med' +
-      'ical|doctor|diagnosis|med' +
-      'ical\\s+treat' +
-      'ment)\\b',
+    '\\b(med' + 'ical|doctor|diagnosis|med' + 'ical\\s+treat' + 'ment)\\b',
     'i'
   ),
   new RegExp('\\b(symptom|con' + 'cussion)\\b', 'i'),
