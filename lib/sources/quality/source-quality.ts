@@ -171,7 +171,7 @@ function getHost(url: string | undefined): string | null {
   if (!url) return null
 
   try {
-    return new URL(url).hostname.toLowerCase().replace(/^www\./, '')
+    return new URL(url).hostname.toLowerCase()
   } catch {
     return null
   }
