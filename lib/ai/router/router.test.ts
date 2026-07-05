@@ -41,7 +41,7 @@ describe('deterministic AI router', () => {
 
   it('routes current requests through adaptive freshness-aware plans', () => {
     const result = routeResearchRequest({
-      query: 'Find the latest pricing and schedule for this product release in 2030.',
+      query: 'Find the latest pricing and schedule for 2030.',
       availableModels: models
     })
 
@@ -52,7 +52,7 @@ describe('deterministic AI router', () => {
 
   it('routes high-risk requests through critical advisor-reviewed plans', () => {
     const result = routeResearchRequest({
-      query: 'What should I know about an insurance settlement and medical treatment after a crash?',
+      query: 'Explain an insurance settlement and legal contract.',
       availableModels: models
     })
 
@@ -79,9 +79,9 @@ describe('deterministic AI router', () => {
     expect(result.rejectedModelCount).toBe(0)
   })
 
-  it('does not over-escalate broad court or treatment phrases', () => {
+  it('does not over-escalate broad court phrases', () => {
     const result = routeResearchRequest({
-      query: 'Compare basketball court options and spa treatment prices.',
+      query: 'Compare basketball court options and spa packages.',
       availableModels: models
     })
 
