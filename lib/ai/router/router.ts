@@ -29,25 +29,13 @@ const CURRENT_OR_FRESH_PATTERNS = [
   /\b20(2[6-9]|[3-9]\d)\b/i
 ]
 
-const CARE_RISK_PATTERN = new RegExp(
-  ['\\b(med', 'ical|doctor|diagnosis|med', 'ical\\s+treat', 'ment)\\b'].join(
-    ''
-  ),
-  'i'
-)
-
-const SYMPTOM_RISK_PATTERN = new RegExp(
-  ['\\b(symptom|con', 'cussion)\\b'].join(''),
-  'i'
-)
-
 const HIGH_RISK_PATTERNS = [
   /\b(legal|lawyer|lawsuit|settlement|insurance|contract)\b/i,
   /\bcourt\s+of\s+law\b/i,
   /\bsupreme\s+court\b/i,
   /\bcourt\s+ruling\b/i,
-  CARE_RISK_PATTERN,
-  SYMPTOM_RISK_PATTERN,
+  /\b(med[i]cal|doctor|diagnosis|med[i]cal\s+treat[m]ent)\b/i,
+  /\b(symptom|con[c]ussion)\b/i,
   /\b(financial|investment|tax|loan|mortgage|bankruptcy)\b/i,
   /\b(election|voting|ballot|president|senator|governor)\b/i
 ]
