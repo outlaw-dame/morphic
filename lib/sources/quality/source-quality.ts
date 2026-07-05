@@ -1,8 +1,8 @@
 import {
-  SourceQualityAssessmentSchema,
   type EvidenceRole,
   type SourceClass,
-  type SourceQualityAssessment
+  type SourceQualityAssessment,
+  SourceQualityAssessmentSchema
 } from '@/lib/ai/schemas'
 
 export type SourceQualitySignals = {
