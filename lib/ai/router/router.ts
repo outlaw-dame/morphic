@@ -31,8 +31,12 @@ const CURRENT_OR_FRESH_PATTERNS = [
 ]
 
 const HIGH_RISK_PATTERNS = [
-  /\b(legal|lawyer|lawsuit|settlement|insurance|court\s+of\s+law|supreme\s+court|court\s+ruling|contract)\b/i,
-  /\b(medical|doctor|diagnosis|medical\s+treatment|symptom|concussion)\b/i,
+  /\b(legal|lawyer|lawsuit|settlement|insurance|contract)\b/i,
+  /\bcourt\s+of\s+law\b/i,
+  /\bsupreme\s+court\b/i,
+  /\bcourt\s+ruling\b/i,
+  /\b(medical|doctor|diagnosis|medical\s+treatment)\b/i,
+  /\b(symptom|concussion)\b/i,
   /\b(financial|investment|tax|loan|mortgage|bankruptcy)\b/i,
   /\b(election|voting|ballot|president|senator|governor)\b/i
 ]
