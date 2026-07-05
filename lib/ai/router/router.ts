@@ -1,5 +1,6 @@
 import type { Model } from '@/lib/types/models'
 
+import { getRolePrompt } from '@/lib/ai/prompts'
 import {
   RoutePlanSchema,
   type ModelRole,
@@ -8,7 +9,6 @@ import {
   type RoutePlan,
   type SourceClass
 } from '@/lib/ai/schemas'
-import { getRolePrompt } from '@/lib/ai/prompts'
 import { selectModelForRole } from '@/lib/models/role-selection'
 
 export type RouterInput = {
@@ -72,7 +72,9 @@ function inferRequiredSourceClasses(query: string): SourceClass[] {
   return []
 }
 
-function inferRequiredModelRoles(routePlan: Omit<RoutePlan, 'requiredModelRoles'>): ModelRole[] {
+function inferRequiredModelRoles(
+  routePlan: Omit<RoutePlan, 'requiredModelRoles'>
+): ModelRole[] {
   const roles: ModelRole[] = ['router', 'retriever', 'answer_composer']
 
   if (routePlan.needsEntityGrounding) {
