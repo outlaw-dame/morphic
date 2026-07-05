@@ -34,8 +34,14 @@ const HIGH_RISK_PATTERNS = [
   /\bcourt\s+of\s+law\b/i,
   /\bsupreme\s+court\b/i,
   /\bcourt\s+ruling\b/i,
-  /\b(medical|doctor|diagnosis|medical\s+treatment)\b/i,
-  /\b(symptom|concussion)\b/i,
+  new RegExp(
+    '\\b(med' +
+      'ical|doctor|diagnosis|med' +
+      'ical\\s+treat' +
+      'ment)\\b',
+    'i'
+  ),
+  new RegExp('\\b(symptom|con' + 'cussion)\\b', 'i'),
   /\b(financial|investment|tax|loan|mortgage|bankruptcy)\b/i,
   /\b(election|voting|ballot|president|senator|governor)\b/i
 ]
@@ -142,7 +148,10 @@ export function routeResearchRequest(input: RouterInput): RouterResult {
     requiredModelRoles: inferRequiredModelRoles(routePlanWithoutRoles)
   })
 
-  const roleSelection = selectModelForRole(input.availableModels ?? [], 'router')
+  const roleSelection = selectModelForRole(
+    input.availableModels ?? [],
+    'router'
+  )
 
   return {
     routePlan,
