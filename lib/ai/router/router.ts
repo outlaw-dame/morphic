@@ -31,12 +31,9 @@ const CURRENT_OR_FRESH_PATTERNS = [
 ]
 
 const CARE_RISK_PATTERN = new RegExp(
-  [
-    '\\b(med',
-    'ical|doctor|diagnosis|med',
-    'ical\\s+treat',
-    'ment)\\b'
-  ].join(''),
+  ['\\b(med', 'ical|doctor|diagnosis|med', 'ical\\s+treat', 'ment)\\b'].join(
+    ''
+  ),
   'i'
 )
 
