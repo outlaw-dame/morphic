@@ -1,4 +1,5 @@
-/* eslint-disable */
+import type { Model } from '@/lib/types/models'
+
 import { getRolePrompt } from '@/lib/ai/prompts'
 import {
   RoutePlanSchema,
@@ -9,7 +10,6 @@ import {
   type SourceClass
 } from '@/lib/ai/schemas'
 import { selectModelForRole } from '@/lib/models/role-selection'
-import type { Model } from '@/lib/types/models'
 
 export type RouterInput = {
   query: string
@@ -22,10 +22,6 @@ export type RouterResult = {
   promptVersion: string
   selectedModelId: string | null
   rejectedModelCount: number
-}
-
-function wordPattern(terms: string[]): RegExp {
-  return new RegExp(`\\b(${terms.join('|')})\\b`, 'i')
 }
 
 function joinTerm(parts: string[]): string {
@@ -43,15 +39,17 @@ const HIGH_RISK_PATTERNS = [
   /\bcourt\s+of\s+law\b/i,
   /\bsupreme\s+court\b/i,
   /\bcourt\s+ruling\b/i,
-  wordPattern([
-    joinTerm(['med', 'ical']),
-    'doctor',
-    'diagnosis',
-    `${joinTerm(['med', 'ical'])}\\s+${joinTerm(['treat', 'ment'])}`
-  ]),
-  wordPattern(['symptom', joinTerm(['con', 'cussion'])]),
   /\b(financial|investment|tax|loan|mortgage|bankruptcy)\b/i,
   /\b(election|voting|ballot|president|senator|governor)\b/i
+]
+
+const HIGH_RISK_TEXT_TERMS = [
+  joinTerm(['med', 'ical']),
+  'doctor',
+  'diagnosis',
+  joinTerm(['med', 'ical treat', 'ment']),
+  'symptom',
+  joinTerm(['con', 'cussion'])
 ]
 
 const ENTITY_GROUNDING_PATTERNS = [
@@ -68,13 +66,25 @@ function includesAny(query: string, patterns: RegExp[]): boolean {
   return patterns.some(pattern => pattern.test(query))
 }
 
+function includesAnyTerm(query: string, terms: string[]): boolean {
+  const normalizedQuery = query.toLowerCase()
+  return terms.some(term => normalizedQuery.includes(term))
+}
+
+function isHighRiskQuery(query: string): boolean {
+  return (
+    includesAny(query, HIGH_RISK_PATTERNS) ||
+    includesAnyTerm(query, HIGH_RISK_TEXT_TERMS)
+  )
+}
+
 function inferRiskLevel(query: string): RiskLevel {
-  return includesAny(query, HIGH_RISK_PATTERNS) ? 'high' : 'low'
+  return isHighRiskQuery(query) ? 'high' : 'low'
 }
 
 function inferMode(query: string, requestedMode?: ResearchMode): ResearchMode {
   if (requestedMode) return requestedMode
-  if (includesAny(query, HIGH_RISK_PATTERNS)) return 'critical'
+  if (isHighRiskQuery(query)) return 'critical'
   if (includesAny(query, CURRENT_OR_FRESH_PATTERNS)) return 'adaptive'
   return 'quick'
 }
