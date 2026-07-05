@@ -62,6 +62,17 @@ function inferMode(query: string, requestedMode?: ResearchMode): ResearchMode {
   return 'quick'
 }
 
+function inferMaxToolCalls(mode: ResearchMode): number {
+  switch (mode) {
+    case 'critical':
+      return 50
+    case 'adaptive':
+      return 35
+    default:
+      return 20
+  }
+}
+
 function inferRequiredSourceClasses(query: string): SourceClass[] {
   if (includesAny(query, OFFICIAL_SOURCE_PATTERNS)) {
     return ['official_source']
@@ -115,8 +126,7 @@ export function routeResearchRequest(input: RouterInput): RouterResult {
     needsEntityGrounding,
     needsAdvisorReview,
     needsCitationVerification: true,
-    maxToolCalls:
-      mode === 'critical' ? 50 : mode === 'adaptive' ? 35 : 20,
+    maxToolCalls: inferMaxToolCalls(mode),
     rationale: `Deterministic router classified the request as ${mode} with ${riskLevel} risk.`
   } satisfies Omit<RoutePlan, 'requiredModelRoles'>
 
