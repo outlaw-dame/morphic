@@ -109,6 +109,10 @@ function inferRequiredModelRoles(
   return roles
 }
 
+function buildRationale(mode: ResearchMode, riskLevel: RiskLevel): string {
+  return `Deterministic router classified this as ${mode} / ${riskLevel}.`
+}
+
 export function routeResearchRequest(input: RouterInput): RouterResult {
   if (!input.query.trim()) {
     throw new Error('Query cannot be empty')
@@ -131,7 +135,7 @@ export function routeResearchRequest(input: RouterInput): RouterResult {
     needsAdvisorReview,
     needsCitationVerification: true,
     maxToolCalls: inferMaxToolCalls(mode),
-    rationale: `Deterministic router classified the request as ${mode} with ${riskLevel} risk.`
+    rationale: buildRationale(mode, riskLevel)
   } satisfies Omit<RoutePlan, 'requiredModelRoles'>
 
   const routePlan = RoutePlanSchema.parse({
