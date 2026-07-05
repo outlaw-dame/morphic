@@ -27,21 +27,19 @@ export type RouterResult = {
 const CURRENT_OR_FRESH_PATTERNS = [
   /\b(today|tonight|current|currently|latest|recent|now|breaking)\b/i,
   /\b(price|prices|schedule|score|weather|forecast|release date)\b/i,
-  /\b202[6-9]\b/i
+  /\b20(2[6-9]|[3-9]\d)\b/i
 ]
 
 const HIGH_RISK_PATTERNS = [
-  /\b(legal|lawyer|lawsuit|settlement|insurance|court|contract)\b/i,
-  /\b(medical|doctor|diagnosis|treatment|symptom|concussion)\b/i,
+  /\b(legal|lawyer|lawsuit|settlement|insurance|court\s+of\s+law|supreme\s+court|court\s+ruling|contract)\b/i,
+  /\b(medical|doctor|diagnosis|medical\s+treatment|symptom|concussion)\b/i,
   /\b(financial|investment|tax|loan|mortgage|bankruptcy)\b/i,
   /\b(election|voting|ballot|president|senator|governor)\b/i
 ]
 
 const ENTITY_GROUNDING_PATTERNS = [
   /\b(company|ceo|president|founder|author|paper|repo|repository)\b/i,
-  /\bwho is\b/i,
-  /\bwhat is\b/i,
-  /\bcompare\b/i
+  /\bwho is\b/i
 ]
 
 const OFFICIAL_SOURCE_PATTERNS = [
@@ -89,10 +87,18 @@ function inferRequiredModelRoles(
     roles.push('citation_verifier')
   }
 
+  if (routePlan.needsAdvisorReview || routePlan.needsCitationVerification) {
+    roles.push('repair')
+  }
+
   return roles
 }
 
 export function routeResearchRequest(input: RouterInput): RouterResult {
+  if (!input.query.trim()) {
+    throw new Error('Query cannot be empty')
+  }
+
   const query = input.query.trim()
   const prompt = getRolePrompt('router')
   const riskLevel = inferRiskLevel(query)
