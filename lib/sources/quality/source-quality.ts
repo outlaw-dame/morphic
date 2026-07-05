@@ -96,13 +96,21 @@ const SOURCE_HOST_HINTS: Array<{
     sourceClass: 'standards_body',
     matches: host => host.includes('ietf.org') || host.includes('w3.org')
   },
-  { sourceClass: 'forum_or_reddit', matches: host => host.includes('reddit.com') },
+  {
+    sourceClass: 'forum_or_reddit',
+    matches: host => host.includes('reddit.com')
+  },
   {
     sourceClass: 'social_media',
     matches: host =>
-      ['x.com', 'twitter.com', 'facebook.com', 'instagram.com', 'tiktok.com', 'bsky.app'].some(
-        domain => host === domain || host.endsWith(`.${domain}`)
-      )
+      [
+        'x.com',
+        'twitter.com',
+        'facebook.com',
+        'instagram.com',
+        'tiktok.com',
+        'bsky.app'
+      ].some(domain => host === domain || host.endsWith(`.${domain}`))
   },
   {
     sourceClass: 'wiki_or_knowledge_graph',
@@ -164,7 +172,9 @@ function getHost(url: string | undefined): string | null {
   }
 }
 
-export function classifySource(input: Pick<SourceQualityInput, 'url' | 'sourceClass'>): SourceClass {
+export function classifySource(
+  input: Pick<SourceQualityInput, 'url' | 'sourceClass'>
+): SourceClass {
   if (input.sourceClass) return input.sourceClass
 
   const host = getHost(input.url)
@@ -243,7 +253,9 @@ function scoreOriginality(
   if (sourceClass === 'content_farm') return 0.22
   if (sourceClass === 'primary_data_source') return 0.95
   if (sourceClass === 'court_or_legal_record') return 0.92
-  if (sourceClass === 'forum_or_reddit' || sourceClass === 'social_media') return 0.5
+  if (sourceClass === 'forum_or_reddit' || sourceClass === 'social_media') {
+    return 0.5
+  }
   return 0.62
 }
 
@@ -267,19 +279,28 @@ function corroborationScore(count: number | undefined): number {
   return 0.9
 }
 
-function allowedClaimTypes(sourceClass: SourceClass, evidenceRole: EvidenceRole): string[] {
+function allowedClaimTypes(
+  sourceClass: SourceClass,
+  evidenceRole: EvidenceRole
+): string[] {
   if (sourceClass === 'forum_or_reddit' || sourceClass === 'social_media') {
     return FACTUAL_CLAIM_TYPES
   }
 
-  if (evidenceRole === 'unsafe_for_factual_claim' || evidenceRole === 'rumor_or_unverified') {
+  if (
+    evidenceRole === 'unsafe_for_factual_claim' ||
+    evidenceRole === 'rumor_or_unverified'
+  ) {
     return ['background_context']
   }
 
   return []
 }
 
-function disallowedClaimTypes(sourceClass: SourceClass, evidenceRole: EvidenceRole): string[] {
+function disallowedClaimTypes(
+  sourceClass: SourceClass,
+  evidenceRole: EvidenceRole
+): string[] {
   if (
     sourceClass === 'forum_or_reddit' ||
     sourceClass === 'social_media' ||
@@ -292,7 +313,10 @@ function disallowedClaimTypes(sourceClass: SourceClass, evidenceRole: EvidenceRo
   return []
 }
 
-function requiresCorroboration(sourceClass: SourceClass, evidenceRole: EvidenceRole): boolean {
+function requiresCorroboration(
+  sourceClass: SourceClass,
+  evidenceRole: EvidenceRole
+): boolean {
   return (
     sourceClass === 'forum_or_reddit' ||
     sourceClass === 'social_media' ||
@@ -332,7 +356,9 @@ export function assessSourceQuality(input: SourceQualityInput): SourceQualityAss
     conflictOfInterestPenalty -
     spamOrContentFarmPenalty
 
-  const finalWeight = clamp01(Math.min(influenceCap, rawWeight + userPreferenceModifier * 0.08))
+  const finalWeight = clamp01(
+    Math.min(influenceCap, rawWeight + userPreferenceModifier * 0.08)
+  )
 
   return SourceQualityAssessmentSchema.parse({
     sourceClass,
