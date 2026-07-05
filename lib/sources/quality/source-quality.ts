@@ -121,7 +121,8 @@ const SOURCE_HOST_HINTS: Array<{
   },
   {
     sourceClass: 'wiki_or_knowledge_graph',
-    matches: host => matchDomain(host, ['wikipedia.org', 'wikidata.org', 'dbpedia.org'])
+    matches: host =>
+      matchDomain(host, ['wikipedia.org', 'wikidata.org', 'dbpedia.org'])
   },
   {
     sourceClass: 'scraper_or_aggregator',
@@ -236,7 +237,8 @@ function scoreFreshness(publishedAt: Date | null, assessedAt: Date): number {
 }
 
 function scoreTransparency(signals: SourceQualitySignals | undefined): number {
-  const hasAnySignal = signals && Object.values(signals).some(value => value !== undefined)
+  const hasAnySignal =
+    signals && Object.values(signals).some(value => value !== undefined)
   if (!hasAnySignal) return 0.5
 
   let score = 0.45
