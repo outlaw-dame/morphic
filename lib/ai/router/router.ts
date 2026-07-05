@@ -1,5 +1,3 @@
-import type { Model } from '@/lib/types/models'
-
 import { getRolePrompt } from '@/lib/ai/prompts'
 import {
   RoutePlanSchema,
@@ -10,6 +8,7 @@ import {
   type SourceClass
 } from '@/lib/ai/schemas'
 import { selectModelForRole } from '@/lib/models/role-selection'
+import type { Model } from '@/lib/types/models'
 
 export type RouterInput = {
   query: string
