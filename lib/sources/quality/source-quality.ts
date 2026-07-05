@@ -80,52 +80,56 @@ const INFLUENCE_CAPS: Record<SourceClass, number> = {
   unknown: 0.24
 }
 
+function matchDomain(host: string, domains: string[]): boolean {
+  return domains.some(domain => host === domain || host.endsWith(`.${domain}`))
+}
+
 const SOURCE_HOST_HINTS: Array<{
   sourceClass: SourceClass
   matches: (host: string) => boolean
 }> = [
   {
     sourceClass: 'government_or_regulator',
-    matches: host => host.endsWith('.gov')
+    matches: host => host.endsWith('.gov') || /\.gov\.[a-z]{2}$/.test(host)
   },
   {
     sourceClass: 'academic_or_peer_reviewed',
-    matches: host => host.endsWith('.edu')
+    matches: host =>
+      host.endsWith('.edu') ||
+      /\.edu\.[a-z]{2}$/.test(host) ||
+      /\.ac\.[a-z]{2}$/.test(host)
   },
   {
     sourceClass: 'standards_body',
-    matches: host => host.includes('ietf.org') || host.includes('w3.org')
+    matches: host => matchDomain(host, ['ietf.org', 'w3.org'])
   },
   {
     sourceClass: 'forum_or_reddit',
-    matches: host => host.includes('reddit.com')
+    matches: host => matchDomain(host, ['reddit.com'])
   },
   {
     sourceClass: 'social_media',
     matches: host =>
-      [
+      matchDomain(host, [
         'x.com',
         'twitter.com',
         'facebook.com',
         'instagram.com',
         'tiktok.com',
         'bsky.app'
-      ].some(domain => host === domain || host.endsWith(`.${domain}`))
+      ])
   },
   {
     sourceClass: 'wiki_or_knowledge_graph',
-    matches: host =>
-      host.includes('wikipedia.org') ||
-      host.includes('wikidata.org') ||
-      host.includes('dbpedia.org')
+    matches: host => matchDomain(host, ['wikipedia.org', 'wikidata.org', 'dbpedia.org'])
   },
   {
     sourceClass: 'scraper_or_aggregator',
-    matches: host => host.includes('jina.ai') || host.includes('archive.is')
+    matches: host => matchDomain(host, ['jina.ai', 'archive.is'])
   },
   {
     sourceClass: 'content_farm',
-    matches: host => host.includes('medium.com') || host.includes('substack.com')
+    matches: host => matchDomain(host, ['medium.com', 'substack.com'])
   }
 ]
 
@@ -232,7 +236,8 @@ function scoreFreshness(publishedAt: Date | null, assessedAt: Date): number {
 }
 
 function scoreTransparency(signals: SourceQualitySignals | undefined): number {
-  if (!signals) return 0.5
+  const hasAnySignal = signals && Object.values(signals).some(value => value !== undefined)
+  if (!hasAnySignal) return 0.5
 
   let score = 0.45
   if (signals.hasAuthor) score += 0.18
@@ -283,15 +288,15 @@ function allowedClaimTypes(
   sourceClass: SourceClass,
   evidenceRole: EvidenceRole
 ): string[] {
-  if (sourceClass === 'forum_or_reddit' || sourceClass === 'social_media') {
-    return FACTUAL_CLAIM_TYPES
-  }
-
   if (
     evidenceRole === 'unsafe_for_factual_claim' ||
     evidenceRole === 'rumor_or_unverified'
   ) {
     return ['background_context']
+  }
+
+  if (sourceClass === 'forum_or_reddit' || sourceClass === 'social_media') {
+    return FACTUAL_CLAIM_TYPES
   }
 
   return []
