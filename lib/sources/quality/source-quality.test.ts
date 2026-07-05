@@ -27,6 +27,39 @@ describe('source quality engine', () => {
     expect(assessment.requiresCorroboration).toBe(false)
   })
 
+  it('matches exact domains and subdomains without accepting spoofed hosts', () => {
+    expect(classifySource({ url: 'https://reddit.com/r/search' })).toBe(
+      'forum_or_reddit'
+    )
+    expect(classifySource({ url: 'https://old.reddit.com/r/search' })).toBe(
+      'forum_or_reddit'
+    )
+    expect(classifySource({ url: 'https://reddit.com.attacker.example' })).toBe(
+      'unknown'
+    )
+    expect(classifySource({ url: 'https://en.wikipedia.org/wiki/Search' })).toBe(
+      'wiki_or_knowledge_graph'
+    )
+    expect(classifySource({ url: 'https://wikipedia.org.attacker.example' })).toBe(
+      'unknown'
+    )
+  })
+
+  it('recognizes international government and academic domains', () => {
+    expect(classifySource({ url: 'https://www.gov.uk/service-manual' })).toBe(
+      'government_or_regulator'
+    )
+    expect(classifySource({ url: 'https://www.education.gov.au/example' })).toBe(
+      'government_or_regulator'
+    )
+    expect(classifySource({ url: 'https://www.sydney.edu.au/news' })).toBe(
+      'academic_or_peer_reviewed'
+    )
+    expect(classifySource({ url: 'https://www.ox.ac.uk/research' })).toBe(
+      'academic_or_peer_reviewed'
+    )
+  })
+
   it('caps Reddit/forum evidence and limits it to community claim types', () => {
     const assessment = assessSourceQuality({
       url: 'https://www.reddit.com/r/search/comments/example',
@@ -41,6 +74,17 @@ describe('source quality engine', () => {
     expect(assessment.requiresCorroboration).toBe(true)
     expect(assessment.allowedClaimTypes).toContain('community_report')
     expect(assessment.disallowedClaimTypes).toContain('medical_advice')
+  })
+
+  it('restricts unsafe or unverified evidence roles before forum/social allowances', () => {
+    const assessment = assessSourceQuality({
+      url: 'https://www.reddit.com/r/search/comments/example',
+      evidenceRole: 'unsafe_for_factual_claim'
+    })
+
+    expect(assessment.sourceClass).toBe('forum_or_reddit')
+    expect(assessment.allowedClaimTypes).toEqual(['background_context'])
+    expect(assessment.disallowedClaimTypes).toContain('confirmed_fact')
   })
 
   it('downweights content farms and scraper-like pages', () => {
@@ -59,6 +103,21 @@ describe('source quality engine', () => {
     expect(assessment.spamOrContentFarmPenalty).toBeGreaterThanOrEqual(0.7)
     expect(assessment.finalWeight).toBeLessThanOrEqual(0.08)
     expect(assessment.disallowedClaimTypes).toContain('confirmed_fact')
+  })
+
+  it('treats missing and empty transparency signals the same', () => {
+    const missingSignals = assessSourceQuality({
+      sourceClass: 'established_news',
+      evidenceRole: 'original_reporting'
+    })
+
+    const emptySignals = assessSourceQuality({
+      sourceClass: 'established_news',
+      evidenceRole: 'original_reporting',
+      signals: {}
+    })
+
+    expect(emptySignals.transparencyScore).toBe(missingSignals.transparencyScore)
   })
 
   it('keeps user preference modifiers bounded and separate from source class quality', () => {
