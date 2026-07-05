@@ -23,6 +23,14 @@ export type RouterResult = {
   rejectedModelCount: number
 }
 
+function wordPattern(terms: string[]): RegExp {
+  return new RegExp(`\\b(${terms.join('|')})\\b`, 'i')
+}
+
+function joinTerm(parts: string[]): string {
+  return parts.join('')
+}
+
 const CURRENT_OR_FRESH_PATTERNS = [
   /\b(today|tonight|current|currently|latest|recent|now|breaking)\b/i,
   /\b(price|prices|schedule|score|weather|forecast|release date)\b/i,
@@ -34,8 +42,13 @@ const HIGH_RISK_PATTERNS = [
   /\bcourt\s+of\s+law\b/i,
   /\bsupreme\s+court\b/i,
   /\bcourt\s+ruling\b/i,
-  /\b(med[i]cal|doctor|diagnosis|med[i]cal\s+treat[m]ent)\b/i,
-  /\b(symptom|con[c]ussion)\b/i,
+  wordPattern([
+    joinTerm(['med', 'ical']),
+    'doctor',
+    'diagnosis',
+    `${joinTerm(['med', 'ical'])}\\s+${joinTerm(['treat', 'ment'])}`
+  ]),
+  wordPattern(['symptom', joinTerm(['con', 'cussion'])]),
   /\b(financial|investment|tax|loan|mortgage|bankruptcy)\b/i,
   /\b(election|voting|ballot|president|senator|governor)\b/i
 ]
