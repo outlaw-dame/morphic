@@ -58,8 +58,6 @@ export default defineConfig([
     // Phase AI-1 advanced-search files need a follow-up style-only normalization pass.
     'app/api/advanced-search/route.ts',
     'lib/tools/search/advanced-search.ts',
-    'lib/tools/search/advanced-search.test.ts',
-    // Temporary diagnostic ignore to isolate the remaining router lint failure.
-    'lib/ai/router/router.test.ts'
+    'lib/tools/search/advanced-search.test.ts'
   ])
 ])
