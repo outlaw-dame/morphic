@@ -73,9 +73,10 @@ describe('source quality engine', () => {
       evidenceRole: 'original_reporting'
     })
 
-    expect(preferred.userPreferenceModifier).toBe(0)
+    expect(preferred.userPreferenceModifier).toBe(1)
     expect(preferred.sourceClassScore).toBe(neutral.sourceClassScore)
     expect(preferred.evidenceRole).toBe(neutral.evidenceRole)
+    expect(preferred.finalWeight).toBeGreaterThanOrEqual(neutral.finalWeight)
   })
 
   it('provides deterministic source and evidence-role helpers', () => {
