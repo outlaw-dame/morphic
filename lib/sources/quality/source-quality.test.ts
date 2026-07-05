@@ -76,16 +76,19 @@ describe('source quality engine', () => {
     expect(assessment.disallowedClaimTypes).toContain('medical_advice')
   })
 
-  it('restricts unsafe or unverified evidence roles before forum/social allowances', () => {
-    const assessment = assessSourceQuality({
-      url: 'https://www.reddit.com/r/search/comments/example',
-      evidenceRole: 'unsafe_for_factual_claim'
-    })
+  it(
+    'restricts unsafe or unverified evidence roles before forum/social allowances',
+    () => {
+      const assessment = assessSourceQuality({
+        url: 'https://www.reddit.com/r/search/comments/example',
+        evidenceRole: 'unsafe_for_factual_claim'
+      })
 
-    expect(assessment.sourceClass).toBe('forum_or_reddit')
-    expect(assessment.allowedClaimTypes).toEqual(['background_context'])
-    expect(assessment.disallowedClaimTypes).toContain('confirmed_fact')
-  })
+      expect(assessment.sourceClass).toBe('forum_or_reddit')
+      expect(assessment.allowedClaimTypes).toEqual(['background_context'])
+      expect(assessment.disallowedClaimTypes).toContain('confirmed_fact')
+    }
+  )
 
   it('downweights content farms and scraper-like pages', () => {
     const assessment = assessSourceQuality({
@@ -120,23 +123,26 @@ describe('source quality engine', () => {
     expect(emptySignals.transparencyScore).toBe(missingSignals.transparencyScore)
   })
 
-  it('keeps user preference modifiers bounded and separate from source class quality', () => {
-    const preferred = assessSourceQuality({
-      sourceClass: 'established_news',
-      evidenceRole: 'original_reporting',
-      userPreferenceModifier: 3
-    })
+  it(
+    'keeps user preference modifiers bounded and separate from source class quality',
+    () => {
+      const preferred = assessSourceQuality({
+        sourceClass: 'established_news',
+        evidenceRole: 'original_reporting',
+        userPreferenceModifier: 3
+      })
 
-    const neutral = assessSourceQuality({
-      sourceClass: 'established_news',
-      evidenceRole: 'original_reporting'
-    })
+      const neutral = assessSourceQuality({
+        sourceClass: 'established_news',
+        evidenceRole: 'original_reporting'
+      })
 
-    expect(preferred.userPreferenceModifier).toBe(1)
-    expect(preferred.sourceClassScore).toBe(neutral.sourceClassScore)
-    expect(preferred.evidenceRole).toBe(neutral.evidenceRole)
-    expect(preferred.finalWeight).toBeGreaterThanOrEqual(neutral.finalWeight)
-  })
+      expect(preferred.userPreferenceModifier).toBe(1)
+      expect(preferred.sourceClassScore).toBe(neutral.sourceClassScore)
+      expect(preferred.evidenceRole).toBe(neutral.evidenceRole)
+      expect(preferred.finalWeight).toBeGreaterThanOrEqual(neutral.finalWeight)
+    }
+  )
 
   it('provides deterministic source and evidence-role helpers', () => {
     expect(classifySource({ url: 'https://www.wikidata.org/wiki/Q42' })).toBe(
