@@ -1,4 +1,3 @@
-/* eslint-disable */
 import { getRolePrompt } from '@/lib/ai/prompts'
 import {
   RoutePlanSchema,
