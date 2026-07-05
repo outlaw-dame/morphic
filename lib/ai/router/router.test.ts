@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Model } from '@/lib/types/models'
-
 import { routeResearchRequest } from './router'
 
-const models: Model[] = [
+type AvailableModels = NonNullable<
+  Parameters<typeof routeResearchRequest>[0]['availableModels']
+>
+
+const models: AvailableModels = [
   {
     id: 'local-streaming-only',
     name: 'Local Streaming Only',
