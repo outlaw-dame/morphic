@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import type { RoutePlan } from '@/lib/ai/schemas'
-import type { EvidenceGraph, NormalizedEvidenceItem } from '@/lib/ai-architecture/evidence'
+import type {
+  EvidenceGraph,
+  NormalizedEvidenceItem
+} from '@/lib/ai-architecture/evidence'
 
 import { coordinateExecution } from './coordinator'
 import { createCoordinatorExecutionState } from './execution-state'
@@ -64,7 +67,10 @@ function evidenceItem(
   }
 }
 
-function evidenceGraph(items: NormalizedEvidenceItem[], warnings: string[] = []): EvidenceGraph {
+function evidenceGraph(
+  items: NormalizedEvidenceItem[],
+  warnings: string[] = []
+): EvidenceGraph {
   return {
     items,
     duplicateGroups: [],
