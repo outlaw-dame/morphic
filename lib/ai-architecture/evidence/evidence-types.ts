@@ -1,5 +1,4 @@
-import type { EvidenceItem } from '@/lib/ai/schemas'
-import type { SourceQualityAssessment } from '@/lib/ai/schemas'
+import type { EvidenceItem, SourceQualityAssessment } from '@/lib/ai/schemas'
 import type { ResolvedEntity } from '@/lib/entities/knowledge-graph'
 
 import type { AtomicClaim, ClaimCluster } from './claim-extraction'
