@@ -78,7 +78,9 @@ function ambiguityReasons(
 ): string[] {
   const reasons: string[] = []
   const distinctKeys = new Set(
-    labelGroup.map(candidate => keyMap.get(entityKey(candidate)) ?? entityKey(candidate))
+    labelGroup.map(
+      candidate => keyMap.get(entityKey(candidate)) ?? entityKey(candidate)
+    )
   )
 
   if (distinctKeys.size > 1) {
