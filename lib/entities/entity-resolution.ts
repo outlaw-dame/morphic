@@ -38,10 +38,18 @@ function canMergeComplementaryCandidates(
   next: KnowledgeGraphEntity
 ): boolean {
   if (labelGroupKey(existing) !== labelGroupKey(next)) return false
-  if (existing.wikidataId && next.wikidataId && existing.wikidataId !== next.wikidataId) {
+  if (
+    existing.wikidataId &&
+    next.wikidataId &&
+    existing.wikidataId !== next.wikidataId
+  ) {
     return false
   }
-  if (existing.dbpediaUri && next.dbpediaUri && existing.dbpediaUri !== next.dbpediaUri) {
+  if (
+    existing.dbpediaUri &&
+    next.dbpediaUri &&
+    existing.dbpediaUri !== next.dbpediaUri
+  ) {
     return false
   }
   return true
