@@ -28,12 +28,18 @@ function normalizeForCluster(value: string): string {
     .toLowerCase()
     .replace(/https?:\/\/\S+/g, ' ')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
-    .replace(/\b(the|a|an|and|or|but|of|to|in|on|for|with|by|from)\b/g, ' ')
+    .replace(
+      /\b(the|a|an|and|or|but|of|to|in|on|for|with|by|from)\b/g,
+      ' '
+    )
     .replace(/\s+/g, ' ')
     .trim()
 }
 
-export function extractAtomicClaims(text: string, maxClaims = MAX_CLAIMS_PER_ITEM): AtomicClaim[] {
+export function extractAtomicClaims(
+  text: string,
+  maxClaims = MAX_CLAIMS_PER_ITEM
+): AtomicClaim[] {
   const normalized = normalizeClaimText(text)
   if (!normalized) return []
 
