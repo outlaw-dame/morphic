@@ -74,22 +74,26 @@ export function extractEntityMentions(
   })
 
   for (const [resultIndex, result] of results.slice(0, 5).entries()) {
-    addMention(mentions, seen, result.title, {
-      source: 'result_title',
-      resultIndex,
-      confidence: 0.78
-    })
+    if (typeof result.title === 'string') {
+      addMention(mentions, seen, result.title, {
+        source: 'result_title',
+        resultIndex,
+        confidence: 0.78
+      })
+    }
 
     if (mentions.length >= maxMentions) break
 
-    const contentLead = firstSentence(
-      result.content.slice(0, MAX_EXTRACTED_CONTENT_CHARS)
-    )
-    addMention(mentions, seen, contentLead, {
-      source: 'result_content',
-      resultIndex,
-      confidence: 0.45
-    })
+    if (typeof result.content === 'string') {
+      const contentLead = firstSentence(
+        result.content.slice(0, MAX_EXTRACTED_CONTENT_CHARS)
+      )
+      addMention(mentions, seen, contentLead, {
+        source: 'result_content',
+        resultIndex,
+        confidence: 0.45
+      })
+    }
 
     if (mentions.length >= maxMentions) break
   }
