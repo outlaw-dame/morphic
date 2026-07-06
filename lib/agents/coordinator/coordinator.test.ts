@@ -154,6 +154,37 @@ describe('coordinateExecution', () => {
     expect(result.decision.retrievalPaths).toContain('retrieve_fresh_sources')
   })
 
+  it('evaluates large freshness evidence arrays without spreading timestamps', () => {
+    const items = Array.from({ length: 20_000 }, (_, index) =>
+      evidenceItem({
+        id: `ev_${index}`,
+        publishedAt: '2026-07-01T00:00:00.000Z',
+        retrievedAt: '2026-07-01T00:00:00.000Z'
+      })
+    )
+
+    items.push(
+      evidenceItem({
+        id: 'ev_recent',
+        publishedAt: '2026-07-05T12:00:00.000Z',
+        retrievedAt: '2026-07-05T12:00:00.000Z'
+      })
+    )
+
+    const state = createCoordinatorExecutionState({
+      routePlan: {
+        ...baseRoutePlan,
+        needsFreshness: true
+      },
+      evidenceGraph: evidenceGraph(items)
+    })
+
+    const result = coordinateExecution(state, now)
+
+    expect(result.repairPlan.canProceedToComposition).toBe(true)
+    expect(result.repairPlan.actions).not.toContain('retrieve_fresh_sources')
+  })
+
   it('requires entity grounding when the route asks for it', () => {
     const state = createCoordinatorExecutionState({
       routePlan: {
