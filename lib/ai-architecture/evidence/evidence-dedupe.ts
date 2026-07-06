@@ -12,9 +12,7 @@ function normalizeSummary(value: string): string {
     .trim()
 }
 
-export function markDuplicateEvidence(
-  items: NormalizedEvidenceItem[]
-): {
+export function markDuplicateEvidence(items: NormalizedEvidenceItem[]): {
   items: NormalizedEvidenceItem[]
   duplicateGroups: EvidenceDuplicateGroup[]
 } {
