@@ -46,3 +46,8 @@ docs/AI_*.md
 app/api/advanced-search/route.ts
 lib/tools/search/advanced-search.ts
 lib/tools/search/advanced-search.test.ts
+
+lib/entities/entity-*.ts
+lib/entities/dbpedia-client.ts
+lib/entities/wikidata-client.ts
+lib/entities/knowledge-graph.ts
