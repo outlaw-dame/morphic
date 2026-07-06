@@ -2,6 +2,23 @@ const MAX_CLAIMS_PER_ITEM = 5
 const MIN_CLAIM_LENGTH = 24
 const MAX_CLAIM_LENGTH = 280
 
+const STOP_WORDS = new Set([
+  'the',
+  'a',
+  'an',
+  'and',
+  'or',
+  'but',
+  'of',
+  'to',
+  'in',
+  'on',
+  'for',
+  'with',
+  'by',
+  'from'
+])
+
 export type AtomicClaim = {
   id: string
   text: string
@@ -28,8 +45,9 @@ function normalizeForCluster(value: string): string {
     .toLowerCase()
     .replace(/https?:\/\/\S+/g, ' ')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
-    .replace(/\b(the|a|an|and|or|but|of|to|in|on|for|with|by|from)\b/g, ' ')
-    .replace(/\s+/g, ' ')
+    .split(/\s+/)
+    .filter(word => word && !STOP_WORDS.has(word))
+    .join(' ')
     .trim()
 }
 
