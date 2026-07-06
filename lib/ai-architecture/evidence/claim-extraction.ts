@@ -28,10 +28,7 @@ function normalizeForCluster(value: string): string {
     .toLowerCase()
     .replace(/https?:\/\/\S+/g, ' ')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
-    .replace(
-      /\b(the|a|an|and|or|but|of|to|in|on|for|with|by|from)\b/g,
-      ' '
-    )
+    .replace(/\b(the|a|an|and|or|but|of|to|in|on|for|with|by|from)\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 }
