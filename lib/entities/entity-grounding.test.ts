@@ -50,7 +50,7 @@ describe('entity grounding', () => {
       'Cape Verde'
     )
     expect(mentions.map(mention => mention.normalizedText)).toContain(
-      'Boa Vista'
+      'Boa Vista travel guide'
     )
   })
 
