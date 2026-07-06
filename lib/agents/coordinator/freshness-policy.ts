@@ -11,10 +11,14 @@ function parseTime(value: string | null | undefined): number | null {
   return Number.isNaN(timestamp) ? null : timestamp
 }
 
-function parseTimes(values: Array<string | null | undefined>): number[] {
-  return values
-    .map(value => parseTime(value))
-    .filter((value): value is number => value !== null)
+function newestTime(
+  items: CoordinatorExecutionState['evidenceGraph']['items'],
+  field: 'publishedAt' | 'retrievedAt'
+): number {
+  return items.reduce((max, item) => {
+    const time = parseTime(item[field])
+    return time !== null && time > max ? time : max
+  }, 0)
 }
 
 export function evaluateFreshness(
@@ -31,14 +35,8 @@ export function evaluateFreshness(
   const usableItems = state.evidenceGraph.items.filter(
     item => !item.duplicateOf && !item.copiedFrom
   )
-  const newestPublishedAt = Math.max(
-    ...parseTimes(usableItems.map(item => item.publishedAt)),
-    0
-  )
-  const newestRetrievedAt = Math.max(
-    ...parseTimes(usableItems.map(item => item.retrievedAt)),
-    0
-  )
+  const newestPublishedAt = newestTime(usableItems, 'publishedAt')
+  const newestRetrievedAt = newestTime(usableItems, 'retrievedAt')
   const oneDayMs = 86_400_000
   const newestEvidenceTime = Math.max(newestPublishedAt, newestRetrievedAt)
 
