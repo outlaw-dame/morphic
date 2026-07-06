@@ -1,4 +1,7 @@
-import type { EvidenceDuplicateGroup, NormalizedEvidenceItem } from './evidence-types'
+import type {
+  EvidenceDuplicateGroup,
+  NormalizedEvidenceItem
+} from './evidence-types'
 
 function normalizeSummary(value: string): string {
   return value
