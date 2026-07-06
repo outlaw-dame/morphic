@@ -1,6 +1,6 @@
-import type { KnowledgeGraphEntity } from './entity-types'
-import { fetchEntityJson } from './entity-fetch'
 import { normalizeWhitespace } from './entity-extraction'
+import { fetchEntityJson } from './entity-fetch'
+import type { KnowledgeGraphEntity } from './entity-types'
 
 const MAX_ENTITY_RESULTS_PER_QUERY = 2
 
@@ -49,7 +49,8 @@ export async function searchDbpedia(
       dbpediaUri: uri,
       dbpediaUrl: uri.replace(/^http:/, 'https:'),
       source: 'dbpedia',
-      confidence: Number(firstString(record.score) ?? record.score ?? 0.65) || 0.65
+      confidence:
+        Number(firstString(record.score) ?? record.score ?? 0.65) || 0.65
     })
   }
 
