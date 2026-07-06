@@ -23,14 +23,18 @@ export function buildEvidenceGraph(input: EvidenceGraphInput): EvidenceGraph {
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
 
   if (normalized.length < input.results.length) {
-    warnings.push('Some results were excluded because their URLs were invalid or unsupported.')
+    warnings.push(
+      'Some results were excluded because their URLs were invalid or unsupported.'
+    )
   }
 
   const { items, duplicateGroups } = markDuplicateEvidence(normalized)
   const claimsByEvidenceId = new Map(
     items.map(item => [item.id, extractAtomicClaims(item.summary)] as const)
   )
-  const hostByEvidenceId = new Map(items.map(item => [item.id, item.host] as const))
+  const hostByEvidenceId = new Map(
+    items.map(item => [item.id, item.host] as const)
+  )
   const claimClusters = clusterClaims(claimsByEvidenceId, hostByEvidenceId)
 
   return {
