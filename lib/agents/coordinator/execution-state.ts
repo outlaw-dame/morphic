@@ -1,5 +1,5 @@
-import type { RoutePlan } from '@/lib/ai/schemas'
 import type { EvidenceGraph } from '@/lib/ai-architecture/evidence'
+import type { RoutePlan } from '@/lib/ai/schemas'
 
 export type CoordinatorExecutionState = {
   routePlan: RoutePlan
