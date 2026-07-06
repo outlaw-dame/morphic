@@ -127,10 +127,7 @@ describe('entity grounding', () => {
       {
         label: query,
         matchedText: query,
-        dbpediaUri: `http://dbpedia.org/resource/${query.replace(
-          /\s+/g,
-          '_'
-        )}`,
+        dbpediaUri: `http://dbpedia.org/resource/${query.replace(/\s+/g, '_')}`,
         dbpediaUrl: `https://dbpedia.org/resource/${query.replace(
           /\s+/g,
           '_'
