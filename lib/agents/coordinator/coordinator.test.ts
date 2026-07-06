@@ -133,6 +133,44 @@ describe('coordinateExecution', () => {
     expect(result.decision.activeModelRoles).toContain('advisor')
   })
 
+  it('blocks critical risk routes with only weak sources', () => {
+    const weakQuality = {
+      ...evidenceItem().sourceQuality,
+      sourceClass: 'forum_or_reddit' as const,
+      evidenceRole: 'community_signal' as const,
+      influenceCap: 0.28,
+      finalWeight: 0.28
+    }
+    const state = createCoordinatorExecutionState({
+      routePlan: {
+        ...baseRoutePlan,
+        riskLevel: 'critical',
+        mode: 'adaptive'
+      },
+      evidenceGraph: evidenceGraph([
+        evidenceItem({
+          sourceClass: 'forum_or_reddit',
+          evidenceRole: 'community_signal',
+          sourceQuality: weakQuality
+        }),
+        evidenceItem({
+          id: 'ev_two',
+          url: 'https://other.example.net/forum',
+          canonicalUrl: 'https://other.example.net/forum',
+          host: 'other.example.net',
+          sourceClass: 'forum_or_reddit',
+          evidenceRole: 'community_signal',
+          sourceQuality: weakQuality
+        })
+      ])
+    })
+
+    const result = coordinateExecution(state, now)
+
+    expect(result.repairPlan.canProceedToComposition).toBe(false)
+    expect(result.repairPlan.actions).toContain('retrieve_authoritative_sources')
+  })
+
   it('requires fresh retrieval for freshness-sensitive routes', () => {
     const state = createCoordinatorExecutionState({
       routePlan: {
@@ -214,6 +252,21 @@ describe('coordinateExecution', () => {
     expect(result.repairPlan.canProceedToComposition).toBe(false)
     expect(result.repairPlan.actions).toContain('run_contradiction_review')
     expect(result.repairPlan.actions).toContain('run_advisor_review')
+  })
+
+  it('blocks critical contradiction warnings', () => {
+    const state = createCoordinatorExecutionState({
+      routePlan: {
+        ...baseRoutePlan,
+        riskLevel: 'critical'
+      },
+      evidenceGraph: evidenceGraph([evidenceItem()], ['disputed evidence'])
+    })
+
+    const result = coordinateExecution(state, now)
+
+    expect(result.repairPlan.canProceedToComposition).toBe(false)
+    expect(result.repairPlan.actions).toContain('run_contradiction_review')
   })
 
   it('ignores contradiction marker substrings', () => {
