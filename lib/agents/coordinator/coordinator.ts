@@ -1,4 +1,7 @@
-import { CoordinatorDecisionSchema, type CoordinatorDecision } from '@/lib/ai/schemas'
+import {
+  type CoordinatorDecision,
+  CoordinatorDecisionSchema
+} from '@/lib/ai/schemas'
 
 import { evaluateContradictions } from './contradiction-policy'
 import type { CoordinatorExecutionState } from './execution-state'
@@ -6,7 +9,10 @@ import { determineEscalation } from './escalation-policy'
 import { evaluateEntityGrounding } from './entity-grounding-policy'
 import { evaluateFreshness } from './freshness-policy'
 import type { CoordinatorPolicyResult } from './policy-types'
-import { createRepairPlan, type CoordinatorRepairPlan } from './repair-policy'
+import {
+  type CoordinatorRepairPlan,
+  createRepairPlan
+} from './repair-policy'
 import { evaluateSourceMix } from './source-mix-policy'
 
 export type CoordinatorEvaluation = {
