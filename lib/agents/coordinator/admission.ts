@@ -49,7 +49,7 @@ function toAdmission(evaluation: CoordinatorEvaluation): CoordinatorAdmission {
     canCompose,
     blockedPolicyIds,
     warningPolicyIds,
-    requiredRepairActions: evaluation.repairPlan.actions
+    requiredRepairActions: [...new Set(evaluation.repairPlan.actions)]
   }
 }
 
