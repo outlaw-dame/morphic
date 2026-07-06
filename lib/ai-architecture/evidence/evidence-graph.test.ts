@@ -20,17 +20,20 @@ function result(overrides: Partial<SearchResultItem>): SearchResultItem {
 }
 
 describe('evidence graph normalization', () => {
-  it('canonicalizes safe URLs and strips credentials, fragments, and default ports', () => {
-    const canonical = canonicalizeEvidenceUrl(
-      'https://user:password@Example.com:443/path/#section'
-    )
+  it(
+    'canonicalizes safe URLs and strips credentials, fragments, and default ports',
+    () => {
+      const canonical = canonicalizeEvidenceUrl(
+        'https://user:password@Example.com:443/path/#section'
+      )
 
-    expect(canonical).toEqual({
-      originalUrl: 'https://user:password@Example.com:443/path/#section',
-      canonicalUrl: 'https://example.com/path',
-      host: 'example.com'
-    })
-  })
+      expect(canonical).toEqual({
+        originalUrl: 'https://user:password@Example.com:443/path/#section',
+        canonicalUrl: 'https://example.com/path',
+        host: 'example.com'
+      })
+    }
+  )
 
   it('rejects unsupported URL schemes before evidence creation', () => {
     expect(canonicalizeEvidenceUrl('javascript:alert(1)')).toBeNull()
@@ -45,27 +48,30 @@ describe('evidence graph normalization', () => {
     expect(evidence).toBeNull()
   })
 
-  it('normalizes search results into schema-backed evidence with quality metadata', () => {
-    const evidence = normalizeSearchResultToEvidence(
-      result({
-        url: 'https://www.reddit.com/r/travel/comments/example#top',
-        title: 'Cape Verde trip report',
-        publishedAt: '2026-07-01T00:00:00.000Z',
-        retrievalMethod: 'search'
-      }),
-      0,
-      { retrievedAt }
-    )
+  it(
+    'normalizes search results into schema-backed evidence with quality metadata',
+    () => {
+      const evidence = normalizeSearchResultToEvidence(
+        result({
+          url: 'https://www.reddit.com/r/travel/comments/example#top',
+          title: 'Cape Verde trip report',
+          publishedAt: '2026-07-01T00:00:00.000Z',
+          retrievalMethod: 'search'
+        }),
+        0,
+        { retrievedAt }
+      )
 
-    expect(evidence).not.toBeNull()
-    expect(evidence?.url).toBe(
-      'https://www.reddit.com/r/travel/comments/example'
-    )
-    expect(evidence?.sourceClass).toBe('forum_or_reddit')
-    expect(evidence?.sourceQuality.influenceCap).toBe(0.28)
-    expect(evidence?.confidence).toBeLessThanOrEqual(0.28)
-    expect(evidence?.claimIds.length).toBeGreaterThan(0)
-  })
+      expect(evidence).not.toBeNull()
+      expect(evidence?.url).toBe(
+        'https://www.reddit.com/r/travel/comments/example'
+      )
+      expect(evidence?.sourceClass).toBe('forum_or_reddit')
+      expect(evidence?.sourceQuality.influenceCap).toBe(0.28)
+      expect(evidence?.confidence).toBeLessThanOrEqual(0.28)
+      expect(evidence?.claimIds.length).toBeGreaterThan(0)
+    }
+  )
 
   it('extracts atomic claims deterministically from evidence summaries', () => {
     const claims = extractAtomicClaims(
