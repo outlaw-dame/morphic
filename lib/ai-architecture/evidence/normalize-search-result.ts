@@ -13,7 +13,8 @@ export type SearchEvidenceNormalizationOptions = {
 }
 
 function isoDate(value: string | Date | undefined): string {
-  const date = value instanceof Date ? value : value ? new Date(value) : new Date()
+  const date =
+    value instanceof Date ? value : value ? new Date(value) : new Date()
   if (Number.isNaN(date.getTime())) return new Date().toISOString()
   return date.toISOString()
 }
