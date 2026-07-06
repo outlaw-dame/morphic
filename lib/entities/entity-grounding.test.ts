@@ -32,6 +32,28 @@ describe('entity grounding', () => {
     expect(mentions.length).toBeLessThanOrEqual(6)
   })
 
+  it('skips malformed result entity fields without throwing', () => {
+    const mentions = extractEntityMentions('Cape Verde', [
+      {
+        title: undefined,
+        url: 'https://example.com/malformed',
+        content: null
+      } as unknown as Parameters<typeof extractEntityMentions>[1][number],
+      {
+        title: 'Boa Vista travel guide',
+        url: 'https://example.com/boa-vista',
+        content: 'Boa Vista is one of the Cape Verde islands.'
+      }
+    ])
+
+    expect(mentions.map(mention => mention.normalizedText)).toContain(
+      'Cape Verde'
+    )
+    expect(mentions.map(mention => mention.normalizedText)).toContain(
+      'Boa Vista'
+    )
+  })
+
   it('merges Wikidata and DBpedia entities into one canonical resolved entity', () => {
     const mentions: EntityMention[] = [
       {
