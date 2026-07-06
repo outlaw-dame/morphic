@@ -6,7 +6,10 @@ function clamp01(value: number): number {
 }
 
 function normalized(value: string): string {
-  return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
 }
 
 export function scoreEntityResolution(
