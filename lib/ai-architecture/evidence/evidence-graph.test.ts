@@ -81,7 +81,7 @@ describe('evidence graph normalization', () => {
 
   it('returns null instead of throwing when schema validation fails', () => {
     const evidence = normalizeSearchResultToEvidence(
-      result({ retrievalMethod: '' }),
+      result({ retrievalMethod: '' as SearchResultItem['retrievalMethod'] }),
       0,
       { retrievedAt }
     )
