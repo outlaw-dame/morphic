@@ -30,7 +30,10 @@ export function normalizeEntityText(value: string): string | undefined {
 }
 
 function mentionKey(value: string): string {
-  return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
 }
 
 function addMention(
