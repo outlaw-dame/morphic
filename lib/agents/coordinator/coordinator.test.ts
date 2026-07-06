@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import type { RoutePlan } from '@/lib/ai/schemas'
 import type {
   EvidenceGraph,
   NormalizedEvidenceItem
 } from '@/lib/ai-architecture/evidence'
+import type { RoutePlan } from '@/lib/ai/schemas'
 
 import { coordinateExecution } from './coordinator'
 import { createCoordinatorExecutionState } from './execution-state'
