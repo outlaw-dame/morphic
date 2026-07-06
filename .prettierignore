@@ -53,3 +53,5 @@ lib/entities/wikidata-client.ts
 lib/entities/knowledge-graph.ts
 
 lib/ai-architecture/evidence/*.ts
+
+lib/agents/coordinator/*.ts
