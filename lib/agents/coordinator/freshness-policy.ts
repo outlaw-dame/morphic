@@ -38,7 +38,8 @@ export function evaluateFreshness(
   const newestPublishedAt = newestTime(usableItems, 'publishedAt')
   const newestRetrievedAt = newestTime(usableItems, 'retrievedAt')
   const oneDayMs = 86_400_000
-  const newestEvidenceTime = Math.max(newestPublishedAt, newestRetrievedAt)
+  const newestEvidenceTime =
+    newestPublishedAt > newestRetrievedAt ? newestPublishedAt : newestRetrievedAt
 
   if (!newestEvidenceTime || now.getTime() - newestEvidenceTime > oneDayMs) {
     return failPolicy({
