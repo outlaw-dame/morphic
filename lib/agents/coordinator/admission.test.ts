@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
+import type {
+  EvidenceGraph,
+  NormalizedEvidenceItem
+} from '@/lib/ai-architecture/evidence'
 import type { RoutePlan } from '@/lib/ai/schemas'
 import type { SearchResultItem } from '@/lib/types'
 
-import { createCoordinatorAdmissionFromSearchResults } from './admission'
+import {
+  createCoordinatorAdmission,
+  createCoordinatorAdmissionFromSearchResults
+} from './admission'
 
 const now = new Date('2026-07-06T00:00:00.000Z')
 const retrievedAt = '2026-07-05T12:00:00.000Z'
@@ -21,7 +28,7 @@ const baseRoutePlan: RoutePlan = {
   rationale: 'admission test route'
 }
 
-function result(overrides: Partial<SearchResultItem> = {}): SearchResultItem {
+function searchResult(overrides: Partial<SearchResultItem> = {}): SearchResultItem {
   return {
     title: 'Evidence report',
     url: 'https://www.cdc.gov/example/report',
@@ -31,28 +38,75 @@ function result(overrides: Partial<SearchResultItem> = {}): SearchResultItem {
   }
 }
 
-describe('createCoordinatorAdmissionFromSearchResults', () => {
-  it('admits composition when route and search evidence satisfy coordinator policies', () => {
+function evidenceItem(
+  overrides: Partial<NormalizedEvidenceItem> = {}
+): NormalizedEvidenceItem {
+  return {
+    id: 'ev_one',
+    url: 'https://example.com/report',
+    title: 'Example report',
+    sourceClass: 'established_news',
+    evidenceRole: 'original_reporting',
+    claimIds: ['cl_one'],
+    quotedText: null,
+    summary: 'Praia is the capital of Cape Verde.',
+    retrievalPath: 'search',
+    publishedAt: retrievedAt,
+    retrievedAt,
+    confidence: 0.72,
+    canonicalUrl: 'https://example.com/report',
+    host: 'example.com',
+    originalUrl: 'https://example.com/report',
+    sourceQuality: {
+      sourceClass: 'established_news',
+      evidenceRole: 'original_reporting',
+      sourceClassScore: 0.76,
+      topicalAuthorityScore: 0.74,
+      transparencyScore: 0.5,
+      originalityScore: 0.62,
+      freshnessScore: 0.88,
+      corroborationScore: 0.45,
+      conflictOfInterestPenalty: 0,
+      spamOrContentFarmPenalty: 0,
+      userPreferenceModifier: 0,
+      finalWeight: 0.72,
+      influenceCap: 0.78,
+      requiresCorroboration: false,
+      allowedClaimTypes: [],
+      disallowedClaimTypes: []
+    },
+    entities: [],
+    ...overrides
+  }
+}
+
+function evidenceGraph(
+  items: NormalizedEvidenceItem[],
+  warnings: string[] = []
+): EvidenceGraph {
+  return {
+    items,
+    duplicateGroups: [],
+    claimClusters: [],
+    claimsByEvidenceId: {},
+    warnings
+  }
+}
+
+describe('coordinator admission bridge', () => {
+  it('admits composition from search results when route policies can proceed', () => {
     const admission = createCoordinatorAdmissionFromSearchResults({
       routePlan: {
         ...baseRoutePlan,
-        needsFreshness: true,
-        requiredSourceClasses: [
-          'government_or_regulator',
-          'academic_or_peer_reviewed'
-        ]
+        needsFreshness: true
       },
       evidenceInput: {
         query: 'public health evidence',
         retrievedAt,
         results: [
-          result({
+          searchResult({
             url: 'https://www.cdc.gov/example/report',
             title: 'CDC evidence report'
-          }),
-          result({
-            url: 'https://example.edu/research/paper',
-            title: 'University research paper'
           })
         ]
       },
@@ -69,26 +123,41 @@ describe('createCoordinatorAdmissionFromSearchResults', () => {
   })
 
   it('returns repair admission metadata when critical evidence is weak-only', () => {
-    const admission = createCoordinatorAdmissionFromSearchResults({
+    const weakQuality = {
+      ...evidenceItem().sourceQuality,
+      sourceClass: 'forum_or_reddit' as const,
+      evidenceRole: 'community_signal' as const,
+      influenceCap: 0.28,
+      finalWeight: 0.28
+    }
+    const admission = createCoordinatorAdmission({
       routePlan: {
         ...baseRoutePlan,
         riskLevel: 'critical',
         mode: 'adaptive'
       },
-      evidenceInput: {
-        query: 'critical disputed claim',
-        retrievedAt,
-        results: [
-          result({
-            url: 'https://www.reddit.com/r/example/comments/123/report',
-            title: 'Reddit discussion'
-          }),
-          result({
-            url: 'https://x.com/example/status/123',
-            title: 'Social post'
-          })
-        ]
-      },
+      evidenceGraph: evidenceGraph([
+        evidenceItem({
+          sourceClass: 'forum_or_reddit',
+          evidenceRole: 'community_signal',
+          sourceQuality: weakQuality
+        }),
+        evidenceItem({
+          id: 'ev_two',
+          url: 'https://social.example.net/report',
+          canonicalUrl: 'https://social.example.net/report',
+          host: 'social.example.net',
+          sourceClass: 'social_media',
+          evidenceRole: 'firsthand_experience',
+          sourceQuality: {
+            ...weakQuality,
+            sourceClass: 'social_media',
+            evidenceRole: 'firsthand_experience',
+            influenceCap: 0.18,
+            finalWeight: 0.18
+          }
+        })
+      ]),
       completedRoles: ['router', 'retriever'],
       now
     })
