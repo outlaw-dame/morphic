@@ -1,7 +1,7 @@
 import { EvidenceItemSchema } from '@/lib/ai/schemas'
-import type { SearchResultItem } from '@/lib/types'
-import { assessSourceQuality } from '@/lib/sources/quality'
 import type { ResolvedEntity } from '@/lib/entities/knowledge-graph'
+import { assessSourceQuality } from '@/lib/sources/quality'
+import type { SearchResultItem } from '@/lib/types'
 
 import { extractAtomicClaims } from './claim-extraction'
 import type { NormalizedEvidenceItem } from './evidence-types'
