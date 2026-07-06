@@ -14,7 +14,9 @@ export function determineEscalation(
   policyResults: CoordinatorPolicyResult[]
 ): CoordinatorEscalation {
   const failedResults = policyResults.filter(result => !result.passed)
-  const repairActions = new Set(failedResults.flatMap(result => result.repairActions))
+  const repairActions = new Set(
+    failedResults.flatMap(result => result.repairActions)
+  )
   const blocked = failedResults.some(result => result.severity === 'block')
 
   return {
