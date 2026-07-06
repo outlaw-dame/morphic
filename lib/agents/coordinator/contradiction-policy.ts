@@ -13,13 +13,16 @@ const CONTRADICTION_MARKERS = [
   'opposes'
 ]
 
+const CONTRADICTION_PATTERN = new RegExp(
+  `\\b(${CONTRADICTION_MARKERS.join('|')})\\b`,
+  'i'
+)
+
 export function evaluateContradictions(
   state: CoordinatorExecutionState
 ): CoordinatorPolicyResult {
-  const warnings = state.evidenceGraph.warnings.join(' ').toLowerCase()
-  const hasContradictionWarning = CONTRADICTION_MARKERS.some(marker =>
-    warnings.includes(marker)
-  )
+  const warnings = state.evidenceGraph.warnings.join(' ')
+  const hasContradictionWarning = CONTRADICTION_PATTERN.test(warnings)
 
   if (!hasContradictionWarning) {
     return passPolicy(
