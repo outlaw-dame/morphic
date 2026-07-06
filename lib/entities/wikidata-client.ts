@@ -1,6 +1,6 @@
-import type { KnowledgeGraphEntity } from './entity-types'
-import { fetchEntityJson } from './entity-fetch'
 import { normalizeWhitespace } from './entity-extraction'
+import { fetchEntityJson } from './entity-fetch'
+import type { KnowledgeGraphEntity } from './entity-types'
 
 const MAX_ENTITY_RESULTS_PER_QUERY = 2
 
