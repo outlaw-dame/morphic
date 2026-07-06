@@ -3,6 +3,8 @@ import type {
   NormalizedEvidenceItem
 } from './evidence-types'
 
+const MIN_COPIED_SUMMARY_KEY_LENGTH = 50
+
 function normalizeSummary(value: string): string {
   return value
     .toLowerCase()
@@ -23,7 +25,10 @@ export function markDuplicateEvidence(items: NormalizedEvidenceItem[]): {
   const markedItems = items.map(item => {
     const representativeId = firstByCanonicalUrl.get(item.canonicalUrl)
     const summaryKey = normalizeSummary(item.summary)
-    const firstSummaryItem = firstBySummary.get(summaryKey)
+    const isSubstantialSummary = summaryKey.length >= MIN_COPIED_SUMMARY_KEY_LENGTH
+    const firstSummaryItem = isSubstantialSummary
+      ? firstBySummary.get(summaryKey)
+      : undefined
 
     let nextItem = item
 
@@ -45,12 +50,12 @@ export function markDuplicateEvidence(items: NormalizedEvidenceItem[]): {
       firstByCanonicalUrl.set(item.canonicalUrl, item.id)
     }
 
-    if (summaryKey && firstSummaryItem && firstSummaryItem.host !== item.host) {
+    if (isSubstantialSummary && firstSummaryItem && firstSummaryItem.host !== item.host) {
       nextItem = {
         ...nextItem,
         copiedFrom: firstSummaryItem.id
       }
-    } else if (summaryKey && !firstSummaryItem) {
+    } else if (isSubstantialSummary && !firstSummaryItem) {
       firstBySummary.set(summaryKey, item)
     }
 
