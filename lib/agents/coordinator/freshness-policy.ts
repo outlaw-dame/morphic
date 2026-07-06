@@ -1,5 +1,9 @@
 import type { CoordinatorExecutionState } from './execution-state'
-import { failPolicy, passPolicy, type CoordinatorPolicyResult } from './policy-types'
+import {
+  type CoordinatorPolicyResult,
+  failPolicy,
+  passPolicy
+} from './policy-types'
 
 function parseTime(value: string | null | undefined): number | null {
   if (!value) return null
@@ -7,23 +11,32 @@ function parseTime(value: string | null | undefined): number | null {
   return Number.isNaN(timestamp) ? null : timestamp
 }
 
+function parseTimes(values: Array<string | null | undefined>): number[] {
+  return values
+    .map(value => parseTime(value))
+    .filter((value): value is number => value !== null)
+}
+
 export function evaluateFreshness(
   state: CoordinatorExecutionState,
   now = new Date()
 ): CoordinatorPolicyResult {
   if (!state.routePlan.needsFreshness) {
-    return passPolicy('freshness', 'Route does not require freshness-sensitive evidence.')
+    return passPolicy(
+      'freshness',
+      'Route does not require freshness-sensitive evidence.'
+    )
   }
 
   const usableItems = state.evidenceGraph.items.filter(
     item => !item.duplicateOf && !item.copiedFrom
   )
   const newestPublishedAt = Math.max(
-    ...usableItems.map(item => parseTime(item.publishedAt)).filter((value): value is number => value !== null),
+    ...parseTimes(usableItems.map(item => item.publishedAt)),
     0
   )
   const newestRetrievedAt = Math.max(
-    ...usableItems.map(item => parseTime(item.retrievedAt)).filter((value): value is number => value !== null),
+    ...parseTimes(usableItems.map(item => item.retrievedAt)),
     0
   )
   const oneDayMs = 86_400_000
@@ -33,7 +46,8 @@ export function evaluateFreshness(
     return failPolicy({
       id: 'freshness',
       severity: 'block',
-      reason: 'Freshness-sensitive route lacks evidence retrieved or published within the last day.',
+      reason:
+        'Freshness-sensitive route lacks evidence retrieved or published within the last day.',
       repairActions: ['retrieve_fresh_sources']
     })
   }
