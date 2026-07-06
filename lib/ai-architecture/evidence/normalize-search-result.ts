@@ -12,10 +12,15 @@ export type SearchEvidenceNormalizationOptions = {
   retrievalPath?: string
 }
 
-function isoDate(value: string | Date | undefined): string {
-  const date =
-    value instanceof Date ? value : value ? new Date(value) : new Date()
-  if (Number.isNaN(date.getTime())) return new Date().toISOString()
+function isoDate(
+  value: string | Date | undefined,
+  fallbackToNow = true
+): string | null {
+  if (!value) return fallbackToNow ? new Date().toISOString() : null
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return fallbackToNow ? new Date().toISOString() : null
+  }
   return date.toISOString()
 }
 
@@ -43,38 +48,45 @@ export function normalizeSearchResultToEvidence(
   const summary = cleanText(result.content, title)
   const retrievedAt = isoDate(options.retrievedAt)
   const publishedAt = result.publishedAt || result.updatedAt || undefined
+  const safePublishedAt = isoDate(publishedAt, false)
   const sourceQuality = assessSourceQuality({
     url: canonical.canonicalUrl,
     title,
-    publishedAt,
+    publishedAt: safePublishedAt,
     signals: {
-      hasPublicationDate: Boolean(publishedAt)
+      hasPublicationDate: Boolean(safePublishedAt)
     }
   })
   const claims = extractAtomicClaims(summary)
   const id = evidenceIdFromUrl(`${canonical.canonicalUrl}#${index}`)
 
-  const evidence = EvidenceItemSchema.parse({
-    id,
-    url: canonical.canonicalUrl,
-    title,
-    sourceClass: sourceQuality.sourceClass,
-    evidenceRole: sourceQuality.evidenceRole,
-    claimIds: claims.map(claim => claim.id),
-    quotedText: null,
-    summary,
-    retrievalPath: options.retrievalPath ?? result.retrievalMethod ?? 'search',
-    publishedAt: publishedAt ? isoDate(publishedAt) : null,
-    retrievedAt,
-    confidence: sourceQuality.finalWeight
-  })
+  if (!retrievedAt) return null
 
-  return {
-    ...evidence,
-    canonicalUrl: canonical.canonicalUrl,
-    host: canonical.host,
-    originalUrl: canonical.originalUrl,
-    sourceQuality,
-    entities: resultEntities(result)
+  try {
+    const evidence = EvidenceItemSchema.parse({
+      id,
+      url: canonical.canonicalUrl,
+      title,
+      sourceClass: sourceQuality.sourceClass,
+      evidenceRole: sourceQuality.evidenceRole,
+      claimIds: claims.map(claim => claim.id),
+      quotedText: null,
+      summary,
+      retrievalPath: options.retrievalPath ?? result.retrievalMethod ?? 'search',
+      publishedAt: safePublishedAt,
+      retrievedAt,
+      confidence: sourceQuality.finalWeight
+    })
+
+    return {
+      ...evidence,
+      canonicalUrl: canonical.canonicalUrl,
+      host: canonical.host,
+      originalUrl: canonical.originalUrl,
+      sourceQuality,
+      entities: resultEntities(result)
+    }
+  } catch {
+    return null
   }
 }
