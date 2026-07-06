@@ -29,9 +29,7 @@ export type ResolvedEntity = KnowledgeGraphEntity & {
   ambiguityReasons: string[]
 }
 
-export type EntityLookupClient = (
-  query: string
-) => Promise<KnowledgeGraphEntity[]>
+export type EntityLookupClient = (query: string) => Promise<KnowledgeGraphEntity[]>
 
 export type EntityGroundingClients = {
   wikidata?: EntityLookupClient
