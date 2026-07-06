@@ -1,12 +1,16 @@
 import type { SearchResultItem, SearchResults } from '@/lib/types'
 
 import { groundEntities } from './entity-grounding'
-import type { KnowledgeGraphEntity, ResolvedEntity } from './entity-types'
+import type { ResolvedEntity } from './entity-types'
 
-export type { EntityMention, KnowledgeGraphEntity, ResolvedEntity } from './entity-types'
 export { extractEntityMentions } from './entity-extraction'
 export { groundEntities } from './entity-grounding'
 export { resolveEntities } from './entity-resolution'
+export type {
+  EntityMention,
+  KnowledgeGraphEntity,
+  ResolvedEntity
+} from './entity-types'
 
 export async function lookupKnowledgeGraphEntities(
   query: string,
@@ -29,6 +33,6 @@ export async function enrichSearchResultsWithKnowledgeGraph(
 
   return {
     ...searchResult,
-    entities: entities satisfies KnowledgeGraphEntity[]
+    entities
   }
 }
