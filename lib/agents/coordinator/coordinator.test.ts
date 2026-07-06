@@ -184,4 +184,58 @@ describe('coordinateExecution', () => {
     expect(result.repairPlan.actions).toContain('run_contradiction_review')
     expect(result.repairPlan.actions).toContain('run_advisor_review')
   })
+
+  it('ignores contradiction marker substrings', () => {
+    const state = createCoordinatorExecutionState({
+      routePlan: {
+        ...baseRoutePlan,
+        riskLevel: 'high'
+      },
+      evidenceGraph: evidenceGraph([evidenceItem()], ['the claim is undisputed'])
+    })
+
+    const result = coordinateExecution(state, now)
+
+    expect(result.repairPlan.actions).not.toContain('run_contradiction_review')
+  })
+
+  it('holds when required source classes are missing', () => {
+    const state = createCoordinatorExecutionState({
+      routePlan: {
+        ...baseRoutePlan,
+        requiredSourceClasses: ['official_source']
+      },
+      evidenceGraph: evidenceGraph([evidenceItem()])
+    })
+
+    const result = coordinateExecution(state, now)
+
+    expect(result.repairPlan.canProceedToComposition).toBe(false)
+    expect(result.repairPlan.actions).toContain('retrieve_required_source_classes')
+  })
+
+  it('holds when there is no usable evidence', () => {
+    const state = createCoordinatorExecutionState({
+      routePlan: baseRoutePlan,
+      evidenceGraph: evidenceGraph([])
+    })
+
+    const result = coordinateExecution(state, now)
+
+    expect(result.repairPlan.canProceedToComposition).toBe(false)
+    expect(result.repairPlan.actions).toContain('retrieve_more_sources')
+  })
+
+  it('warns adaptive routes with one independent host', () => {
+    const state = createCoordinatorExecutionState({
+      routePlan: baseRoutePlan,
+      evidenceGraph: evidenceGraph([evidenceItem()])
+    })
+
+    const result = coordinateExecution(state, now)
+
+    expect(result.repairPlan.canProceedToComposition).toBe(true)
+    expect(result.repairPlan.actions).toContain('retrieve_independent_sources')
+    expect(result.decision.retrievalPaths).toContain('retrieve_independent_sources')
+  })
 })
