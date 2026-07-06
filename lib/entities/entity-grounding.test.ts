@@ -11,7 +11,8 @@ describe('entity grounding', () => {
       {
         title: 'Michael Jordan - Wikipedia',
         url: 'https://en.wikipedia.org/wiki/Michael_Jordan',
-        content: 'Michael Jeffrey Jordan is an American businessman and former basketball player.'
+        content:
+          'Michael Jeffrey Jordan is an American businessman and former basketball player.'
       },
       {
         title: 'Jordan Brand official website',
@@ -126,8 +127,14 @@ describe('entity grounding', () => {
       {
         label: query,
         matchedText: query,
-        dbpediaUri: `http://dbpedia.org/resource/${query.replace(/\s+/g, '_')}`,
-        dbpediaUrl: `https://dbpedia.org/resource/${query.replace(/\s+/g, '_')}`,
+        dbpediaUri: `http://dbpedia.org/resource/${query.replace(
+          /\s+/g,
+          '_'
+        )}`,
+        dbpediaUrl: `https://dbpedia.org/resource/${query.replace(
+          /\s+/g,
+          '_'
+        )}`,
         source: 'dbpedia',
         confidence: 0.7
       }
