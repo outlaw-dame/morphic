@@ -16,7 +16,11 @@ export function evaluateEntityGrounding(
   }
 
   const groundedItems = state.evidenceGraph.items.filter(
-    item => item.entities.length > 0 && !item.duplicateOf && !item.copiedFrom
+    item =>
+      Array.isArray(item.entities) &&
+      item.entities.length > 0 &&
+      !item.duplicateOf &&
+      !item.copiedFrom
   )
 
   if (groundedItems.length === 0) {
