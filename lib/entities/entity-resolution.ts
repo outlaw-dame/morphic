@@ -33,6 +33,20 @@ function mentionMatchesEntity(
   )
 }
 
+function canMergeComplementaryCandidates(
+  existing: KnowledgeGraphEntity,
+  next: KnowledgeGraphEntity
+): boolean {
+  if (labelGroupKey(existing) !== labelGroupKey(next)) return false
+  if (existing.wikidataId && next.wikidataId && existing.wikidataId !== next.wikidataId) {
+    return false
+  }
+  if (existing.dbpediaUri && next.dbpediaUri && existing.dbpediaUri !== next.dbpediaUri) {
+    return false
+  }
+  return true
+}
+
 function mergeEntity(
   existing: KnowledgeGraphEntity,
   next: KnowledgeGraphEntity
@@ -47,6 +61,27 @@ function mergeEntity(
     source: existing.source === next.source ? existing.source : 'both',
     confidence: Math.max(existing.confidence, next.confidence)
   }
+}
+
+function mergeComplementaryCandidates(
+  entities: KnowledgeGraphEntity[]
+): KnowledgeGraphEntity[] {
+  const merged: KnowledgeGraphEntity[] = []
+
+  for (const entity of entities) {
+    const index = merged.findIndex(candidate =>
+      canMergeComplementaryCandidates(candidate, entity)
+    )
+
+    if (index === -1) {
+      merged.push(entity)
+      continue
+    }
+
+    merged[index] = mergeEntity(merged[index], entity)
+  }
+
+  return merged
 }
 
 function ambiguityReasons(
@@ -64,7 +99,10 @@ function ambiguityReasons(
       .map(candidate => candidate.description?.toLowerCase().trim())
       .filter((value): value is string => Boolean(value))
   )
-  if (descriptions.size > 1 && descriptions.has(entity.description?.toLowerCase().trim() ?? '')) {
+  if (
+    descriptions.size > 1 &&
+    descriptions.has(entity.description?.toLowerCase().trim() ?? '')
+  ) {
     reasons.push('same_label_conflicting_descriptions')
   }
 
@@ -78,8 +116,9 @@ export function resolveEntities(
 ): ResolvedEntity[] {
   const byKey = new Map<string, KnowledgeGraphEntity>()
   const labelGroups = new Map<string, KnowledgeGraphEntity[]>()
+  const candidates = mergeComplementaryCandidates(entities)
 
-  for (const entity of entities) {
+  for (const entity of candidates) {
     const key = entityKey(entity)
     const existing = byKey.get(key)
     const merged = existing ? mergeEntity(existing, entity) : entity
@@ -95,7 +134,8 @@ export function resolveEntities(
     const supportingMentions = mentions.filter(mention =>
       mentionMatchesEntity(mention, entity)
     )
-    const support = supportingMentions.length > 0 ? supportingMentions : mentions.slice(0, 1)
+    const support =
+      supportingMentions.length > 0 ? supportingMentions : mentions.slice(0, 1)
     const labelGroup = labelGroups.get(labelGroupKey(entity)) ?? [entity]
     const reasons = ambiguityReasons(entity, labelGroup)
     const confidence = scoreEntityResolution(entity, support)
