@@ -56,11 +56,9 @@ export function evaluateSourceMix(
   const onlyWeakSources = usableItems.every(item =>
     WEAK_SOURCE_CLASSES.has(item.sourceClass)
   )
-  if (
-    (state.routePlan.riskLevel === 'high' ||
-      state.routePlan.mode === 'critical') &&
-    onlyWeakSources
-  ) {
+  const highOrCriticalRisk =
+    state.routePlan.riskLevel === 'high' || state.routePlan.riskLevel === 'critical'
+  if ((highOrCriticalRisk || state.routePlan.mode === 'critical') && onlyWeakSources) {
     return failPolicy({
       id: 'source_mix',
       severity: 'block',
