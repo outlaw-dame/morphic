@@ -31,9 +31,12 @@ export function evaluateContradictions(
     )
   }
 
+  const mustBlock =
+    state.routePlan.riskLevel === 'high' || state.routePlan.riskLevel === 'critical'
+
   return failPolicy({
     id: 'contradictions',
-    severity: state.routePlan.riskLevel === 'high' ? 'block' : 'warn',
+    severity: mustBlock ? 'block' : 'warn',
     reason: 'Evidence graph contains contradiction or dispute warnings.',
     repairActions: ['run_contradiction_review', 'escalate_to_advisor']
   })
