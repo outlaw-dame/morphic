@@ -1,5 +1,9 @@
 import type { CoordinatorExecutionState } from './execution-state'
-import { failPolicy, passPolicy, type CoordinatorPolicyResult } from './policy-types'
+import {
+  type CoordinatorPolicyResult,
+  failPolicy,
+  passPolicy
+} from './policy-types'
 
 const CONTRADICTION_MARKERS = [
   'contradiction',
@@ -18,7 +22,10 @@ export function evaluateContradictions(
   )
 
   if (!hasContradictionWarning) {
-    return passPolicy('contradictions', 'No contradiction warning is present in the evidence graph.')
+    return passPolicy(
+      'contradictions',
+      'No contradiction warning is present in the evidence graph.'
+    )
   }
 
   return failPolicy({
