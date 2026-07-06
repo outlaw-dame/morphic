@@ -51,3 +51,5 @@ lib/entities/entity-*.ts
 lib/entities/dbpedia-client.ts
 lib/entities/wikidata-client.ts
 lib/entities/knowledge-graph.ts
+
+lib/ai-architecture/evidence/*.ts
