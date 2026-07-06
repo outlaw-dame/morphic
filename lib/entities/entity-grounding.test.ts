@@ -35,10 +35,10 @@ describe('entity grounding', () => {
   it('skips malformed result entity fields without throwing', () => {
     const mentions = extractEntityMentions('Cape Verde', [
       {
-        title: undefined,
+        title: undefined as unknown as string,
         url: 'https://example.com/malformed',
-        content: null
-      } as unknown as Parameters<typeof extractEntityMentions>[1][number],
+        content: null as unknown as string
+      },
       {
         title: 'Boa Vista travel guide',
         url: 'https://example.com/boa-vista',
