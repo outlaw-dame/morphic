@@ -1,7 +1,11 @@
 import type { SourceClass } from '@/lib/ai/schemas'
 
 import type { CoordinatorExecutionState } from './execution-state'
-import { failPolicy, passPolicy, type CoordinatorPolicyResult } from './policy-types'
+import {
+  type CoordinatorPolicyResult,
+  failPolicy,
+  passPolicy
+} from './policy-types'
 
 const WEAK_SOURCE_CLASSES = new Set<SourceClass>([
   'forum_or_reddit',
@@ -29,7 +33,8 @@ export function evaluateSourceMix(
     return failPolicy({
       id: 'source_mix',
       severity: 'block',
-      reason: 'No usable evidence remains after duplicate and copied-source filtering.',
+      reason:
+        'No usable evidence remains after duplicate and copied-source filtering.',
       repairActions: ['retrieve_more_sources']
     })
   }
@@ -51,11 +56,16 @@ export function evaluateSourceMix(
   const onlyWeakSources = usableItems.every(item =>
     WEAK_SOURCE_CLASSES.has(item.sourceClass)
   )
-  if ((state.routePlan.riskLevel === 'high' || state.routePlan.mode === 'critical') && onlyWeakSources) {
+  if (
+    (state.routePlan.riskLevel === 'high' ||
+      state.routePlan.mode === 'critical') &&
+    onlyWeakSources
+  ) {
     return failPolicy({
       id: 'source_mix',
       severity: 'block',
-      reason: 'High-risk or critical routes cannot proceed using only weak/community sources.',
+      reason:
+        'High-risk or critical routes cannot proceed using only weak/community sources.',
       repairActions: ['retrieve_authoritative_sources', 'escalate_to_advisor']
     })
   }
