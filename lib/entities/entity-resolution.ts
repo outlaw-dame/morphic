@@ -52,7 +52,7 @@ function canMergeComplementaryCandidates(
   ) {
     return false
   }
-  return true
+  return existing.source !== next.source || existing.source === 'both'
 }
 
 function mergeEntity(
@@ -71,45 +71,34 @@ function mergeEntity(
   }
 }
 
-function mergeComplementaryCandidates(
-  entities: KnowledgeGraphEntity[]
-): KnowledgeGraphEntity[] {
-  const merged: KnowledgeGraphEntity[] = []
-
-  for (const entity of entities) {
-    const index = merged.findIndex(candidate =>
-      canMergeComplementaryCandidates(candidate, entity)
-    )
-
-    if (index === -1) {
-      merged.push(entity)
-      continue
-    }
-
-    merged[index] = mergeEntity(merged[index], entity)
-  }
-
-  return merged
-}
-
 function ambiguityReasons(
   entity: KnowledgeGraphEntity,
-  labelGroup: KnowledgeGraphEntity[]
+  labelGroup: KnowledgeGraphEntity[],
+  keyMap: Map<string, string>
 ): string[] {
   const reasons: string[] = []
-  const distinctKeys = new Set(labelGroup.map(candidate => entityKey(candidate)))
+  const distinctKeys = new Set(
+    labelGroup.map(candidate => keyMap.get(entityKey(candidate)) ?? entityKey(candidate))
+  )
+
   if (distinctKeys.size > 1) {
     reasons.push('same_label_multiple_canonical_entities')
   }
 
-  const descriptions = new Set(
-    labelGroup
-      .map(candidate => candidate.description?.toLowerCase().trim())
-      .filter((value): value is string => Boolean(value))
-  )
+  const descriptionsByKey = new Map<string, string>()
+  for (const candidate of labelGroup) {
+    const key = keyMap.get(entityKey(candidate)) ?? entityKey(candidate)
+    const description = candidate.description?.toLowerCase().trim()
+    if (description && !descriptionsByKey.has(key)) {
+      descriptionsByKey.set(key, description)
+    }
+  }
+
+  const descriptions = new Set(descriptionsByKey.values())
   if (
     descriptions.size > 1 &&
-    descriptions.has(entity.description?.toLowerCase().trim() ?? '')
+    entity.description &&
+    descriptions.has(entity.description.toLowerCase().trim())
   ) {
     reasons.push('same_label_conflicting_descriptions')
   }
@@ -123,16 +112,36 @@ export function resolveEntities(
   maxResolvedEntities = 6
 ): ResolvedEntity[] {
   const byKey = new Map<string, KnowledgeGraphEntity>()
+  const keyMap = new Map<string, string>()
   const labelGroups = new Map<string, KnowledgeGraphEntity[]>()
-  const candidates = mergeComplementaryCandidates(entities)
 
-  for (const entity of candidates) {
+  for (const entity of entities) {
     const key = entityKey(entity)
-    const existing = byKey.get(key)
-    const merged = existing ? mergeEntity(existing, entity) : entity
-    byKey.set(key, merged)
-
     const groupKey = labelGroupKey(entity)
+    let mergeKey: string | undefined
+
+    if (byKey.has(key)) {
+      mergeKey = key
+    } else {
+      for (const [existingKey, existing] of byKey.entries()) {
+        if (canMergeComplementaryCandidates(existing, entity)) {
+          mergeKey = existingKey
+          break
+        }
+      }
+    }
+
+    if (mergeKey) {
+      const existing = byKey.get(mergeKey)
+      if (existing) {
+        byKey.set(mergeKey, mergeEntity(existing, entity))
+        keyMap.set(key, mergeKey)
+      }
+    } else {
+      byKey.set(key, entity)
+      keyMap.set(key, key)
+    }
+
     labelGroups.set(groupKey, [...(labelGroups.get(groupKey) ?? []), entity])
   }
 
@@ -145,7 +154,7 @@ export function resolveEntities(
     const support =
       supportingMentions.length > 0 ? supportingMentions : mentions.slice(0, 1)
     const labelGroup = labelGroups.get(labelGroupKey(entity)) ?? [entity]
-    const reasons = ambiguityReasons(entity, labelGroup)
+    const reasons = ambiguityReasons(entity, labelGroup, keyMap)
     const confidence = scoreEntityResolution(entity, support)
 
     resolved.push({
