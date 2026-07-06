@@ -25,7 +25,9 @@ function cleanText(value: unknown, fallback: string): string {
 }
 
 function resultEntities(result: SearchResultItem): ResolvedEntity[] {
-  return Array.isArray(result.entities) ? (result.entities as ResolvedEntity[]) : []
+  return Array.isArray(result.entities)
+    ? (result.entities as ResolvedEntity[])
+    : []
 }
 
 export function normalizeSearchResultToEvidence(
