@@ -67,6 +67,28 @@ describe('evidence graph normalization', () => {
     expect(evidence?.claimIds.length).toBeGreaterThan(0)
   })
 
+  it('does not treat invalid publication dates as current dates', () => {
+    const evidence = normalizeSearchResultToEvidence(
+      result({ publishedAt: 'unknown' }),
+      0,
+      { retrievedAt }
+    )
+
+    expect(evidence).not.toBeNull()
+    expect(evidence?.publishedAt).toBeNull()
+    expect(evidence?.sourceQuality.freshnessScore).toBe(0.45)
+  })
+
+  it('returns null instead of throwing when schema validation fails', () => {
+    const evidence = normalizeSearchResultToEvidence(
+      result({ retrievalMethod: '' }),
+      0,
+      { retrievedAt }
+    )
+
+    expect(evidence).toBeNull()
+  })
+
   it('extracts atomic claims deterministically from evidence summaries', () => {
     const claims = extractAtomicClaims(
       'Cape Verde is an island country in the central Atlantic Ocean. Praia is the capital of Cape Verde.'
@@ -75,6 +97,14 @@ describe('evidence graph normalization', () => {
     expect(claims).toHaveLength(2)
     expect(claims[0].id).toMatch(/^cl_/)
     expect(claims[0].normalizedText).toContain('cape verde')
+  })
+
+  it('does not strip stop words from inside unicode-adjacent terms', () => {
+    const claims = extractAtomicClaims(
+      'Theé regional spelling should remain intact for unicode-aware claim clustering.'
+    )
+
+    expect(claims[0].normalizedText).toContain('theé')
   })
 
   it('deduplicates canonical URLs and avoids copied-content corroboration', () => {
@@ -106,6 +136,26 @@ describe('evidence graph normalization', () => {
     expect(graph.items[1].duplicateOf).toBe(graph.items[0].id)
     expect(graph.items[2].copiedFrom).toBe(graph.items[0].id)
     expect(graph.claimClusters[0].independentHostCount).toBe(2)
+  })
+
+  it('does not mark short generic summaries as copied content', () => {
+    const graph = buildEvidenceGraph({
+      query: 'generic summaries',
+      retrievedAt,
+      results: [
+        result({
+          url: 'https://one.example.com/not-found',
+          content: 'Not Found'
+        }),
+        result({
+          url: 'https://two.example.com/not-found',
+          content: 'Not Found'
+        })
+      ]
+    })
+
+    expect(graph.items).toHaveLength(2)
+    expect(graph.items[1].copiedFrom).toBeUndefined()
   })
 
   it('keeps malformed result fields bounded and warns on skipped results', () => {
