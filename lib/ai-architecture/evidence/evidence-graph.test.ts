@@ -77,22 +77,25 @@ describe('evidence graph normalization', () => {
     expect(claims[0].normalizedText).toContain('cape verde')
   })
 
-  it('deduplicates canonical URLs and does not count copied content as independent support', () => {
+  it('deduplicates canonical URLs and avoids copied-content corroboration', () => {
     const graph = buildEvidenceGraph({
       query: 'Cape Verde capital',
       retrievedAt,
       results: [
         result({
           url: 'https://example.com/article#intro',
-          content: 'Praia is the capital of Cape Verde. Cape Verde is in the Atlantic Ocean.'
+          content:
+            'Praia is the capital of Cape Verde. Cape Verde is in the Atlantic Ocean.'
         }),
         result({
           url: 'https://example.com/article/',
-          content: 'Praia is the capital of Cape Verde. Cape Verde is in the Atlantic Ocean.'
+          content:
+            'Praia is the capital of Cape Verde. Cape Verde is in the Atlantic Ocean.'
         }),
         result({
           url: 'https://mirror.example.net/copied',
-          content: 'Praia is the capital of Cape Verde. Cape Verde is in the Atlantic Ocean.'
+          content:
+            'Praia is the capital of Cape Verde. Cape Verde is in the Atlantic Ocean.'
         })
       ]
     })
@@ -105,7 +108,7 @@ describe('evidence graph normalization', () => {
     expect(graph.claimClusters[0].independentHostCount).toBe(2)
   })
 
-  it('keeps malformed result fields bounded and produces warnings for skipped results', () => {
+  it('keeps malformed result fields bounded and warns on skipped results', () => {
     const graph = buildEvidenceGraph({
       query: 'hostile inputs',
       retrievedAt,
