@@ -19,6 +19,7 @@ export function normalizeEntityText(value: string): string | undefined {
       .replace(TITLE_SUFFIXES, '')
       .replace(/[()[\]{}”"]/g, ' ')
       .replace(/\b(site|official website|homepage)\b/gi, ' ')
+      .replace(/[?!.,:;]+$/g, '')
   )
 
   if (normalized.length < 3 || normalized.length > 96) {
