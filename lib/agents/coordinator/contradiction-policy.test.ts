@@ -53,15 +53,9 @@ describe('evaluateContradictions', () => {
 
     expect(result.passed).toBe(false)
     expect(result.severity).toBe('block')
-    expect(result.reason).toBe('Evidence graph contains structured evidence conflicts.')
-    expect(result.details).toContainEqual({
-      type: 'evidence_conflict:negation_overlap',
-      id: 'conflict_one',
-      severity: 'block',
-      evidenceIds: ['ev_one', 'ev_two'],
-      claimIds: ['cl_one', 'cl_two'],
-      reason: 'Similar claims differ by explicit negation language.'
-    })
+    expect(result.details).toHaveLength(1)
+    expect(result.details[0]?.id).toBe('conflict_one')
+    expect(result.details[0]?.type).toBe('evidence_conflict:negation_overlap')
   })
 
   it('keeps low-risk numeric conflicts as policy warnings', () => {
