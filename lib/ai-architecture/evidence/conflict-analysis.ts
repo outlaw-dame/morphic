@@ -1,21 +1,10 @@
 import type { AtomicClaim } from './claim-extraction'
-import type { EvidenceGraph } from './evidence-types'
-
-export type EvidenceConflictSeverity = 'info' | 'warn' | 'block'
-
-export type EvidenceConflictType =
-  | 'negation_overlap'
-  | 'numeric_mismatch'
-  | 'status_mismatch'
-
-export type EvidenceConflict = {
-  id: string
-  type: EvidenceConflictType
-  severity: EvidenceConflictSeverity
-  evidenceIds: string[]
-  claimIds: string[]
-  reason: string
-}
+import type {
+  EvidenceConflict,
+  EvidenceConflictSeverity,
+  EvidenceConflictType,
+  EvidenceGraph
+} from './evidence-types'
 
 const NEGATION_PATTERN = /\b(?:not|no|never|none|without|cannot|can't|won't|isn't|aren't|wasn't|weren't|doesn't|don't|didn't|hasn't|haven't|hadn't)\b/i
 const NUMBER_PATTERN = /\b\d+(?:\.\d+)?%?\b/g
@@ -62,7 +51,8 @@ function numbers(value: string): string[] {
 }
 
 function hasAny(value: string, candidates: string[]): boolean {
-  return candidates.some(candidate => value.includes(candidate))
+  const valueWords = words(value)
+  return candidates.some(candidate => valueWords.has(candidate))
 }
 
 function statusMismatch(left: string, right: string): boolean {
