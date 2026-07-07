@@ -47,7 +47,7 @@ function strongestConflictSeverity(
 export function evaluateContradictions(
   state: CoordinatorExecutionState
 ): CoordinatorPolicyResult {
-  const conflicts = state.evidenceGraph.conflicts
+  const conflicts = state.evidenceGraph.conflicts ?? []
   const conflictSeverity = strongestConflictSeverity(conflicts)
   const hasWarningOnlyContradiction =
     conflicts.length === 0 && warningHasContradiction(state)
