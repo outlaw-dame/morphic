@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
+import { analyzeEvidenceConflicts, conflictWarnings } from './conflict-analysis'
 import type {
   EvidenceGraph,
   NormalizedEvidenceItem
 } from './evidence-types'
-import { analyzeEvidenceConflicts, conflictWarnings } from './conflict-analysis'
 
 const retrievedAt = '2026-07-05T12:00:00.000Z'
 
