@@ -86,7 +86,7 @@ describe('evaluateContradictions', () => {
       claimClusters: [],
       claimsByEvidenceId: {},
       warnings: []
-    } as EvidenceGraph
+    } as unknown as EvidenceGraph
 
     const result = evaluateContradictions(
       createCoordinatorExecutionState({
