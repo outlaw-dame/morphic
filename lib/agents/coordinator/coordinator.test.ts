@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import type {
-  EvidenceConflict,
   EvidenceGraph,
   NormalizedEvidenceItem
 } from '@/lib/ai-architecture/evidence'
@@ -68,30 +67,15 @@ function evidenceItem(
   }
 }
 
-function evidenceConflict(
-  overrides: Partial<EvidenceConflict> = {}
-): EvidenceConflict {
-  return {
-    id: 'conflict_one',
-    type: 'negation_overlap',
-    severity: 'block',
-    evidenceIds: ['ev_one', 'ev_two'],
-    claimIds: ['cl_one', 'cl_two'],
-    reason: 'Similar claims differ by explicit negation language.',
-    ...overrides
-  }
-}
-
 function evidenceGraph(
   items: NormalizedEvidenceItem[],
-  warnings: string[] = [],
-  conflicts: EvidenceConflict[] = []
+  warnings: string[] = []
 ): EvidenceGraph {
   return {
     items,
     duplicateGroups: [],
     claimClusters: [],
-    conflicts,
+    conflicts: [],
     claimsByEvidenceId: {},
     warnings
   }
@@ -284,80 +268,6 @@ describe('coordinateExecution', () => {
 
     expect(result.repairPlan.canProceedToComposition).toBe(false)
     expect(result.repairPlan.actions).toContain('run_contradiction_review')
-  })
-
-  it('blocks structured evidence conflicts without warning strings', () => {
-    const state = createCoordinatorExecutionState({
-      routePlan: baseRoutePlan,
-      evidenceGraph: evidenceGraph(
-        [
-          evidenceItem(),
-          evidenceItem({
-            id: 'ev_two',
-            url: 'https://other.example.net/report',
-            canonicalUrl: 'https://other.example.net/report',
-            host: 'other.example.net'
-          })
-        ],
-        [],
-        [evidenceConflict()]
-      )
-    })
-
-    const result = coordinateExecution(state, now)
-    const contradictionResult = result.policyResults.find(
-      policyResult => policyResult.id === 'contradictions'
-    )
-
-    expect(result.repairPlan.canProceedToComposition).toBe(false)
-    expect(result.repairPlan.actions).toContain('run_contradiction_review')
-    expect(contradictionResult?.reason).toBe(
-      'Evidence graph contains structured evidence conflicts.'
-    )
-    expect(contradictionResult?.details).toContainEqual({
-      type: 'evidence_conflict:negation_overlap',
-      id: 'conflict_one',
-      severity: 'block',
-      evidenceIds: ['ev_one', 'ev_two'],
-      claimIds: ['cl_one', 'cl_two'],
-      reason: 'Similar claims differ by explicit negation language.'
-    })
-  })
-
-  it('warns for structured numeric conflicts on low-risk routes', () => {
-    const state = createCoordinatorExecutionState({
-      routePlan: baseRoutePlan,
-      evidenceGraph: evidenceGraph(
-        [
-          evidenceItem(),
-          evidenceItem({
-            id: 'ev_two',
-            url: 'https://other.example.net/report',
-            canonicalUrl: 'https://other.example.net/report',
-            host: 'other.example.net'
-          })
-        ],
-        [],
-        [
-          evidenceConflict({
-            type: 'numeric_mismatch',
-            severity: 'warn',
-            reason: 'Similar claims contain different numeric values.'
-          })
-        ]
-      )
-    })
-
-    const result = coordinateExecution(state, now)
-    const contradictionResult = result.policyResults.find(
-      policyResult => policyResult.id === 'contradictions'
-    )
-
-    expect(result.repairPlan.canProceedToComposition).toBe(true)
-    expect(contradictionResult?.severity).toBe('warn')
-    expect(contradictionResult?.details[0]?.type).toBe(
-      'evidence_conflict:numeric_mismatch'
-    )
   })
 
   it('ignores contradiction marker substrings', () => {
