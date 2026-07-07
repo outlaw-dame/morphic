@@ -16,7 +16,7 @@ const CONTRADICTION_MARKERS = [
 ]
 
 const CONTRADICTION_PATTERN = new RegExp(
-  `\b(${CONTRADICTION_MARKERS.join('|')})\b`,
+  `\\b(${CONTRADICTION_MARKERS.join('|')})\\b`,
   'i'
 )
 
