@@ -15,7 +15,7 @@ export type CoordinatorPolicyResult = {
   severity: CoordinatorPolicySeverity
   reason: string
   repairActions: string[]
-  details: CoordinatorPolicyDetail[]
+  details?: CoordinatorPolicyDetail[]
 }
 
 export function passPolicy(id: string, reason: string): CoordinatorPolicyResult {
@@ -24,8 +24,7 @@ export function passPolicy(id: string, reason: string): CoordinatorPolicyResult 
     passed: true,
     severity: 'info',
     reason,
-    repairActions: [],
-    details: []
+    repairActions: []
   }
 }
 
@@ -42,6 +41,8 @@ export function failPolicy(input: {
     severity: input.severity,
     reason: input.reason,
     repairActions: input.repairActions,
-    details: input.details ?? []
+    ...(input.details && input.details.length > 0
+      ? { details: input.details }
+      : {})
   }
 }
