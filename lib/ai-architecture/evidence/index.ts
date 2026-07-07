@@ -1,4 +1,5 @@
 export * from './claim-extraction'
+export * from './conflict-analysis'
 export * from './evidence-dedupe'
 export * from './evidence-graph'
 export * from './evidence-types'

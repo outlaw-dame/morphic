@@ -3,6 +3,22 @@ import type { ResolvedEntity } from '@/lib/entities/knowledge-graph'
 
 import type { AtomicClaim, ClaimCluster } from './claim-extraction'
 
+export type EvidenceConflictSeverity = 'info' | 'warn' | 'block'
+
+export type EvidenceConflictType =
+  | 'negation_overlap'
+  | 'numeric_mismatch'
+  | 'status_mismatch'
+
+export type EvidenceConflict = {
+  id: string
+  type: EvidenceConflictType
+  severity: EvidenceConflictSeverity
+  evidenceIds: string[]
+  claimIds: string[]
+  reason: string
+}
+
 export type NormalizedEvidenceItem = EvidenceItem & {
   canonicalUrl: string
   host: string
@@ -23,6 +39,7 @@ export type EvidenceGraph = {
   items: NormalizedEvidenceItem[]
   duplicateGroups: EvidenceDuplicateGroup[]
   claimClusters: ClaimCluster[]
+  conflicts: EvidenceConflict[]
   claimsByEvidenceId: Record<string, AtomicClaim[]>
   warnings: string[]
 }

@@ -1,6 +1,7 @@
 import type { SearchResultItem } from '@/lib/types'
 
 import { clusterClaims, extractAtomicClaims } from './claim-extraction'
+import { analyzeEvidenceConflicts, conflictWarnings } from './conflict-analysis'
 import { markDuplicateEvidence } from './evidence-dedupe'
 import type { EvidenceGraph } from './evidence-types'
 import { normalizeSearchResultToEvidence } from './normalize-search-result'
@@ -36,12 +37,19 @@ export function buildEvidenceGraph(input: EvidenceGraphInput): EvidenceGraph {
     items.map(item => [item.id, item.host] as const)
   )
   const claimClusters = clusterClaims(claimsByEvidenceId, hostByEvidenceId)
-
-  return {
+  const graphWithoutConflicts: EvidenceGraph = {
     items,
     duplicateGroups,
     claimClusters,
+    conflicts: [],
     claimsByEvidenceId: Object.fromEntries(claimsByEvidenceId),
     warnings
+  }
+  const conflicts = analyzeEvidenceConflicts(graphWithoutConflicts)
+
+  return {
+    ...graphWithoutConflicts,
+    conflicts,
+    warnings: [...warnings, ...conflictWarnings(conflicts)]
   }
 }

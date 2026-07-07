@@ -75,6 +75,7 @@ function evidenceGraph(
     items,
     duplicateGroups: [],
     claimClusters: [],
+    conflicts: [],
     claimsByEvidenceId: {},
     warnings
   }
