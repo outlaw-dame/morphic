@@ -50,12 +50,13 @@ describe('evaluateContradictions', () => {
         evidenceGraph: graph([conflict()])
       })
     )
+    const details = result.details ?? []
 
     expect(result.passed).toBe(false)
     expect(result.severity).toBe('block')
-    expect(result.details).toHaveLength(1)
-    expect(result.details[0]?.id).toBe('conflict_one')
-    expect(result.details[0]?.type).toBe('evidence_conflict:negation_overlap')
+    expect(details).toHaveLength(1)
+    expect(details[0]?.id).toBe('conflict_one')
+    expect(details[0]?.type).toBe('evidence_conflict:negation_overlap')
   })
 
   it('keeps low-risk numeric conflicts as policy warnings', () => {
@@ -71,9 +72,10 @@ describe('evaluateContradictions', () => {
         ])
       })
     )
+    const details = result.details ?? []
 
     expect(result.passed).toBe(false)
     expect(result.severity).toBe('warn')
-    expect(result.details[0]?.type).toBe('evidence_conflict:numeric_mismatch')
+    expect(details[0]?.type).toBe('evidence_conflict:numeric_mismatch')
   })
 })
