@@ -22,7 +22,7 @@ const CONTRADICTION_PATTERN = new RegExp(
 
 function warningHasContradiction(state: CoordinatorExecutionState): boolean {
   const warnings = state.evidenceGraph.warnings ?? []
-  return CONTRADICTION_PATTERN.test(warnings.join(' '))
+  return warnings.some(warning => CONTRADICTION_PATTERN.test(warning))
 }
 
 function conflictDetails(conflicts: EvidenceConflict[]) {
