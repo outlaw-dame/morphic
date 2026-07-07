@@ -55,7 +55,7 @@ export function evaluateContradictions(
   if (!conflictSeverity && !hasWarningOnlyContradiction) {
     return passPolicy(
       'contradictions',
-      'No contradiction warning or structured evidence conflict is present in the evidence graph.'
+      'No contradiction warning is present in the evidence graph.'
     )
   }
 
