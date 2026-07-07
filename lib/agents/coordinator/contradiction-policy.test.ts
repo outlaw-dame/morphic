@@ -78,4 +78,24 @@ describe('evaluateContradictions', () => {
     expect(result.severity).toBe('warn')
     expect(details[0]?.type).toBe('evidence_conflict:numeric_mismatch')
   })
+
+  it('falls back safely when older evidence graphs omit conflicts', () => {
+    const graphWithoutConflicts = {
+      items: [],
+      duplicateGroups: [],
+      claimClusters: [],
+      claimsByEvidenceId: {},
+      warnings: []
+    } as EvidenceGraph
+
+    const result = evaluateContradictions(
+      createCoordinatorExecutionState({
+        routePlan,
+        evidenceGraph: graphWithoutConflicts
+      })
+    )
+
+    expect(result.passed).toBe(true)
+    expect(result.reason).toBe('No contradiction warning is present in the evidence graph.')
+  })
 })
