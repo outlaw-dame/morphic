@@ -2,7 +2,22 @@ import type { EvidenceItem, SourceQualityAssessment } from '@/lib/ai/schemas'
 import type { ResolvedEntity } from '@/lib/entities/knowledge-graph'
 
 import type { AtomicClaim, ClaimCluster } from './claim-extraction'
-import type { EvidenceConflict } from './conflict-analysis'
+
+export type EvidenceConflictSeverity = 'info' | 'warn' | 'block'
+
+export type EvidenceConflictType =
+  | 'negation_overlap'
+  | 'numeric_mismatch'
+  | 'status_mismatch'
+
+export type EvidenceConflict = {
+  id: string
+  type: EvidenceConflictType
+  severity: EvidenceConflictSeverity
+  evidenceIds: string[]
+  claimIds: string[]
+  reason: string
+}
 
 export type NormalizedEvidenceItem = EvidenceItem & {
   canonicalUrl: string
