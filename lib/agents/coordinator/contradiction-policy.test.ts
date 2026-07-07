@@ -79,19 +79,18 @@ describe('evaluateContradictions', () => {
     expect(details[0]?.type).toBe('evidence_conflict:numeric_mismatch')
   })
 
-  it('falls back safely when older evidence graphs omit conflicts', () => {
-    const graphWithoutConflicts = {
+  it('falls back safely when older evidence graphs omit conflicts and warnings', () => {
+    const graphWithoutConflictsOrWarnings = {
       items: [],
       duplicateGroups: [],
       claimClusters: [],
-      claimsByEvidenceId: {},
-      warnings: []
+      claimsByEvidenceId: {}
     } as unknown as EvidenceGraph
 
     const result = evaluateContradictions(
       createCoordinatorExecutionState({
         routePlan,
-        evidenceGraph: graphWithoutConflicts
+        evidenceGraph: graphWithoutConflictsOrWarnings
       })
     )
 
