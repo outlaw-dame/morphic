@@ -7,7 +7,7 @@ import type {
 } from './evidence-types'
 
 const NEGATION_PATTERN = /\b(?:not|no|never|none|without|cannot|can't|won't|isn't|aren't|wasn't|weren't|doesn't|don't|didn't|hasn't|haven't|hadn't)\b/i
-const NUMBER_PATTERN = /\b\d+(?:\.\d+)?%?\b/g
+const NUMBER_PATTERN = /\b\d+(?:[.,]\d+)*%?\b/g
 
 const STATUS_GROUPS = [
   {
@@ -47,20 +47,29 @@ function jaccard(left: Set<string>, right: Set<string>): number {
 }
 
 function numbers(value: string): string[] {
-  return value.match(NUMBER_PATTERN) ?? []
+  const matches = value.match(NUMBER_PATTERN) ?? []
+  return matches.map(number => {
+    const clean = number.replace(/,/g, '')
+    if (clean.endsWith('%')) {
+      const valueWithoutPercent = clean.slice(0, -1)
+      const parsed = Number.parseFloat(valueWithoutPercent)
+      return Number.isNaN(parsed) ? clean : `${parsed}%`
+    }
+    const parsed = Number.parseFloat(clean)
+    return Number.isNaN(parsed) ? clean : `${parsed}`
+  })
 }
 
-function hasAny(value: string, candidates: string[]): boolean {
-  const valueWords = words(value)
-  return candidates.some(candidate => valueWords.has(candidate))
+function hasAny(wordSet: Set<string>, candidates: string[]): boolean {
+  return candidates.some(candidate => wordSet.has(candidate))
 }
 
-function statusMismatch(left: string, right: string): boolean {
+function statusMismatch(leftWords: Set<string>, rightWords: Set<string>): boolean {
   return STATUS_GROUPS.some(group => {
-    const leftAffirmative = hasAny(left, group.affirmative)
-    const leftNegative = hasAny(left, group.negative)
-    const rightAffirmative = hasAny(right, group.affirmative)
-    const rightNegative = hasAny(right, group.negative)
+    const leftAffirmative = hasAny(leftWords, group.affirmative)
+    const leftNegative = hasAny(leftWords, group.negative)
+    const rightAffirmative = hasAny(rightWords, group.affirmative)
+    const rightNegative = hasAny(rightWords, group.negative)
 
     return (
       (leftAffirmative && rightNegative) ||
@@ -116,8 +125,8 @@ function detectPairConflict(
   const rightNegated = NEGATION_PATTERN.test(right.text)
   if (leftNegated !== rightNegated) return 'negation_overlap'
 
-  const leftNumbers = numbers(left.normalizedText)
-  const rightNumbers = numbers(right.normalizedText)
+  const leftNumbers = [...new Set(numbers(left.text))].sort()
+  const rightNumbers = [...new Set(numbers(right.text))].sort()
   if (
     leftNumbers.length > 0 &&
     rightNumbers.length > 0 &&
@@ -126,7 +135,7 @@ function detectPairConflict(
     return 'numeric_mismatch'
   }
 
-  if (statusMismatch(left.normalizedText, right.normalizedText)) {
+  if (statusMismatch(leftWords, rightWords)) {
     return 'status_mismatch'
   }
 
@@ -179,7 +188,8 @@ export function analyzeEvidenceConflicts(
 }
 
 export function conflictWarnings(conflicts: EvidenceConflict[]): string[] {
-  return conflicts.map(conflict =>
+  const warnings = conflicts.map(conflict =>
     `conflict:${conflict.type}:${conflict.severity}:${conflict.evidenceIds.join(',')}`
   )
+  return [...new Set(warnings)]
 }
