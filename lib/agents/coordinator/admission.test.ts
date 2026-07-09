@@ -399,6 +399,57 @@ describe('coordinator admission bridge', () => {
     ])
   })
 
+  it('retains medium-priority conflict hints when their policy blocks composition', () => {
+    const admission = createCoordinatorAdmission({
+      routePlan: {
+        ...baseRoutePlan,
+        riskLevel: 'high'
+      },
+      evidenceGraph: evidenceGraph(
+        [
+          evidenceItem(),
+          evidenceItem({
+            id: 'ev_two',
+            url: 'https://other.example.net/report',
+            canonicalUrl: 'https://other.example.net/report',
+            host: 'other.example.net',
+            claimIds: ['cl_two']
+          })
+        ],
+        [],
+        [
+          evidenceConflict({
+            id: 'numeric_conflict',
+            type: 'numeric_mismatch',
+            severity: 'warn',
+            reason: 'Similar claims contain different numeric values.'
+          })
+        ]
+      ),
+      completedRoles: ['router', 'retriever'],
+      now
+    })
+
+    expect(admission.status).toBe('repair')
+    expect(admission.blockedPolicyIds).toEqual(['contradictions'])
+    expect(admission.warningPolicyIds).toEqual([])
+    expect(admission.conflictRepairHints).toEqual([
+      expect.objectContaining({
+        id: 'contradictions:numeric_conflict:repair_hint',
+        policyId: 'contradictions',
+        action: 'retrieve_primary_numeric_source',
+        priority: 'medium'
+      })
+    ])
+    expect(admission.boundedRepairPlan.steps.map(step => step.action)).toEqual([
+      'run_contradiction_review',
+      'run_advisor_review',
+      'select_stronger_model',
+      'retrieve_primary_numeric_source',
+      'run_citation_verifier'
+    ])
+  })
+
   it('ignores malformed runtime policy details without throwing', () => {
     const policyResults = [
       {
