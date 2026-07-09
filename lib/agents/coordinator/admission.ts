@@ -139,11 +139,11 @@ function toBlockingRepairActions(
   if (blockedPolicyIds.length === 0) return requiredRepairActions
 
   const policyRepairActions = new Set(
-    evaluation.policyResults.flatMap(result => result.repairActions)
+    evaluation.policyResults.flatMap(result => result.repairActions ?? [])
   )
   const blockingPolicyRepairActions = evaluation.policyResults
     .filter(result => !result.passed && result.severity === 'block')
-    .flatMap(result => result.repairActions)
+    .flatMap(result => result.repairActions ?? [])
   const escalationRepairActions = requiredRepairActions.filter(
     action => !policyRepairActions.has(action)
   )
