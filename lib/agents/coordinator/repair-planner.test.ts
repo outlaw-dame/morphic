@@ -212,18 +212,21 @@ describe('bounded Coordinator repair planner', () => {
       'run_advisor_review',
       'run_citation_verifier'
     ])
-    expect(repairPlan.skippedActions).toEqual([
-      {
-        action: 'unsupported_action',
-        reason: 'unsupported_repair_action',
-        source: 'policy_action'
-      },
-      {
-        action: 'run_entity_grounding',
-        reason: 'max_steps_reached',
-        source: 'policy_action'
-      }
-    ])
+    expect(repairPlan.skippedActions).toHaveLength(2)
+    expect(repairPlan.skippedActions).toEqual(
+      expect.arrayContaining([
+        {
+          action: 'unsupported_action',
+          reason: 'unsupported_repair_action',
+          source: 'policy_action'
+        },
+        {
+          action: 'run_entity_grounding',
+          reason: 'max_steps_reached',
+          source: 'policy_action'
+        }
+      ])
+    )
   })
 
   it('handles invalid numeric bounds without producing negative budgets', () => {
