@@ -201,7 +201,15 @@ describe('coordinator admission bridge', () => {
     expect(admission.boundedRepairPlan.steps.map(step => step.action)).toEqual([
       'retrieve_authoritative_sources',
       'run_advisor_review',
-      'select_stronger_model'
+      'select_stronger_model',
+      'run_citation_verifier'
+    ])
+    expect(admission.boundedRepairPlan.skippedActions).toEqual([
+      {
+        action: 'escalate_to_advisor',
+        reason: 'unsupported_repair_action',
+        source: 'policy_action'
+      }
     ])
     expect(admission.boundedRepairPlan.canAttemptRepair).toBe(true)
     expect(admission.boundedRepairPlan.remainingRetrievalAttempts).toBe(1)
@@ -276,6 +284,24 @@ describe('coordinator admission bridge', () => {
         reason: 'Review contradictory evidence before composition.',
         evidenceIds: [],
         claimIds: []
+      },
+      {
+        id: 'repair_step_3:select_stronger_model',
+        action: 'select_stronger_model',
+        source: 'policy_action',
+        priority: 'high',
+        reason: 'Select a stronger model for the remaining reasoning step.',
+        evidenceIds: [],
+        claimIds: []
+      },
+      {
+        id: 'repair_step_4:run_citation_verifier',
+        action: 'run_citation_verifier',
+        source: 'policy_action',
+        priority: 'medium',
+        reason: 'Verify citations before final composition.',
+        evidenceIds: [],
+        claimIds: []
       }
     ])
     expect(admission.boundedRepairPlan.remainingRetrievalAttempts).toBe(1)
@@ -311,6 +337,24 @@ describe('coordinator admission bridge', () => {
         source: 'policy_action',
         priority: 'high',
         reason: 'Review contradictory evidence before composition.',
+        evidenceIds: [],
+        claimIds: []
+      },
+      {
+        id: 'repair_step_2:select_stronger_model',
+        action: 'select_stronger_model',
+        source: 'policy_action',
+        priority: 'high',
+        reason: 'Select a stronger model for the remaining reasoning step.',
+        evidenceIds: [],
+        claimIds: []
+      },
+      {
+        id: 'repair_step_3:run_citation_verifier',
+        action: 'run_citation_verifier',
+        source: 'policy_action',
+        priority: 'medium',
+        reason: 'Verify citations before final composition.',
         evidenceIds: [],
         claimIds: []
       }
