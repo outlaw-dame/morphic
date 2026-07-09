@@ -77,9 +77,9 @@ The planner treats admission metadata as runtime input and avoids trusting optio
 
 ## Route-aware constraints
 
-High-risk and critical routes avoid broad retrieval instructions when possible:
+High-risk, critical-risk, and critical-mode routes avoid broad retrieval instructions when possible. Critical mode is treated as high assurance even when the router-inferred risk level is lower.
 
-| Broad action | High-risk normalized action |
+| Broad action | High-assurance normalized action |
 | --- | --- |
 | `retrieve_more_sources` | `retrieve_authoritative_sources` |
 | `retrieve_independent_sources` | `retrieve_independent_corroboration` |
@@ -118,6 +118,7 @@ Tests cover:
 - retrieval budget decrementing per planned retrieval step;
 - blocking subsequent retrieval steps once the budget is exhausted;
 - high-risk broad-action normalization;
+- critical-mode broad-action normalization even when inferred risk is low;
 - unsupported actions;
 - maximum step limits;
 - invalid numeric bounds;
