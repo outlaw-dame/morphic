@@ -85,6 +85,14 @@ function safeStringArray(value: unknown): string[] {
   return [...new Set(value.filter(item => typeof item === 'string'))]
 }
 
+function safeSource(value: unknown): CoordinatorRepairStep['source'] {
+  return value === 'conflict_hint' ? 'conflict_hint' : 'policy_action'
+}
+
+function safePriority(value: unknown): CoordinatorRepairStep['priority'] {
+  return value === 'high' || value === 'medium' ? value : 'low'
+}
+
 function safeCompletedStepIds(value: unknown): Set<string> {
   return new Set(safeStringArray(value))
 }
@@ -194,8 +202,8 @@ function toExecutionRecord(
   const baseRecord = {
     stepId,
     action,
-    source: step.source,
-    priority: step.priority,
+    source: safeSource(step.source),
+    priority: safePriority(step.priority),
     maxAttempts: retryPolicy.maxAttemptsPerStep,
     evidenceIds: safeStringArray(step.evidenceIds),
     claimIds: safeStringArray(step.claimIds)
