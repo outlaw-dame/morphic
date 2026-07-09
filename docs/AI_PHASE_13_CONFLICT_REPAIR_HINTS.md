@@ -46,9 +46,11 @@ Block-level conflicts become high-priority repair hints. Warning-level conflicts
 
 ## Defensive behavior
 
-The repair hint builder is intentionally deterministic and side-effect free. It does not trust optional IDs blindly:
+The repair hint builder is intentionally deterministic and side-effect free. It does not trust optional runtime metadata blindly:
 
-- missing conflict IDs receive stable fallback IDs based on list order;
+- missing, blank, or non-string conflict IDs receive stable fallback IDs based on list order;
+- returned `conflictId` values are only populated when the source ID is a non-empty string;
+- non-array evidence/claim ID fields are treated as empty lists;
 - evidence IDs and claim IDs are de-duplicated;
 - only string evidence/claim IDs are retained.
 
@@ -62,7 +64,8 @@ Tests cover:
 - numeric conflicts mapping to primary numeric-source retrieval hints;
 - status conflicts mapping to current status-source retrieval hints;
 - duplicate evidence/claim IDs being removed;
-- missing conflict IDs using stable fallback hint IDs.
+- missing or blank conflict IDs using stable fallback hint IDs;
+- malformed runtime IDs and non-array evidence/claim fields being ignored safely.
 
 ## Follow-up
 
