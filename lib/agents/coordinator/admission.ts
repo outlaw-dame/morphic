@@ -180,6 +180,7 @@ function toBlockingConflictRepairHints(
 ): CoordinatorAdmissionConflictRepairHint[] {
   if (blockedPolicyIds.length === 0) return conflictRepairHints
 
+  const blockedPolicyIdSet = new Set(blockedPolicyIds)
   const blockingRetrievalActions = new Set(
     blockingRepairActions.filter(isRetrievalAction)
   )
@@ -189,7 +190,7 @@ function toBlockingConflictRepairHints(
   return conflictRepairHints.filter(
     hint =>
       hint.priority === 'high' ||
-      (canSpendRetrievalOnMediumHints && blockedPolicyIds.includes(hint.policyId))
+      (canSpendRetrievalOnMediumHints && blockedPolicyIdSet.has(hint.policyId))
   )
 }
 
