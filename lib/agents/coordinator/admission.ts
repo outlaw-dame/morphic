@@ -34,6 +34,17 @@ export type CoordinatorAdmissionConflictDetail = CoordinatorPolicyDetail & {
   policyId: string
 }
 
+export type CoordinatorAdmissionConflictRepairHint = {
+  id: string
+  policyId: string
+  conflictId?: string
+  action: string
+  priority: 'high' | 'medium'
+  evidenceIds: string[]
+  claimIds: string[]
+  reason: string
+}
+
 export type CoordinatorAdmission = CoordinatorEvaluation & {
   status: CoordinatorAdmissionStatus
   canCompose: boolean
@@ -41,6 +52,36 @@ export type CoordinatorAdmission = CoordinatorEvaluation & {
   warningPolicyIds: string[]
   requiredRepairActions: string[]
   conflictDetails: CoordinatorAdmissionConflictDetail[]
+  conflictRepairHints: CoordinatorAdmissionConflictRepairHint[]
+}
+
+function stableStringId(value: string | undefined, fallback: string): string {
+  const trimmed = value?.trim()
+  return trimmed && trimmed.length > 0 ? trimmed : fallback
+}
+
+function safeStringArray(value: string[] | undefined): string[] {
+  return [...new Set((value ?? []).filter(item => typeof item === 'string'))]
+}
+
+function repairActionForConflictType(type: string): string {
+  if (type === 'evidence_conflict:numeric_mismatch') {
+    return 'retrieve_primary_numeric_source'
+  }
+  if (type === 'evidence_conflict:status_mismatch') {
+    return 'retrieve_current_status_source'
+  }
+  return 'retrieve_independent_corroboration'
+}
+
+function repairReasonForConflictType(type: string): string {
+  if (type === 'evidence_conflict:numeric_mismatch') {
+    return 'Resolve conflicting numeric claims with primary or authoritative numeric sources.'
+  }
+  if (type === 'evidence_conflict:status_mismatch') {
+    return 'Resolve conflicting status claims with current authoritative status sources.'
+  }
+  return 'Resolve conflicting claims with independent corroborating sources.'
 }
 
 export function toAdmissionConflictDetails(
@@ -60,6 +101,24 @@ export function toAdmissionConflictDetails(
   )
 }
 
+export function toAdmissionConflictRepairHints(
+  conflictDetails: CoordinatorAdmissionConflictDetail[]
+): CoordinatorAdmissionConflictRepairHint[] {
+  return conflictDetails.map((detail, index) => {
+    const conflictId = stableStringId(detail.id, `conflict_${index + 1}`)
+    return {
+      id: `${detail.policyId}:${conflictId}:repair_hint`,
+      policyId: detail.policyId,
+      conflictId: detail.id,
+      action: repairActionForConflictType(detail.type),
+      priority: detail.severity === 'block' ? 'high' : 'medium',
+      evidenceIds: safeStringArray(detail.evidenceIds),
+      claimIds: safeStringArray(detail.claimIds),
+      reason: repairReasonForConflictType(detail.type)
+    }
+  })
+}
+
 function toAdmission(evaluation: CoordinatorEvaluation): CoordinatorAdmission {
   const blockedPolicyIds = evaluation.policyResults
     .filter(result => !result.passed && result.severity === 'block')
@@ -68,6 +127,7 @@ function toAdmission(evaluation: CoordinatorEvaluation): CoordinatorAdmission {
     .filter(result => !result.passed && result.severity === 'warn')
     .map(result => result.id)
   const canCompose = evaluation.repairPlan.canProceedToComposition
+  const conflictDetails = toAdmissionConflictDetails(evaluation.policyResults)
 
   return {
     ...evaluation,
@@ -76,7 +136,8 @@ function toAdmission(evaluation: CoordinatorEvaluation): CoordinatorAdmission {
     blockedPolicyIds,
     warningPolicyIds,
     requiredRepairActions: [...new Set(evaluation.repairPlan.actions)],
-    conflictDetails: toAdmissionConflictDetails(evaluation.policyResults)
+    conflictDetails,
+    conflictRepairHints: toAdmissionConflictRepairHints(conflictDetails)
   }
 }
 
