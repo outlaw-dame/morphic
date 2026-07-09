@@ -48,7 +48,11 @@ export function toAdmissionConflictDetails(
 ): CoordinatorAdmissionConflictDetail[] {
   return policyResults.flatMap(result =>
     (result.details ?? [])
-      .filter(detail => detail?.type?.startsWith('evidence_conflict:'))
+      .filter(
+        detail =>
+          typeof detail?.type === 'string' &&
+          detail.type.startsWith('evidence_conflict:')
+      )
       .map(detail => ({
         ...detail,
         policyId: result.id
