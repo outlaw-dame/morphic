@@ -27,9 +27,9 @@ export type CoordinatorSkippedRepairAction = {
 }
 
 export type CoordinatorBoundedRepairPlanInput = {
-  routePlan: RoutePlan
-  requiredRepairActions: string[]
-  conflictRepairHints: CoordinatorAdmissionConflictRepairHint[]
+  routePlan?: RoutePlan | null
+  requiredRepairActions?: string[] | null
+  conflictRepairHints?: CoordinatorAdmissionConflictRepairHint[] | null
   retrievalAttempts?: number
   maxRetrievalAttempts?: number
   maxSteps?: number
@@ -89,11 +89,14 @@ const BROAD_HIGH_RISK_RETRIEVAL_REPLACEMENTS = new Map([
   ['retrieve_independent_sources', 'retrieve_independent_corroboration']
 ])
 
-function isHighAssuranceRoute(routePlan: RoutePlan): boolean {
-  return routePlan.riskLevel === 'high' || routePlan.riskLevel === 'critical'
+function isHighAssuranceRoute(routePlan: RoutePlan | null | undefined): boolean {
+  return routePlan?.riskLevel === 'high' || routePlan?.riskLevel === 'critical'
 }
 
-function normalizeRepairAction(action: string, routePlan: RoutePlan): string {
+function normalizeRepairAction(
+  action: string,
+  routePlan: RoutePlan | null | undefined
+): string {
   if (!isHighAssuranceRoute(routePlan)) return action
   return BROAD_HIGH_RISK_RETRIEVAL_REPLACEMENTS.get(action) ?? action
 }
@@ -108,13 +111,26 @@ function priorityRank(priority: CoordinatorRepairStepPriority): number {
   return 2
 }
 
-function safeAction(value: string): string | null {
+function safeAction(value: unknown): string | null {
+  if (typeof value !== 'string') return null
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : null
 }
 
-function safeStringArray(value: string[]): string[] {
+function safeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
   return [...new Set(value.filter(item => typeof item === 'string'))]
+}
+
+function safePriority(value: unknown): CoordinatorRepairStepPriority {
+  if (value === 'high' || value === 'medium') return value
+  return 'low'
+}
+
+function safeReason(value: unknown, action: string): string {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value
+    : policyActionReason(action)
 }
 
 function policyActionReason(action: string): string {
@@ -170,20 +186,27 @@ function policyActionPriority(action: string): CoordinatorRepairStepPriority {
 }
 
 function hintCandidates(
-  hints: CoordinatorAdmissionConflictRepairHint[]
+  hints: CoordinatorAdmissionConflictRepairHint[] | null | undefined
 ): RepairCandidate[] {
-  return hints.map(hint => ({
-    action: hint.action,
-    source: 'conflict_hint',
-    priority: hint.priority,
-    reason: hint.reason,
-    evidenceIds: safeStringArray(hint.evidenceIds),
-    claimIds: safeStringArray(hint.claimIds)
-  }))
+  return (hints ?? []).flatMap(hint => {
+    const action = safeAction(hint?.action)
+    if (!action) return []
+
+    return [
+      {
+        action,
+        source: 'conflict_hint' as const,
+        priority: safePriority(hint.priority),
+        reason: safeReason(hint.reason, action),
+        evidenceIds: safeStringArray(hint.evidenceIds),
+        claimIds: safeStringArray(hint.claimIds)
+      }
+    ]
+  })
 }
 
-function policyCandidates(actions: string[]): RepairCandidate[] {
-  return actions.flatMap(action => {
+function policyCandidates(actions: string[] | null | undefined): RepairCandidate[] {
+  return (actions ?? []).flatMap(action => {
     const safe = safeAction(action)
     if (!safe) return []
     return [
@@ -213,13 +236,13 @@ export function createBoundedRepairPlan(
     DEFAULT_MAX_RETRIEVAL_ATTEMPTS
   )
   const maxSteps = boundedNonNegativeInteger(input.maxSteps, DEFAULT_MAX_STEPS)
-  const remainingRetrievalAttempts = Math.max(
+  let remainingRetrievalBudget = Math.max(
     0,
     maxRetrievalAttempts - retrievalAttempts
   )
   const candidates = [
-    ...hintCandidates(input.conflictRepairHints),
-    ...policyCandidates(input.requiredRepairActions)
+    ...hintCandidates(input.conflictRepairHints ?? []),
+    ...policyCandidates(input.requiredRepairActions ?? [])
   ].sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority))
 
   const seenActions = new Set<string>()
@@ -247,7 +270,7 @@ export function createBoundedRepairPlan(
       continue
     }
 
-    if (isRetrievalAction(normalizedAction) && remainingRetrievalAttempts <= 0) {
+    if (isRetrievalAction(normalizedAction) && remainingRetrievalBudget <= 0) {
       skippedActions.push({
         action: normalizedAction,
         reason: 'retrieval_attempt_budget_exhausted',
@@ -266,6 +289,10 @@ export function createBoundedRepairPlan(
     }
 
     seenActions.add(normalizedAction)
+    if (isRetrievalAction(normalizedAction)) {
+      remainingRetrievalBudget -= 1
+    }
+
     steps.push({
       id: `repair_step_${steps.length + 1}:${normalizedAction}`,
       action: normalizedAction,
@@ -282,7 +309,7 @@ export function createBoundedRepairPlan(
 
   return {
     canAttemptRepair: steps.length > 0,
-    remainingRetrievalAttempts,
+    remainingRetrievalAttempts: remainingRetrievalBudget,
     steps,
     skippedActions,
     blockedReasons:
