@@ -178,8 +178,8 @@ function policyActionPriority(action: string): CoordinatorRepairStepPriority {
   if (
     action === 'run_advisor_review' ||
     action === 'select_stronger_model' ||
-    action === 'run_contradiction_review' ||
-    isRetrievalAction(action)
+    action === 'retrieve_authoritative_sources' ||
+    action === 'run_contradiction_review'
   ) {
     return 'high'
   }
