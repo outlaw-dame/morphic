@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type {
+  EvidenceConflict,
   EvidenceGraph,
   NormalizedEvidenceItem
 } from '@/lib/ai-architecture/evidence'
@@ -80,15 +81,30 @@ function evidenceItem(
   }
 }
 
+function evidenceConflict(
+  overrides: Partial<EvidenceConflict> = {}
+): EvidenceConflict {
+  return {
+    id: 'conflict_one',
+    type: 'negation_overlap',
+    severity: 'block',
+    evidenceIds: ['ev_one', 'ev_two'],
+    claimIds: ['cl_one', 'cl_two'],
+    reason: 'Similar claims differ by explicit negation language.',
+    ...overrides
+  }
+}
+
 function evidenceGraph(
   items: NormalizedEvidenceItem[],
-  warnings: string[] = []
+  warnings: string[] = [],
+  conflicts: EvidenceConflict[] = []
 ): EvidenceGraph {
   return {
     items,
     duplicateGroups: [],
     claimClusters: [],
-    conflicts: [],
+    conflicts,
     claimsByEvidenceId: {},
     warnings
   }
@@ -119,6 +135,7 @@ describe('coordinator admission bridge', () => {
     expect(admission.canCompose).toBe(true)
     expect(admission.blockedPolicyIds).toEqual([])
     expect(admission.requiredRepairActions).not.toContain('retrieve_fresh_sources')
+    expect(admission.conflictDetails).toEqual([])
     expect(admission.decision.stopConditions).toContain('composition_allowed')
     expect(admission.decision.activeModelRoles).toContain('citation_verifier')
   })
@@ -168,8 +185,46 @@ describe('coordinator admission bridge', () => {
     expect(admission.blockedPolicyIds).toContain('source_mix')
     expect(admission.requiredRepairActions).toContain('retrieve_authoritative_sources')
     expect(admission.requiredRepairActions).toContain('run_advisor_review')
+    expect(admission.conflictDetails).toEqual([])
     expect(admission.decision.stopConditions).toContain(
       'composition_waiting_for_repairs'
     )
+  })
+
+  it('surfaces structured conflict details in admission metadata', () => {
+    const admission = createCoordinatorAdmission({
+      routePlan: baseRoutePlan,
+      evidenceGraph: evidenceGraph(
+        [
+          evidenceItem(),
+          evidenceItem({
+            id: 'ev_two',
+            url: 'https://other.example.net/report',
+            canonicalUrl: 'https://other.example.net/report',
+            host: 'other.example.net',
+            claimIds: ['cl_two']
+          })
+        ],
+        [],
+        [evidenceConflict()]
+      ),
+      completedRoles: ['router', 'retriever'],
+      now
+    })
+
+    expect(admission.status).toBe('repair')
+    expect(admission.canCompose).toBe(false)
+    expect(admission.blockedPolicyIds).toContain('contradictions')
+    expect(admission.conflictDetails).toEqual([
+      {
+        policyId: 'contradictions',
+        type: 'evidence_conflict:negation_overlap',
+        id: 'conflict_one',
+        severity: 'block',
+        evidenceIds: ['ev_one', 'ev_two'],
+        claimIds: ['cl_one', 'cl_two'],
+        reason: 'Similar claims differ by explicit negation language.'
+      }
+    ])
   })
 })
