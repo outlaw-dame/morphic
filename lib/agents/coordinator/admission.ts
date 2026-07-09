@@ -60,6 +60,8 @@ export type CoordinatorAdmission = CoordinatorEvaluation & {
   boundedRepairPlan: CoordinatorBoundedRepairPlan
 }
 
+const DEFAULT_MAX_RETRIEVAL_ATTEMPTS = 2
+
 function stableStringId(value: unknown, fallback: string): string {
   const trimmed = typeof value === 'string' ? value.trim() : undefined
   return trimmed && trimmed.length > 0 ? trimmed : fallback
@@ -68,6 +70,25 @@ function stableStringId(value: unknown, fallback: string): string {
 function safeStringArray(value: unknown): string[] {
   const arr = Array.isArray(value) ? value : []
   return [...new Set(arr.filter(item => typeof item === 'string'))]
+}
+
+function boundedNonNegativeInteger(value: number | undefined, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback
+  return Math.max(0, Math.floor(value ?? fallback))
+}
+
+function isRetrievalAction(action: string): boolean {
+  return action.startsWith('retrieve_')
+}
+
+function remainingRetrievalBudget(input: CoordinatorAdmissionInput): number {
+  const retrievalAttempts = boundedNonNegativeInteger(input.retrievalAttempts, 0)
+  const maxRetrievalAttempts = boundedNonNegativeInteger(
+    input.maxRetrievalAttempts,
+    DEFAULT_MAX_RETRIEVAL_ATTEMPTS
+  )
+
+  return Math.max(0, maxRetrievalAttempts - retrievalAttempts)
 }
 
 function repairActionForConflictType(type: string): string {
@@ -153,12 +174,22 @@ function toBlockingRepairActions(
 
 function toBlockingConflictRepairHints(
   conflictRepairHints: CoordinatorAdmissionConflictRepairHint[],
-  blockedPolicyIds: string[]
+  blockedPolicyIds: string[],
+  blockingRepairActions: string[],
+  input: CoordinatorAdmissionInput
 ): CoordinatorAdmissionConflictRepairHint[] {
   if (blockedPolicyIds.length === 0) return conflictRepairHints
 
+  const blockingRetrievalActions = new Set(
+    blockingRepairActions.filter(isRetrievalAction)
+  )
+  const canSpendRetrievalOnMediumHints =
+    remainingRetrievalBudget(input) > blockingRetrievalActions.size
+
   return conflictRepairHints.filter(
-    hint => hint.priority === 'high' || blockedPolicyIds.includes(hint.policyId)
+    hint =>
+      hint.priority === 'high' ||
+      (canSpendRetrievalOnMediumHints && blockedPolicyIds.includes(hint.policyId))
   )
 }
 
@@ -175,7 +206,12 @@ function createAdmissionBoundedRepairPlan(
     : toBlockingRepairActions(evaluation, blockedPolicyIds, requiredRepairActions)
   const boundedConflictRepairHints = canCompose
     ? []
-    : toBlockingConflictRepairHints(conflictRepairHints, blockedPolicyIds)
+    : toBlockingConflictRepairHints(
+        conflictRepairHints,
+        blockedPolicyIds,
+        boundedRepairActions,
+        input
+      )
 
   return createBoundedRepairPlan({
     routePlan: input.routePlan,
