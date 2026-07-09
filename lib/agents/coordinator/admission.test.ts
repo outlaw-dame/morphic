@@ -391,15 +391,11 @@ describe('coordinator admission bridge', () => {
         priority: 'medium'
       })
     ])
-    expect(admission.boundedRepairPlan.steps.map(step => step.action)).toEqual(
-      expect.arrayContaining(['retrieve_fresh_sources', 'select_stronger_model'])
-    )
-    expect(admission.boundedRepairPlan.steps.map(step => step.action)).not.toContain(
-      'retrieve_primary_numeric_source'
-    )
-    expect(admission.boundedRepairPlan.steps.map(step => step.action)).not.toContain(
-      'run_contradiction_review'
-    )
+    expect(admission.boundedRepairPlan.steps.map(step => step.action)).toEqual([
+      'select_stronger_model',
+      'run_citation_verifier',
+      'retrieve_fresh_sources'
+    ])
   })
 
   it('ignores malformed runtime policy details without throwing', () => {
