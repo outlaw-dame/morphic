@@ -58,8 +58,22 @@ The planner:
 - skips unsupported repair actions;
 - enforces a maximum number of repair steps;
 - enforces a retrieval-attempt budget for retrieval actions;
+- decrements remaining retrieval budget for each planned retrieval step;
+- blocks later retrieval steps once the remaining retrieval budget reaches zero;
 - reports skipped actions instead of throwing;
 - clamps invalid numeric limits to safe non-negative values.
+
+## Defensive behavior
+
+The planner treats admission metadata as runtime input and avoids trusting optional fields blindly:
+
+- missing route plans are treated as non-high-assurance routes instead of throwing;
+- missing action arrays and hint arrays default to empty arrays;
+- non-string and blank repair actions are ignored;
+- non-array evidence/claim ID fields become empty arrays;
+- evidence/claim IDs are string-filtered and de-duplicated;
+- invalid hint priorities fall back to low priority;
+- blank or non-string reasons fall back to deterministic action reasons.
 
 ## Route-aware constraints
 
@@ -101,10 +115,13 @@ Tests cover:
 - conflict hints taking priority over lower-priority policy actions;
 - action de-duplication;
 - retrieval-attempt budget exhaustion;
+- retrieval budget decrementing per planned retrieval step;
+- blocking subsequent retrieval steps once the budget is exhausted;
 - high-risk broad-action normalization;
 - unsupported actions;
 - maximum step limits;
-- invalid numeric bounds.
+- invalid numeric bounds;
+- malformed runtime arrays and missing route metadata.
 
 ## Follow-up
 
