@@ -131,16 +131,53 @@ export function toAdmissionConflictRepairHints(
   })
 }
 
+function toBlockingRepairActions(
+  evaluation: CoordinatorEvaluation,
+  blockedPolicyIds: string[],
+  requiredRepairActions: string[]
+): string[] {
+  if (blockedPolicyIds.length === 0) return requiredRepairActions
+
+  const policyRepairActions = new Set(
+    evaluation.policyResults.flatMap(result => result.repairActions ?? [])
+  )
+  const blockingPolicyRepairActions = evaluation.policyResults
+    .filter(result => !result.passed && result.severity === 'block')
+    .flatMap(result => result.repairActions ?? [])
+  const escalationRepairActions = requiredRepairActions.filter(
+    action => !policyRepairActions.has(action)
+  )
+
+  return [...new Set([...blockingPolicyRepairActions, ...escalationRepairActions])]
+}
+
+function toBlockingConflictRepairHints(
+  conflictRepairHints: CoordinatorAdmissionConflictRepairHint[],
+  blockedPolicyIds: string[]
+): CoordinatorAdmissionConflictRepairHint[] {
+  if (blockedPolicyIds.length === 0) return conflictRepairHints
+  return conflictRepairHints.filter(hint => hint.priority === 'high')
+}
+
 function createAdmissionBoundedRepairPlan(
+  evaluation: CoordinatorEvaluation,
   input: CoordinatorAdmissionInput,
   canCompose: boolean,
+  blockedPolicyIds: string[],
   requiredRepairActions: string[],
   conflictRepairHints: CoordinatorAdmissionConflictRepairHint[]
 ): CoordinatorBoundedRepairPlan {
+  const boundedRepairActions = canCompose
+    ? []
+    : toBlockingRepairActions(evaluation, blockedPolicyIds, requiredRepairActions)
+  const boundedConflictRepairHints = canCompose
+    ? []
+    : toBlockingConflictRepairHints(conflictRepairHints, blockedPolicyIds)
+
   return createBoundedRepairPlan({
     routePlan: input.routePlan,
-    requiredRepairActions: canCompose ? [] : requiredRepairActions,
-    conflictRepairHints: canCompose ? [] : conflictRepairHints,
+    requiredRepairActions: boundedRepairActions,
+    conflictRepairHints: boundedConflictRepairHints,
     retrievalAttempts: input.retrievalAttempts,
     maxRetrievalAttempts: input.maxRetrievalAttempts
   })
@@ -161,8 +198,10 @@ function toAdmission(
   const conflictDetails = toAdmissionConflictDetails(evaluation.policyResults)
   const conflictRepairHints = toAdmissionConflictRepairHints(conflictDetails)
   const boundedRepairPlan = createAdmissionBoundedRepairPlan(
+    evaluation,
     input,
     canCompose,
+    blockedPolicyIds,
     requiredRepairActions,
     conflictRepairHints
   )
