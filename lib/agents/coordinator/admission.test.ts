@@ -392,6 +392,7 @@ describe('coordinator admission bridge', () => {
       })
     ])
     expect(admission.boundedRepairPlan.steps.map(step => step.action)).toEqual([
+      'run_advisor_review',
       'select_stronger_model',
       'run_citation_verifier',
       'retrieve_fresh_sources'
