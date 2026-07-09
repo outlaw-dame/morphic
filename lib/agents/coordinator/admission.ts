@@ -11,6 +11,10 @@ import type {
   CoordinatorPolicyDetail,
   CoordinatorPolicyResult
 } from './policy-types'
+import {
+  createBoundedRepairPlan,
+  type CoordinatorBoundedRepairPlan
+} from './repair-planner'
 
 export type CoordinatorAdmissionStatus = 'compose' | 'repair'
 
@@ -53,6 +57,7 @@ export type CoordinatorAdmission = CoordinatorEvaluation & {
   requiredRepairActions: string[]
   conflictDetails: CoordinatorAdmissionConflictDetail[]
   conflictRepairHints: CoordinatorAdmissionConflictRepairHint[]
+  boundedRepairPlan: CoordinatorBoundedRepairPlan
 }
 
 function stableStringId(value: unknown, fallback: string): string {
@@ -126,7 +131,10 @@ export function toAdmissionConflictRepairHints(
   })
 }
 
-function toAdmission(evaluation: CoordinatorEvaluation): CoordinatorAdmission {
+function toAdmission(
+  evaluation: CoordinatorEvaluation,
+  input: CoordinatorAdmissionInput
+): CoordinatorAdmission {
   const blockedPolicyIds = evaluation.policyResults
     .filter(result => !result.passed && result.severity === 'block')
     .map(result => result.id)
@@ -134,7 +142,16 @@ function toAdmission(evaluation: CoordinatorEvaluation): CoordinatorAdmission {
     .filter(result => !result.passed && result.severity === 'warn')
     .map(result => result.id)
   const canCompose = evaluation.repairPlan.canProceedToComposition
+  const requiredRepairActions = [...new Set(evaluation.repairPlan.actions)]
   const conflictDetails = toAdmissionConflictDetails(evaluation.policyResults)
+  const conflictRepairHints = toAdmissionConflictRepairHints(conflictDetails)
+  const boundedRepairPlan = createBoundedRepairPlan({
+    routePlan: input.routePlan,
+    requiredRepairActions,
+    conflictRepairHints,
+    retrievalAttempts: input.retrievalAttempts,
+    maxRetrievalAttempts: input.maxRetrievalAttempts
+  })
 
   return {
     ...evaluation,
@@ -142,9 +159,10 @@ function toAdmission(evaluation: CoordinatorEvaluation): CoordinatorAdmission {
     canCompose,
     blockedPolicyIds,
     warningPolicyIds,
-    requiredRepairActions: [...new Set(evaluation.repairPlan.actions)],
+    requiredRepairActions,
     conflictDetails,
-    conflictRepairHints: toAdmissionConflictRepairHints(conflictDetails)
+    conflictRepairHints,
+    boundedRepairPlan
   }
 }
 
@@ -159,7 +177,7 @@ export function createCoordinatorAdmission(
     completedRoles: input.completedRoles
   })
 
-  return toAdmission(coordinateExecution(state, input.now))
+  return toAdmission(coordinateExecution(state, input.now), input)
 }
 
 export function createCoordinatorAdmissionFromSearchResults(
