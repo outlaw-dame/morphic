@@ -399,7 +399,7 @@ describe('coordinator admission bridge', () => {
     ])
   })
 
-  it('retains medium-priority conflict hints when their policy blocks composition', () => {
+  it('retains medium-priority conflict hints when their policy is the only blocker', () => {
     const admission = createCoordinatorAdmission({
       routePlan: {
         ...baseRoutePlan,
@@ -448,6 +448,56 @@ describe('coordinator admission bridge', () => {
       'retrieve_primary_numeric_source',
       'run_citation_verifier'
     ])
+  })
+
+  it('keeps contested retrieval budget for blocking policy repairs before medium hints', () => {
+    const admission = createCoordinatorAdmission({
+      routePlan: {
+        ...baseRoutePlan,
+        riskLevel: 'high',
+        needsFreshness: true
+      },
+      evidenceGraph: evidenceGraph(
+        [
+          evidenceItem({
+            id: 'ev_one',
+            publishedAt: '2026-07-01T00:00:00.000Z',
+            retrievedAt: '2026-07-01T00:00:00.000Z'
+          }),
+          evidenceItem({
+            id: 'ev_two',
+            url: 'https://other.example.net/report',
+            canonicalUrl: 'https://other.example.net/report',
+            host: 'other.example.net',
+            claimIds: ['cl_two'],
+            publishedAt: '2026-07-01T00:00:00.000Z',
+            retrievedAt: '2026-07-01T00:00:00.000Z'
+          })
+        ],
+        [],
+        [
+          evidenceConflict({
+            id: 'numeric_conflict',
+            type: 'numeric_mismatch',
+            severity: 'warn',
+            reason: 'Similar claims contain different numeric values.'
+          })
+        ]
+      ),
+      completedRoles: ['router', 'retriever'],
+      retrievalAttempts: 1,
+      maxRetrievalAttempts: 2,
+      now
+    })
+
+    const repairActions = admission.boundedRepairPlan.steps.map(step => step.action)
+
+    expect(admission.status).toBe('repair')
+    expect(admission.blockedPolicyIds).toEqual(
+      expect.arrayContaining(['freshness', 'contradictions'])
+    )
+    expect(repairActions).toContain('retrieve_fresh_sources')
+    expect(repairActions).not.toContain('retrieve_primary_numeric_source')
   })
 
   it('ignores malformed runtime policy details without throwing', () => {
