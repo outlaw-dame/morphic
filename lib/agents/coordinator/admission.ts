@@ -157,14 +157,9 @@ function toBlockingConflictRepairHints(
 ): CoordinatorAdmissionConflictRepairHint[] {
   if (blockedPolicyIds.length === 0) return conflictRepairHints
 
-  if (blockedPolicyIds.length === 1) {
-    const singlePolicyId = blockedPolicyIds[0]
-    return conflictRepairHints.filter(
-      hint => hint.priority === 'high' || hint.policyId === singlePolicyId
-    )
-  }
-
-  return conflictRepairHints.filter(hint => hint.priority === 'high')
+  return conflictRepairHints.filter(
+    hint => hint.priority === 'high' || blockedPolicyIds.includes(hint.policyId)
+  )
 }
 
 function createAdmissionBoundedRepairPlan(
