@@ -337,6 +337,71 @@ describe('coordinator admission bridge', () => {
     expect(admission.boundedRepairPlan.remainingRetrievalAttempts).toBe(0)
   })
 
+  it('keeps blocking repairs ahead of warning conflict hints in admission bounded repair metadata', () => {
+    const admission = createCoordinatorAdmission({
+      routePlan: {
+        ...baseRoutePlan,
+        needsFreshness: true
+      },
+      evidenceGraph: evidenceGraph(
+        [
+          evidenceItem({
+            id: 'ev_one',
+            publishedAt: '2026-07-01T00:00:00.000Z',
+            retrievedAt: '2026-07-01T00:00:00.000Z'
+          }),
+          evidenceItem({
+            id: 'ev_two',
+            url: 'https://other.example.net/report',
+            canonicalUrl: 'https://other.example.net/report',
+            host: 'other.example.net',
+            claimIds: ['cl_two'],
+            publishedAt: '2026-07-01T00:00:00.000Z',
+            retrievedAt: '2026-07-01T00:00:00.000Z'
+          })
+        ],
+        [],
+        [
+          evidenceConflict({
+            id: 'numeric_conflict',
+            type: 'numeric_mismatch',
+            severity: 'warn',
+            reason: 'Similar claims contain different numeric values.'
+          })
+        ]
+      ),
+      completedRoles: ['router', 'retriever'],
+      now
+    })
+
+    expect(admission.status).toBe('repair')
+    expect(admission.blockedPolicyIds).toEqual(['freshness'])
+    expect(admission.warningPolicyIds).toContain('contradictions')
+    expect(admission.requiredRepairActions).toEqual(
+      expect.arrayContaining([
+        'retrieve_fresh_sources',
+        'run_contradiction_review',
+        'select_stronger_model'
+      ])
+    )
+    expect(admission.conflictRepairHints).toEqual([
+      expect.objectContaining({
+        id: 'contradictions:numeric_conflict:repair_hint',
+        action: 'retrieve_primary_numeric_source',
+        priority: 'medium'
+      })
+    ])
+    expect(admission.boundedRepairPlan.steps.map(step => step.action)).toEqual(
+      expect.arrayContaining(['retrieve_fresh_sources', 'select_stronger_model'])
+    )
+    expect(admission.boundedRepairPlan.steps.map(step => step.action)).not.toContain(
+      'retrieve_primary_numeric_source'
+    )
+    expect(admission.boundedRepairPlan.steps.map(step => step.action)).not.toContain(
+      'run_contradiction_review'
+    )
+  })
+
   it('ignores malformed runtime policy details without throwing', () => {
     const policyResults = [
       {
