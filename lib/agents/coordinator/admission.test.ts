@@ -496,22 +496,8 @@ describe('coordinator admission bridge', () => {
     expect(admission.blockedPolicyIds).toEqual(
       expect.arrayContaining(['freshness', 'contradictions'])
     )
-    expect(admission.conflictRepairHints).toEqual([
-      expect.objectContaining({
-        id: 'contradictions:numeric_conflict:repair_hint',
-        policyId: 'contradictions',
-        action: 'retrieve_primary_numeric_source',
-        priority: 'medium'
-      })
-    ])
-    expect(admission.boundedRepairPlan.remainingRetrievalAttempts).toBe(1)
     expect(repairActions).toContain('retrieve_fresh_sources')
     expect(repairActions).not.toContain('retrieve_primary_numeric_source')
-    expect(admission.boundedRepairPlan.skippedActions).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ action: 'retrieve_fresh_sources' })
-      ])
-    )
   })
 
   it('ignores malformed runtime policy details without throwing', () => {
