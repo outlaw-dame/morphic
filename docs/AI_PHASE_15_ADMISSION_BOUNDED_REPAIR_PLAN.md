@@ -14,12 +14,14 @@ Phase AI-14 introduced a pure planner that turns admission repair actions and co
 boundedRepairPlan: CoordinatorBoundedRepairPlan
 ```
 
-The admission bridge builds this field from:
+For repair-status admissions, the admission bridge builds this field from:
 
 - `routePlan` from the admission input;
 - de-duplicated `requiredRepairActions` from the Coordinator repair plan;
 - `conflictRepairHints` derived from structured evidence conflicts;
 - `retrievalAttempts` and `maxRetrievalAttempts` from the admission input.
+
+For compose-ready admissions, `boundedRepairPlan` is intentionally no-op even when other advisory metadata, such as citation-verifier model roles, is present. This keeps repair planning separate from composition-time verification.
 
 The existing `repairPlan` field from `CoordinatorEvaluation` remains unchanged. `boundedRepairPlan` is a separate admission-level view for safe repair planning metadata.
 
@@ -43,16 +45,17 @@ Admission now exposes a bounded repair plan for both compose and repair statuses
 - repair admissions return ordered, capped repair steps when supported deterministic actions are available;
 - retrieval repair steps respect the current retrieval attempt budget;
 - conflict repair hints can become repair steps before lower-priority policy actions;
-- non-retrieval review steps can still be planned when retrieval budget is exhausted.
+- non-retrieval review/model/citation steps can still be planned when retrieval budget is exhausted;
+- unsupported legacy repair actions remain visible in `skippedActions` instead of throwing.
 
 ## Regression coverage
 
 Tests cover:
 
 - compose admissions returning a no-op bounded plan;
-- weak-source repair admissions exposing bounded source/advisor/model repair steps;
+- weak-source repair admissions exposing bounded source/advisor/model/citation repair steps and skipped unsupported legacy actions;
 - structured conflict admissions exposing conflict hints and bounded repair steps;
-- exhausted retrieval budgets skipping retrieval hints while retaining non-retrieval contradiction review;
+- exhausted retrieval budgets skipping retrieval hints while retaining non-retrieval contradiction/model/citation review;
 - existing malformed runtime conflict-detail and repair-hint hardening.
 
 ## Follow-up
