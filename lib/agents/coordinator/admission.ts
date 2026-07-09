@@ -189,9 +189,6 @@ function toBlockingConflictRepairHints(
   const blockedPolicyIdSet = new Set(blockedPolicyIds)
   const supportedBlockingRepairActions = supportedActions(blockingRepairActions)
   const blockingRepairActionSet = new Set(supportedBlockingRepairActions)
-  const blockingRetrievalActions = new Set(
-    supportedBlockingRepairActions.filter(isRetrievalAction)
-  )
   const highHintActions = new Set(
     supportedActions(
       conflictRepairHints
@@ -199,25 +196,28 @@ function toBlockingConflictRepairHints(
         .map(hint => hint.action)
     )
   )
-  const highHintRetrievalActions = new Set(
-    [...highHintActions].filter(isRetrievalAction)
+  const committedActions = new Set([
+    ...blockingRepairActionSet,
+    ...highHintActions
+  ])
+  const committedRetrievalActions = new Set(
+    [...committedActions].filter(isRetrievalAction)
   )
   let availableMediumHintSlots = Math.max(
     0,
-    DEFAULT_MAX_REPAIR_STEPS -
-      blockingRepairActionSet.size -
-      highHintActions.size
+    DEFAULT_MAX_REPAIR_STEPS - committedActions.size
   )
   let availableMediumHintRetrievalBudget = Math.max(
     0,
-    remainingRetrievalBudget(input) -
-      blockingRetrievalActions.size -
-      highHintRetrievalActions.size
+    remainingRetrievalBudget(input) - committedRetrievalActions.size
   )
+  const seenActions = new Set(committedActions)
 
   return conflictRepairHints.filter(hint => {
     if (hint.priority === 'high') return true
     if (!blockedPolicyIdSet.has(hint.policyId)) return false
+    if (!isSupportedRepairAction(hint.action)) return false
+    if (seenActions.has(hint.action)) return true
     if (availableMediumHintSlots <= 0) return false
 
     if (isRetrievalAction(hint.action)) {
@@ -226,6 +226,7 @@ function toBlockingConflictRepairHints(
     }
 
     availableMediumHintSlots -= 1
+    seenActions.add(hint.action)
     return true
   })
 }
