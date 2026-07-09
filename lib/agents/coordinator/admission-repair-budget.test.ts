@@ -129,11 +129,50 @@ describe('coordinator admission repair budget regressions', () => {
     expect(repairActions).not.toContain('retrieve_primary_numeric_source')
   })
 
-  it('retains blocked contradiction retrieval when another non-retrieval blocker exists and budget remains', () => {
+  it('keeps freshness retrieval ahead of medium contradiction retrieval when step capacity is contested', () => {
     const admission = createCoordinatorAdmission({
       routePlan: {
         ...routePlan,
-        needsEntityGrounding: true
+        needsFreshness: true
+      },
+      evidenceGraph: evidenceGraph([
+        evidenceItem({
+          id: 'ev_one',
+          publishedAt: staleRetrievedAt,
+          retrievedAt: staleRetrievedAt
+        }),
+        evidenceItem({
+          id: 'ev_two',
+          url: 'https://other.example.net/report',
+          canonicalUrl: 'https://other.example.net/report',
+          host: 'other.example.net',
+          claimIds: ['cl_two'],
+          publishedAt: staleRetrievedAt,
+          retrievedAt: staleRetrievedAt
+        })
+      ]),
+      completedRoles: ['router', 'retriever'],
+      retrievalAttempts: 0,
+      maxRetrievalAttempts: 2,
+      now
+    })
+
+    const repairActions = admission.boundedRepairPlan.steps.map(step => step.action)
+
+    expect(admission.blockedPolicyIds).toEqual(
+      expect.arrayContaining(['freshness', 'contradictions'])
+    )
+    expect(repairActions).toContain('retrieve_fresh_sources')
+    expect(repairActions).not.toContain('retrieve_primary_numeric_source')
+    expect(admission.boundedRepairPlan.steps.length).toBeLessThanOrEqual(5)
+  })
+
+  it('retains blocked contradiction retrieval when another non-retrieval blocker exists and capacity remains', () => {
+    const admission = createCoordinatorAdmission({
+      routePlan: {
+        ...routePlan,
+        needsEntityGrounding: true,
+        needsCitationVerification: false
       },
       evidenceGraph: evidenceGraph([
         evidenceItem(),

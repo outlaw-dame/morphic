@@ -53,7 +53,7 @@ type RepairCandidate = {
 }
 
 const DEFAULT_MAX_RETRIEVAL_ATTEMPTS = 2
-const DEFAULT_MAX_STEPS = 5
+export const DEFAULT_MAX_REPAIR_STEPS = 5
 
 const SUPPORTED_REPAIR_ACTIONS = new Set([
   'retrieve_authoritative_sources',
@@ -103,6 +103,10 @@ function normalizeRepairAction(
 ): string {
   if (!isHighAssuranceRoute(routePlan)) return action
   return BROAD_HIGH_RISK_RETRIEVAL_REPLACEMENTS.get(action) ?? action
+}
+
+export function isSupportedRepairAction(action: string): boolean {
+  return SUPPORTED_REPAIR_ACTIONS.has(action)
 }
 
 function isRetrievalAction(action: string): boolean {
@@ -239,7 +243,7 @@ export function createBoundedRepairPlan(
     input.maxRetrievalAttempts,
     DEFAULT_MAX_RETRIEVAL_ATTEMPTS
   )
-  const maxSteps = boundedNonNegativeInteger(input.maxSteps, DEFAULT_MAX_STEPS)
+  const maxSteps = boundedNonNegativeInteger(input.maxSteps, DEFAULT_MAX_REPAIR_STEPS)
   let remainingRetrievalBudget = Math.max(
     0,
     maxRetrievalAttempts - retrievalAttempts
@@ -256,7 +260,7 @@ export function createBoundedRepairPlan(
   for (const candidate of candidates) {
     const normalizedAction = normalizeRepairAction(candidate.action, input.routePlan)
 
-    if (!SUPPORTED_REPAIR_ACTIONS.has(normalizedAction)) {
+    if (!isSupportedRepairAction(normalizedAction)) {
       skippedActions.push({
         action: candidate.action,
         reason: 'unsupported_repair_action',
