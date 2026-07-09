@@ -105,6 +105,10 @@ function normalizeRepairAction(
   return BROAD_HIGH_RISK_RETRIEVAL_REPLACEMENTS.get(action) ?? action
 }
 
+export function isSupportedRepairAction(action: string): boolean {
+  return SUPPORTED_REPAIR_ACTIONS.has(action)
+}
+
 function isRetrievalAction(action: string): boolean {
   return RETRIEVAL_ACTIONS.has(action)
 }
@@ -256,7 +260,7 @@ export function createBoundedRepairPlan(
   for (const candidate of candidates) {
     const normalizedAction = normalizeRepairAction(candidate.action, input.routePlan)
 
-    if (!SUPPORTED_REPAIR_ACTIONS.has(normalizedAction)) {
+    if (!isSupportedRepairAction(normalizedAction)) {
       skippedActions.push({
         action: candidate.action,
         reason: 'unsupported_repair_action',
