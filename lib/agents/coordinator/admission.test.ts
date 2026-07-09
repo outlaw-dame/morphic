@@ -241,6 +241,9 @@ describe('coordinator admission bridge', () => {
         details: [
           null,
           {},
+          { type: 123 },
+          { type: false },
+          { type: { nested: 'evidence_conflict:bad' } },
           { reason: 'missing type' },
           { type: 'debug:other', reason: 'not a conflict detail' },
           {
