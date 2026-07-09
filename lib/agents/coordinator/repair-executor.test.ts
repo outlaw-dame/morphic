@@ -170,6 +170,33 @@ describe('createAuditedRepairExecutorPlan', () => {
     ])
   })
 
+  it('sanitizes malformed runtime source and priority values', () => {
+    const result = createAuditedRepairExecutorPlan({
+      plan: plan({
+        steps: [
+          {
+            id: 'repair_step_1:run_contradiction_review',
+            action: 'run_contradiction_review',
+            source: 'malformed_source',
+            priority: { malicious: 'high' },
+            reason: 'runtime payload with malformed metadata',
+            evidenceIds: [],
+            claimIds: []
+          }
+        ] as unknown as CoordinatorBoundedRepairPlan['steps']
+      })
+    })
+
+    expect(result.canExecute).toBe(true)
+    expect(result.records[0]).toMatchObject({
+      stepId: 'repair_step_1:run_contradiction_review',
+      action: 'run_contradiction_review',
+      source: 'policy_action',
+      priority: 'low',
+      status: 'queued'
+    })
+  })
+
   it('clamps adversarial retry policy inputs to deterministic safe bounds', () => {
     const result = createAuditedRepairExecutorPlan({
       plan: plan(),
