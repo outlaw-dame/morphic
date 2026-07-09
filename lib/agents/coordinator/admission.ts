@@ -131,6 +131,21 @@ export function toAdmissionConflictRepairHints(
   })
 }
 
+function createAdmissionBoundedRepairPlan(
+  input: CoordinatorAdmissionInput,
+  canCompose: boolean,
+  requiredRepairActions: string[],
+  conflictRepairHints: CoordinatorAdmissionConflictRepairHint[]
+): CoordinatorBoundedRepairPlan {
+  return createBoundedRepairPlan({
+    routePlan: input.routePlan,
+    requiredRepairActions: canCompose ? [] : requiredRepairActions,
+    conflictRepairHints: canCompose ? [] : conflictRepairHints,
+    retrievalAttempts: input.retrievalAttempts,
+    maxRetrievalAttempts: input.maxRetrievalAttempts
+  })
+}
+
 function toAdmission(
   evaluation: CoordinatorEvaluation,
   input: CoordinatorAdmissionInput
@@ -145,13 +160,12 @@ function toAdmission(
   const requiredRepairActions = [...new Set(evaluation.repairPlan.actions)]
   const conflictDetails = toAdmissionConflictDetails(evaluation.policyResults)
   const conflictRepairHints = toAdmissionConflictRepairHints(conflictDetails)
-  const boundedRepairPlan = createBoundedRepairPlan({
-    routePlan: input.routePlan,
+  const boundedRepairPlan = createAdmissionBoundedRepairPlan(
+    input,
+    canCompose,
     requiredRepairActions,
-    conflictRepairHints,
-    retrievalAttempts: input.retrievalAttempts,
-    maxRetrievalAttempts: input.maxRetrievalAttempts
-  })
+    conflictRepairHints
+  )
 
   return {
     ...evaluation,
