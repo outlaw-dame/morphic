@@ -198,6 +198,26 @@ describe('bounded Coordinator repair planner', () => {
     ])
   })
 
+  it('normalizes broad retrieval actions for critical mode even when inferred risk is low', () => {
+    const repairPlan = plan({
+      routePlan: {
+        ...baseRoutePlan,
+        mode: 'critical',
+        riskLevel: 'low'
+      },
+      requiredRepairActions: ['retrieve_more_sources', 'retrieve_independent_sources']
+    })
+
+    expect(repairPlan.steps.map(step => step.action)).toEqual([
+      'retrieve_authoritative_sources',
+      'retrieve_independent_corroboration'
+    ])
+    expect(repairPlan.steps.map(step => step.originalAction)).toEqual([
+      'retrieve_more_sources',
+      'retrieve_independent_sources'
+    ])
+  })
+
   it('skips unsupported actions and enforces a max step limit', () => {
     const repairPlan = plan({
       maxSteps: 2,
