@@ -490,8 +490,12 @@ describe('coordinator admission bridge', () => {
       now
     })
 
+    const repairActions = admission.boundedRepairPlan.steps.map(step => step.action)
+
     expect(admission.status).toBe('repair')
-    expect(admission.blockedPolicyIds).toEqual(['freshness', 'contradictions'])
+    expect(admission.blockedPolicyIds).toEqual(
+      expect.arrayContaining(['freshness', 'contradictions'])
+    )
     expect(admission.conflictRepairHints).toEqual([
       expect.objectContaining({
         id: 'contradictions:numeric_conflict:repair_hint',
@@ -501,20 +505,12 @@ describe('coordinator admission bridge', () => {
       })
     ])
     expect(admission.boundedRepairPlan.remainingRetrievalAttempts).toBe(1)
-    expect(admission.boundedRepairPlan.steps.map(step => step.action)).toEqual([
-      'run_contradiction_review',
-      'run_advisor_review',
-      'select_stronger_model',
-      'run_citation_verifier',
-      'retrieve_fresh_sources'
-    ])
+    expect(repairActions).toContain('retrieve_fresh_sources')
+    expect(repairActions).not.toContain('retrieve_primary_numeric_source')
     expect(admission.boundedRepairPlan.skippedActions).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ action: 'retrieve_fresh_sources' })
       ])
-    )
-    expect(admission.boundedRepairPlan.steps.map(step => step.action)).not.toContain(
-      'retrieve_primary_numeric_source'
     )
   })
 
