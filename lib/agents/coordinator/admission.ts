@@ -158,8 +158,11 @@ function toBlockingConflictRepairHints(
   if (blockedPolicyIds.length === 0) return conflictRepairHints
 
   const blockedPolicyIdSet = new Set(blockedPolicyIds)
+  const hasSingleBlockedPolicy = blockedPolicyIdSet.size === 1
   return conflictRepairHints.filter(
-    hint => hint.priority === 'high' || blockedPolicyIdSet.has(hint.policyId)
+    hint =>
+      hint.priority === 'high' ||
+      (hasSingleBlockedPolicy && blockedPolicyIdSet.has(hint.policyId))
   )
 }
 
