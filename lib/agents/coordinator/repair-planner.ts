@@ -53,7 +53,7 @@ type RepairCandidate = {
 }
 
 const DEFAULT_MAX_RETRIEVAL_ATTEMPTS = 2
-const DEFAULT_MAX_STEPS = 5
+export const DEFAULT_MAX_REPAIR_STEPS = 5
 
 const SUPPORTED_REPAIR_ACTIONS = new Set([
   'retrieve_authoritative_sources',
@@ -239,7 +239,7 @@ export function createBoundedRepairPlan(
     input.maxRetrievalAttempts,
     DEFAULT_MAX_RETRIEVAL_ATTEMPTS
   )
-  const maxSteps = boundedNonNegativeInteger(input.maxSteps, DEFAULT_MAX_STEPS)
+  const maxSteps = boundedNonNegativeInteger(input.maxSteps, DEFAULT_MAX_REPAIR_STEPS)
   let remainingRetrievalBudget = Math.max(
     0,
     maxRetrievalAttempts - retrievalAttempts
