@@ -283,7 +283,7 @@ describe('coordinator admission bridge', () => {
       {
         policyId: 'contradictions',
         type: 'evidence_conflict:numeric_mismatch',
-        id: 'numeric_conflict',
+        id: ' numeric_conflict ',
         severity: 'warn',
         evidenceIds: ['ev_one', 'ev_one', 'ev_two'],
         claimIds: ['cl_one'],
@@ -292,6 +292,7 @@ describe('coordinator admission bridge', () => {
       {
         policyId: 'contradictions',
         type: 'evidence_conflict:status_mismatch',
+        id: '   ',
         severity: 'block',
         evidenceIds: ['ev_three'],
         claimIds: ['cl_two', 'cl_two'],
@@ -319,6 +320,33 @@ describe('coordinator admission bridge', () => {
         evidenceIds: ['ev_three'],
         claimIds: ['cl_two'],
         reason: 'Resolve conflicting status claims with current authoritative status sources.'
+      }
+    ])
+  })
+
+  it('ignores malformed conflict repair hint fields without throwing', () => {
+    const hints = toAdmissionConflictRepairHints([
+      {
+        policyId: 'contradictions',
+        type: 'evidence_conflict:numeric_mismatch',
+        id: 42,
+        severity: 'warn',
+        evidenceIds: 'ev_one',
+        claimIds: { id: 'cl_one' },
+        reason: 'Malformed runtime detail fields.'
+      }
+    ] as unknown as Parameters<typeof toAdmissionConflictRepairHints>[0])
+
+    expect(hints).toEqual([
+      {
+        id: 'contradictions:conflict_1:repair_hint',
+        policyId: 'contradictions',
+        conflictId: undefined,
+        action: 'retrieve_primary_numeric_source',
+        priority: 'medium',
+        evidenceIds: [],
+        claimIds: [],
+        reason: 'Resolve conflicting numeric claims with primary or authoritative numeric sources.'
       }
     ])
   })
