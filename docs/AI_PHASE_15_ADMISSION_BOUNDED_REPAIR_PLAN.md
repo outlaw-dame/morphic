@@ -23,6 +23,8 @@ For repair-status admissions, the admission bridge builds this field from:
 
 For compose-ready admissions, `boundedRepairPlan` is intentionally no-op even when other advisory metadata, such as citation-verifier model roles, is present. This keeps repair planning separate from composition-time verification.
 
+When an admission is blocked, bounded repair planning prioritizes the policies that are actually holding composition. Warning-level conflict hints and warning-only policy repair actions remain visible in admission metadata, but they are not allowed to crowd out blocking repair actions in the capped bounded plan. Escalation safety actions from the Coordinator repair plan are preserved.
+
 The existing `repairPlan` field from `CoordinatorEvaluation` remains unchanged. `boundedRepairPlan` is a separate admission-level view for safe repair planning metadata.
 
 ## Safety boundaries
@@ -43,8 +45,9 @@ Admission now exposes a bounded repair plan for both compose and repair statuses
 
 - compose-ready admissions return a no-op bounded plan with no steps;
 - repair admissions return ordered, capped repair steps when supported deterministic actions are available;
+- blocker repair actions are planned ahead of warning-only conflict hints/actions;
 - retrieval repair steps respect the current retrieval attempt budget;
-- conflict repair hints can become repair steps before lower-priority policy actions;
+- block-severity conflict repair hints can become repair steps before lower-priority policy actions;
 - non-retrieval review/model/citation steps can still be planned when retrieval budget is exhausted;
 - unsupported legacy repair actions remain visible in `skippedActions` instead of throwing.
 
@@ -54,7 +57,8 @@ Tests cover:
 
 - compose admissions returning a no-op bounded plan;
 - weak-source repair admissions exposing bounded source/advisor/model/citation repair steps and skipped unsupported legacy actions;
-- structured conflict admissions exposing conflict hints and bounded repair steps;
+- structured block conflict admissions exposing conflict hints and bounded repair steps;
+- blocking freshness repairs staying in the bounded plan when warning-level conflict hints are also present;
 - exhausted retrieval budgets skipping retrieval hints while retaining non-retrieval contradiction/model/citation review;
 - existing malformed runtime conflict-detail and repair-hint hardening.
 
