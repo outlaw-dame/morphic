@@ -55,13 +55,14 @@ export type CoordinatorAdmission = CoordinatorEvaluation & {
   conflictRepairHints: CoordinatorAdmissionConflictRepairHint[]
 }
 
-function stableStringId(value: string | undefined, fallback: string): string {
-  const trimmed = value?.trim()
+function stableStringId(value: unknown, fallback: string): string {
+  const trimmed = typeof value === 'string' ? value.trim() : undefined
   return trimmed && trimmed.length > 0 ? trimmed : fallback
 }
 
-function safeStringArray(value: string[] | undefined): string[] {
-  return [...new Set((value ?? []).filter(item => typeof item === 'string'))]
+function safeStringArray(value: unknown): string[] {
+  const arr = Array.isArray(value) ? value : []
+  return [...new Set(arr.filter(item => typeof item === 'string'))]
 }
 
 function repairActionForConflictType(type: string): string {
@@ -105,11 +106,17 @@ export function toAdmissionConflictRepairHints(
   conflictDetails: CoordinatorAdmissionConflictDetail[]
 ): CoordinatorAdmissionConflictRepairHint[] {
   return conflictDetails.map((detail, index) => {
-    const conflictId = stableStringId(detail.id, `conflict_${index + 1}`)
+    const fallbackId = `conflict_${index + 1}`
+    const conflictId = stableStringId(detail.id, fallbackId)
+    const realConflictId =
+      typeof detail.id === 'string' && detail.id.trim().length > 0
+        ? detail.id.trim()
+        : undefined
+
     return {
       id: `${detail.policyId}:${conflictId}:repair_hint`,
       policyId: detail.policyId,
-      conflictId: detail.id,
+      conflictId: realConflictId,
       action: repairActionForConflictType(detail.type),
       priority: detail.severity === 'block' ? 'high' : 'medium',
       evidenceIds: safeStringArray(detail.evidenceIds),
