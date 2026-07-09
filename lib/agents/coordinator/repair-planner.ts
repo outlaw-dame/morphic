@@ -90,7 +90,11 @@ const BROAD_HIGH_RISK_RETRIEVAL_REPLACEMENTS = new Map([
 ])
 
 function isHighAssuranceRoute(routePlan: RoutePlan | null | undefined): boolean {
-  return routePlan?.riskLevel === 'high' || routePlan?.riskLevel === 'critical'
+  return (
+    routePlan?.riskLevel === 'high' ||
+    routePlan?.riskLevel === 'critical' ||
+    routePlan?.mode === 'critical'
+  )
 }
 
 function normalizeRepairAction(
