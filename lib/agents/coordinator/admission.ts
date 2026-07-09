@@ -12,6 +12,10 @@ import type {
   CoordinatorPolicyResult
 } from './policy-types'
 import {
+  createAuditedRepairExecutorPlan,
+  type CoordinatorRepairExecutorPlan
+} from './repair-executor'
+import {
   createBoundedRepairPlan,
   DEFAULT_MAX_REPAIR_STEPS,
   isSupportedRepairAction,
@@ -60,6 +64,7 @@ export type CoordinatorAdmission = CoordinatorEvaluation & {
   conflictDetails: CoordinatorAdmissionConflictDetail[]
   conflictRepairHints: CoordinatorAdmissionConflictRepairHint[]
   boundedRepairPlan: CoordinatorBoundedRepairPlan
+  repairExecutorPlan: CoordinatorRepairExecutorPlan
 }
 
 const DEFAULT_MAX_RETRIEVAL_ATTEMPTS = 2
@@ -282,6 +287,9 @@ function toAdmission(
     requiredRepairActions,
     conflictRepairHints
   )
+  const repairExecutorPlan = createAuditedRepairExecutorPlan({
+    plan: boundedRepairPlan
+  })
 
   return {
     ...evaluation,
@@ -292,7 +300,8 @@ function toAdmission(
     requiredRepairActions,
     conflictDetails,
     conflictRepairHints,
-    boundedRepairPlan
+    boundedRepairPlan,
+    repairExecutorPlan
   }
 }
 
