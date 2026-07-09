@@ -14,6 +14,7 @@ import type {
 import {
   createBoundedRepairPlan,
   DEFAULT_MAX_REPAIR_STEPS,
+  isSupportedRepairAction,
   type CoordinatorBoundedRepairPlan
 } from './repair-planner'
 
@@ -173,6 +174,10 @@ function toBlockingRepairActions(
   return [...new Set([...blockingPolicyRepairActions, ...escalationRepairActions])]
 }
 
+function supportedActions(actions: string[]): string[] {
+  return actions.filter(isSupportedRepairAction)
+}
+
 function toBlockingConflictRepairHints(
   conflictRepairHints: CoordinatorAdmissionConflictRepairHint[],
   blockedPolicyIds: string[],
@@ -182,14 +187,17 @@ function toBlockingConflictRepairHints(
   if (blockedPolicyIds.length === 0) return conflictRepairHints
 
   const blockedPolicyIdSet = new Set(blockedPolicyIds)
-  const blockingRepairActionSet = new Set(blockingRepairActions)
+  const supportedBlockingRepairActions = supportedActions(blockingRepairActions)
+  const blockingRepairActionSet = new Set(supportedBlockingRepairActions)
   const blockingRetrievalActions = new Set(
-    blockingRepairActions.filter(isRetrievalAction)
+    supportedBlockingRepairActions.filter(isRetrievalAction)
   )
   const highHintActions = new Set(
-    conflictRepairHints
-      .filter(hint => hint.priority === 'high')
-      .map(hint => hint.action)
+    supportedActions(
+      conflictRepairHints
+        .filter(hint => hint.priority === 'high')
+        .map(hint => hint.action)
+    )
   )
   const highHintRetrievalActions = new Set(
     [...highHintActions].filter(isRetrievalAction)
