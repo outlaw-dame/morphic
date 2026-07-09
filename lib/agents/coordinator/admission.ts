@@ -13,6 +13,7 @@ import type {
 } from './policy-types'
 import {
   createBoundedRepairPlan,
+  DEFAULT_MAX_REPAIR_STEPS,
   type CoordinatorBoundedRepairPlan
 } from './repair-planner'
 
@@ -181,17 +182,44 @@ function toBlockingConflictRepairHints(
   if (blockedPolicyIds.length === 0) return conflictRepairHints
 
   const blockedPolicyIdSet = new Set(blockedPolicyIds)
+  const blockingRepairActionSet = new Set(blockingRepairActions)
   const blockingRetrievalActions = new Set(
     blockingRepairActions.filter(isRetrievalAction)
   )
-  const canSpendRetrievalOnMediumHints =
-    remainingRetrievalBudget(input) > blockingRetrievalActions.size
-
-  return conflictRepairHints.filter(
-    hint =>
-      hint.priority === 'high' ||
-      (canSpendRetrievalOnMediumHints && blockedPolicyIdSet.has(hint.policyId))
+  const highHintActions = new Set(
+    conflictRepairHints
+      .filter(hint => hint.priority === 'high')
+      .map(hint => hint.action)
   )
+  const highHintRetrievalActions = new Set(
+    [...highHintActions].filter(isRetrievalAction)
+  )
+  let availableMediumHintSlots = Math.max(
+    0,
+    DEFAULT_MAX_REPAIR_STEPS -
+      blockingRepairActionSet.size -
+      highHintActions.size
+  )
+  let availableMediumHintRetrievalBudget = Math.max(
+    0,
+    remainingRetrievalBudget(input) -
+      blockingRetrievalActions.size -
+      highHintRetrievalActions.size
+  )
+
+  return conflictRepairHints.filter(hint => {
+    if (hint.priority === 'high') return true
+    if (!blockedPolicyIdSet.has(hint.policyId)) return false
+    if (availableMediumHintSlots <= 0) return false
+
+    if (isRetrievalAction(hint.action)) {
+      if (availableMediumHintRetrievalBudget <= 0) return false
+      availableMediumHintRetrievalBudget -= 1
+    }
+
+    availableMediumHintSlots -= 1
+    return true
+  })
 }
 
 function createAdmissionBoundedRepairPlan(
