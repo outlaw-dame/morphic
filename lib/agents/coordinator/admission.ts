@@ -7,7 +7,10 @@ import type { RoutePlan } from '@/lib/ai/schemas'
 
 import { coordinateExecution, type CoordinatorEvaluation } from './coordinator'
 import { createCoordinatorExecutionState } from './execution-state'
-import type { CoordinatorPolicyDetail } from './policy-types'
+import type {
+  CoordinatorPolicyDetail,
+  CoordinatorPolicyResult
+} from './policy-types'
 
 export type CoordinatorAdmissionStatus = 'compose' | 'repair'
 
@@ -40,12 +43,12 @@ export type CoordinatorAdmission = CoordinatorEvaluation & {
   conflictDetails: CoordinatorAdmissionConflictDetail[]
 }
 
-function toConflictDetails(
-  evaluation: CoordinatorEvaluation
+export function toAdmissionConflictDetails(
+  policyResults: CoordinatorPolicyResult[]
 ): CoordinatorAdmissionConflictDetail[] {
-  return evaluation.policyResults.flatMap(result =>
+  return policyResults.flatMap(result =>
     (result.details ?? [])
-      .filter(detail => detail.type.startsWith('evidence_conflict:'))
+      .filter(detail => detail?.type?.startsWith('evidence_conflict:'))
       .map(detail => ({
         ...detail,
         policyId: result.id
@@ -69,7 +72,7 @@ function toAdmission(evaluation: CoordinatorEvaluation): CoordinatorAdmission {
     blockedPolicyIds,
     warningPolicyIds,
     requiredRepairActions: [...new Set(evaluation.repairPlan.actions)],
-    conflictDetails: toConflictDetails(evaluation)
+    conflictDetails: toAdmissionConflictDetails(evaluation.policyResults)
   }
 }
 

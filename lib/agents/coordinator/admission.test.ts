@@ -10,8 +10,10 @@ import type { SearchResultItem } from '@/lib/types'
 
 import {
   createCoordinatorAdmission,
-  createCoordinatorAdmissionFromSearchResults
+  createCoordinatorAdmissionFromSearchResults,
+  toAdmissionConflictDetails
 } from './admission'
+import type { CoordinatorPolicyResult } from './policy-types'
 
 const now = new Date('2026-07-06T00:00:00.000Z')
 const retrievedAt = '2026-07-05T12:00:00.000Z'
@@ -224,6 +226,36 @@ describe('coordinator admission bridge', () => {
         evidenceIds: ['ev_one', 'ev_two'],
         claimIds: ['cl_one', 'cl_two'],
         reason: 'Similar claims differ by explicit negation language.'
+      }
+    ])
+  })
+
+  it('ignores malformed runtime policy details without throwing', () => {
+    const policyResults = [
+      {
+        id: 'contradictions',
+        passed: false,
+        severity: 'block',
+        reason: 'contains conflicts',
+        repairActions: [],
+        details: [
+          null,
+          {},
+          { reason: 'missing type' },
+          { type: 'debug:other', reason: 'not a conflict detail' },
+          {
+            type: 'evidence_conflict:numeric_mismatch',
+            id: 'conflict_two'
+          }
+        ]
+      }
+    ] as unknown as CoordinatorPolicyResult[]
+
+    expect(toAdmissionConflictDetails(policyResults)).toEqual([
+      {
+        policyId: 'contradictions',
+        type: 'evidence_conflict:numeric_mismatch',
+        id: 'conflict_two'
       }
     ])
   })
