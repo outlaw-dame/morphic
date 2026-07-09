@@ -140,6 +140,13 @@ describe('coordinator admission bridge', () => {
     expect(admission.requiredRepairActions).not.toContain('retrieve_fresh_sources')
     expect(admission.conflictDetails).toEqual([])
     expect(admission.conflictRepairHints).toEqual([])
+    expect(admission.boundedRepairPlan).toEqual({
+      canAttemptRepair: false,
+      remainingRetrievalAttempts: 2,
+      steps: [],
+      skippedActions: [],
+      blockedReasons: ['no_supported_repair_steps_available']
+    })
     expect(admission.decision.stopConditions).toContain('composition_allowed')
     expect(admission.decision.activeModelRoles).toContain('citation_verifier')
   })
@@ -191,12 +198,31 @@ describe('coordinator admission bridge', () => {
     expect(admission.requiredRepairActions).toContain('run_advisor_review')
     expect(admission.conflictDetails).toEqual([])
     expect(admission.conflictRepairHints).toEqual([])
+    expect(admission.boundedRepairPlan.steps.map(step => step.action)).toEqual(
+      expect.arrayContaining([
+        'retrieve_authoritative_sources',
+        'run_advisor_review',
+        'select_stronger_model'
+      ])
+    )
+    expect(admission.boundedRepairPlan.skippedActions).toEqual(
+      expect.arrayContaining([
+        {
+          action: 'escalate_to_advisor',
+          reason: 'unsupported_repair_action',
+          source: 'policy_action'
+        }
+      ])
+    )
+    expect(admission.boundedRepairPlan.canAttemptRepair).toBe(true)
+    expect(admission.boundedRepairPlan.remainingRetrievalAttempts).toBeLessThanOrEqual(1)
+    expect(admission.boundedRepairPlan.blockedReasons).toEqual([])
     expect(admission.decision.stopConditions).toContain(
       'composition_waiting_for_repairs'
     )
   })
 
-  it('surfaces structured conflict details and repair hints in admission metadata', () => {
+  it('surfaces structured conflict details, repair hints, and bounded repair plan in admission metadata', () => {
     const admission = createCoordinatorAdmission({
       routePlan: baseRoutePlan,
       evidenceGraph: evidenceGraph(
@@ -243,6 +269,72 @@ describe('coordinator admission bridge', () => {
         reason: 'Resolve conflicting claims with independent corroborating sources.'
       }
     ])
+    expect(admission.boundedRepairPlan.steps).toEqual(
+      expect.arrayContaining([
+        {
+          id: 'repair_step_1:retrieve_independent_corroboration',
+          action: 'retrieve_independent_corroboration',
+          source: 'conflict_hint',
+          priority: 'high',
+          reason: 'Resolve conflicting claims with independent corroborating sources.',
+          evidenceIds: ['ev_one', 'ev_two'],
+          claimIds: ['cl_one', 'cl_two']
+        },
+        expect.objectContaining({
+          action: 'run_contradiction_review',
+          source: 'policy_action',
+          priority: 'high'
+        })
+      ])
+    )
+    expect(admission.boundedRepairPlan.remainingRetrievalAttempts).toBe(1)
+  })
+
+  it('respects retrieval attempt limits in admission bounded repair metadata', () => {
+    const admission = createCoordinatorAdmission({
+      routePlan: baseRoutePlan,
+      evidenceGraph: evidenceGraph(
+        [
+          evidenceItem(),
+          evidenceItem({
+            id: 'ev_two',
+            url: 'https://other.example.net/report',
+            canonicalUrl: 'https://other.example.net/report',
+            host: 'other.example.net',
+            claimIds: ['cl_two']
+          })
+        ],
+        [],
+        [evidenceConflict()]
+      ),
+      completedRoles: ['router', 'retriever'],
+      retrievalAttempts: 2,
+      maxRetrievalAttempts: 2,
+      now
+    })
+
+    expect(admission.boundedRepairPlan.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'run_contradiction_review',
+          source: 'policy_action',
+          priority: 'high'
+        })
+      ])
+    )
+    expect(admission.boundedRepairPlan.steps.map(step => step.action)).not.toContain(
+      'retrieve_independent_corroboration'
+    )
+    expect(admission.boundedRepairPlan.skippedActions).toEqual(
+      expect.arrayContaining([
+        {
+          action: 'retrieve_independent_corroboration',
+          reason: 'retrieval_attempt_budget_exhausted',
+          source: 'conflict_hint'
+        }
+      ])
+    )
+    expect(admission.boundedRepairPlan.remainingRetrievalAttempts).toBe(0)
   })
 
   it('ignores malformed runtime policy details without throwing', () => {
