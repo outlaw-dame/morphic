@@ -11,7 +11,8 @@ import type { SearchResultItem } from '@/lib/types'
 import {
   createCoordinatorAdmission,
   createCoordinatorAdmissionFromSearchResults,
-  toAdmissionConflictDetails
+  toAdmissionConflictDetails,
+  toAdmissionConflictRepairHints
 } from './admission'
 import type { CoordinatorPolicyResult } from './policy-types'
 
@@ -138,6 +139,7 @@ describe('coordinator admission bridge', () => {
     expect(admission.blockedPolicyIds).toEqual([])
     expect(admission.requiredRepairActions).not.toContain('retrieve_fresh_sources')
     expect(admission.conflictDetails).toEqual([])
+    expect(admission.conflictRepairHints).toEqual([])
     expect(admission.decision.stopConditions).toContain('composition_allowed')
     expect(admission.decision.activeModelRoles).toContain('citation_verifier')
   })
@@ -188,12 +190,13 @@ describe('coordinator admission bridge', () => {
     expect(admission.requiredRepairActions).toContain('retrieve_authoritative_sources')
     expect(admission.requiredRepairActions).toContain('run_advisor_review')
     expect(admission.conflictDetails).toEqual([])
+    expect(admission.conflictRepairHints).toEqual([])
     expect(admission.decision.stopConditions).toContain(
       'composition_waiting_for_repairs'
     )
   })
 
-  it('surfaces structured conflict details in admission metadata', () => {
+  it('surfaces structured conflict details and repair hints in admission metadata', () => {
     const admission = createCoordinatorAdmission({
       routePlan: baseRoutePlan,
       evidenceGraph: evidenceGraph(
@@ -228,6 +231,18 @@ describe('coordinator admission bridge', () => {
         reason: 'Similar claims differ by explicit negation language.'
       }
     ])
+    expect(admission.conflictRepairHints).toEqual([
+      {
+        id: 'contradictions:conflict_one:repair_hint',
+        policyId: 'contradictions',
+        conflictId: 'conflict_one',
+        action: 'retrieve_independent_corroboration',
+        priority: 'high',
+        evidenceIds: ['ev_one', 'ev_two'],
+        claimIds: ['cl_one', 'cl_two'],
+        reason: 'Resolve conflicting claims with independent corroborating sources.'
+      }
+    ])
   })
 
   it('ignores malformed runtime policy details without throwing', () => {
@@ -259,6 +274,79 @@ describe('coordinator admission bridge', () => {
         policyId: 'contradictions',
         type: 'evidence_conflict:numeric_mismatch',
         id: 'conflict_two'
+      }
+    ])
+  })
+
+  it('maps conflict details to deterministic repair hints', () => {
+    const hints = toAdmissionConflictRepairHints([
+      {
+        policyId: 'contradictions',
+        type: 'evidence_conflict:numeric_mismatch',
+        id: ' numeric_conflict ',
+        severity: 'warn',
+        evidenceIds: ['ev_one', 'ev_one', 'ev_two'],
+        claimIds: ['cl_one'],
+        reason: 'Different numeric values are present.'
+      },
+      {
+        policyId: 'contradictions',
+        type: 'evidence_conflict:status_mismatch',
+        id: '   ',
+        severity: 'block',
+        evidenceIds: ['ev_three'],
+        claimIds: ['cl_two', 'cl_two'],
+        reason: 'Different status values are present.'
+      }
+    ])
+
+    expect(hints).toEqual([
+      {
+        id: 'contradictions:numeric_conflict:repair_hint',
+        policyId: 'contradictions',
+        conflictId: 'numeric_conflict',
+        action: 'retrieve_primary_numeric_source',
+        priority: 'medium',
+        evidenceIds: ['ev_one', 'ev_two'],
+        claimIds: ['cl_one'],
+        reason: 'Resolve conflicting numeric claims with primary or authoritative numeric sources.'
+      },
+      {
+        id: 'contradictions:conflict_2:repair_hint',
+        policyId: 'contradictions',
+        conflictId: undefined,
+        action: 'retrieve_current_status_source',
+        priority: 'high',
+        evidenceIds: ['ev_three'],
+        claimIds: ['cl_two'],
+        reason: 'Resolve conflicting status claims with current authoritative status sources.'
+      }
+    ])
+  })
+
+  it('ignores malformed conflict repair hint fields without throwing', () => {
+    const hints = toAdmissionConflictRepairHints([
+      {
+        policyId: 'contradictions',
+        type: 'evidence_conflict:numeric_mismatch',
+        id: 42,
+        severity: 'warn',
+        evidenceIds: 'ev_one',
+        claimIds: { id: 'cl_one' },
+        reason: 'Malformed runtime detail fields.'
+      }
+    ] as unknown as Parameters<typeof toAdmissionConflictRepairHints>[0])
+
+    expect(hints).toEqual([
+      {
+        id: 'contradictions:conflict_1:repair_hint',
+        policyId: 'contradictions',
+        conflictId: undefined,
+        action: 'retrieve_primary_numeric_source',
+        priority: 'medium',
+        evidenceIds: [],
+        claimIds: [],
+        reason: 'Resolve conflicting numeric claims with primary or authoritative numeric sources.'
       }
     ])
   })
