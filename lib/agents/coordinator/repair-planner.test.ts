@@ -89,6 +89,7 @@ describe('bounded Coordinator repair planner', () => {
         claimIds: []
       }
     ])
+    expect(repairPlan.remainingRetrievalAttempts).toBe(0)
     expect(repairPlan.skippedActions).toEqual([])
   })
 
@@ -247,5 +248,82 @@ describe('bounded Coordinator repair planner', () => {
       }
     ])
     expect(repairPlan.blockedReasons).toEqual(['no_supported_repair_steps_available'])
+  })
+
+  it('decrements the retrieval budget for each planned retrieval step and blocks subsequent retrieval steps when exhausted', () => {
+    const repairPlan = plan({
+      retrievalAttempts: 1,
+      maxRetrievalAttempts: 2,
+      requiredRepairActions: [
+        'retrieve_authoritative_sources',
+        'retrieve_fresh_sources'
+      ]
+    })
+
+    expect(repairPlan.remainingRetrievalAttempts).toBe(0)
+    expect(repairPlan.steps).toEqual([
+      {
+        id: 'repair_step_1:retrieve_authoritative_sources',
+        action: 'retrieve_authoritative_sources',
+        source: 'policy_action',
+        priority: 'high',
+        reason: 'Retrieve authoritative sources before composition.',
+        evidenceIds: [],
+        claimIds: []
+      }
+    ])
+    expect(repairPlan.skippedActions).toEqual([
+      {
+        action: 'retrieve_fresh_sources',
+        reason: 'retrieval_attempt_budget_exhausted',
+        source: 'policy_action'
+      }
+    ])
+  })
+
+  it('ignores malformed runtime arrays and route metadata without throwing', () => {
+    const repairPlan = createBoundedRepairPlan({
+      routePlan: null,
+      requiredRepairActions: [null, 123, ' run_advisor_review '],
+      conflictRepairHints: [
+        null,
+        {
+          action: 42,
+          priority: 'high',
+          reason: 'ignored malformed action',
+          evidenceIds: ['ev_one'],
+          claimIds: ['cl_one']
+        },
+        {
+          action: 'retrieve_primary_numeric_source',
+          priority: 'invalid_priority',
+          reason: '',
+          evidenceIds: 'ev_two',
+          claimIds: { id: 'cl_two' }
+        }
+      ]
+    } as unknown as CoordinatorBoundedRepairPlanInput)
+
+    expect(repairPlan.steps).toEqual([
+      {
+        id: 'repair_step_1:run_advisor_review',
+        action: 'run_advisor_review',
+        source: 'policy_action',
+        priority: 'high',
+        reason: 'Escalate to advisor review before composition.',
+        evidenceIds: [],
+        claimIds: []
+      },
+      {
+        id: 'repair_step_2:retrieve_primary_numeric_source',
+        action: 'retrieve_primary_numeric_source',
+        source: 'conflict_hint',
+        priority: 'low',
+        reason: 'Run the requested deterministic repair action.',
+        evidenceIds: [],
+        claimIds: []
+      }
+    ])
+    expect(repairPlan.skippedActions).toEqual([])
   })
 })
