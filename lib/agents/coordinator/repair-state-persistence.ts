@@ -179,18 +179,6 @@ export async function deleteCoordinatorRepairStateFromPersistence(
   const authenticatedScope = validatedPersistenceScope(authenticatedScopeValue)
   if (!authenticatedScope) return SCOPE_DENIED
 
-  const current = await readCoordinatorRepairStateFromPersistence(
-    adapter,
-    authenticatedScope
-  )
-  if (current.status === 'unavailable' || current.status === 'denied') {
-    return current
-  }
-  if (current.status === 'not_found') return current
-  if (current.envelope.snapshot.revision !== expectedRevision) {
-    return { status: 'conflict', reason: 'revision_conflict' }
-  }
-
   try {
     const deleted = await adapter.delete({
       scope: authenticatedScope,
