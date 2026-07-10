@@ -95,6 +95,10 @@ function validRevision(value: unknown): value is number {
 
 function parseRevision(value: unknown): number | null {
   if (validRevision(value)) return value
+  if (typeof value === 'bigint') {
+    const revision = Number(value)
+    return validRevision(revision) ? revision : null
+  }
   if (typeof value !== 'string' || !CANONICAL_REVISION_PATTERN.test(value)) {
     return null
   }
@@ -154,21 +158,27 @@ function singleRow(
   return row
 }
 
-function ownDataValue(
+function ownRowValue(
   row: CoordinatorRepairStatePostgresRow,
   key: string
 ): unknown {
-  const descriptor = Object.getOwnPropertyDescriptor(row, key)
-  if (!descriptor || !('value' in descriptor)) {
+  try {
+    if (!Object.hasOwn(row, key)) {
+      throw new CoordinatorRepairStatePostgresUnavailableError()
+    }
+    return Reflect.get(row, key)
+  } catch (error) {
+    if (error instanceof CoordinatorRepairStatePostgresUnavailableError) {
+      throw error
+    }
     throw new CoordinatorRepairStatePostgresUnavailableError()
   }
-  return descriptor.value
 }
 
 function returnedRevision(
   row: CoordinatorRepairStatePostgresRow | null
 ): number | null {
-  return row ? parseRevision(ownDataValue(row, 'revision')) : null
+  return row ? parseRevision(ownRowValue(row, 'revision')) : null
 }
 
 export function createCoordinatorRepairStatePostgresAdapter(
@@ -197,10 +207,7 @@ export function createCoordinatorRepairStatePostgresAdapter(
       assertActive(context)
       if (!row) return { status: 'not_found' }
 
-      const envelope = cloneAuthorizedEnvelope(
-        ownDataValue(row, 'envelope'),
-        scope
-      )
+      const envelope = cloneAuthorizedEnvelope(ownRowValue(row, 'envelope'), scope)
       if (!envelope) throw new CoordinatorRepairStatePostgresUnavailableError()
       return { status: 'found', envelope }
     },
