@@ -200,8 +200,28 @@ describe('Coordinator PostgreSQL repair-state persistence adapter', () => {
     }
   })
 
-  it('rejects malformed bigint revision results', async () => {
-    for (const revision of ['01', '-1', '9007199254740992', 1.5]) {
+  it('supports own driver getters without accepting inherited columns', async () => {
+    const row = Object.create({ revision: 0 }) as Record<string, unknown>
+    Object.defineProperty(row, 'revision', {
+      enumerable: true,
+      get: () => 0n
+    })
+    const adapter = createCoordinatorRepairStatePostgresAdapter({
+      query: async () => [row]
+    })
+
+    const result = await adapter.compareAndSwap({
+      scope,
+      expectedRevision: null,
+      envelope: envelope(0),
+      context: context()
+    })
+
+    expect(result).toEqual({ status: 'applied' })
+  })
+
+  it('accepts safe native bigint revisions and rejects malformed results', async () => {
+    for (const revision of ['01', '-1', '9007199254740992', 1.5, 9007199254740992n]) {
       const adapter = createCoordinatorRepairStatePostgresAdapter({
         query: async () => [{ revision }]
       })
@@ -214,6 +234,18 @@ describe('Coordinator PostgreSQL repair-state persistence adapter', () => {
       })
       expect(result).toEqual({ status: 'conflict' })
     }
+
+    const adapter = createCoordinatorRepairStatePostgresAdapter({
+      query: async () => [{ revision: 0n }]
+    })
+    await expect(
+      adapter.compareAndSwap({
+        scope,
+        expectedRevision: null,
+        envelope: envelope(0),
+        context: context()
+      })
+    ).resolves.toEqual({ status: 'applied' })
   })
 
   it('does not query when the operation is already aborted', async () => {
