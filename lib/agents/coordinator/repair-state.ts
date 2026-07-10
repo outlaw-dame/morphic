@@ -61,6 +61,14 @@ function boundedPositiveInteger(
   return Math.min(cap, Math.max(1, boundedNonNegativeInteger(value, fallback)))
 }
 
+function strictRevision(value: unknown): number | null {
+  return typeof value === 'number' &&
+    Number.isSafeInteger(value) &&
+    value >= 0
+    ? value
+    : null
+}
+
 function stableId(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim()
@@ -83,27 +91,58 @@ function safeIds(value: unknown): string[] {
   return [...ids].sort()
 }
 
-function safeAttempts(value: unknown): Record<string, number> {
+function safeAttempts(
+  value: unknown,
+  preferredIds: ReadonlySet<string> = new Set()
+): Record<string, number> {
   const input = recordValue(value)
   if (!input) return {}
 
-  const entries: Array<[string, number]> = []
-  for (const [rawId, rawAttempts] of Object.entries(input).sort(([a], [b]) =>
-    a.localeCompare(b)
-  )) {
-    const id = stableId(rawId)
-    if (!id) continue
-    entries.push([
-      id,
-      Math.min(
-        MAX_ATTEMPTS_PER_STEP_CAP,
-        boundedNonNegativeInteger(rawAttempts, 0)
-      )
-    ])
-    if (entries.length >= MAX_REPAIR_STATE_ENTRIES) break
+  const entries = Object.entries(input)
+    .map(([rawId, rawAttempts]) => {
+      const id = stableId(rawId)
+      return id
+        ? {
+            id,
+            rawId,
+            rawAttempts,
+            preferred: preferredIds.has(id)
+          }
+        : null
+    })
+    .filter(
+      (
+        entry
+      ): entry is {
+        id: string
+        rawId: string
+        rawAttempts: unknown
+        preferred: boolean
+      } => entry !== null
+    )
+    .sort((left, right) => {
+      if (left.preferred !== right.preferred) {
+        return left.preferred ? -1 : 1
+      }
+      return left.rawId.localeCompare(right.rawId)
+    })
+  const attemptsById = new Map<string, number>()
+
+  for (const { id, rawAttempts } of entries) {
+    if (!attemptsById.has(id) && attemptsById.size >= MAX_REPAIR_STATE_ENTRIES) {
+      continue
+    }
+
+    const attempts = Math.min(
+      MAX_ATTEMPTS_PER_STEP_CAP,
+      boundedNonNegativeInteger(rawAttempts, 0)
+    )
+    attemptsById.set(id, Math.max(attemptsById.get(id) ?? 0, attempts))
   }
 
-  return Object.fromEntries(entries)
+  return Object.fromEntries(
+    [...attemptsById.entries()].sort(([a], [b]) => a.localeCompare(b))
+  )
 }
 
 function safeRetryPolicy(value: unknown): CoordinatorRepairRetryPolicy {
@@ -211,12 +250,9 @@ export function applyCoordinatorRepairStateUpdate(
 ): CoordinatorRepairStateUpdateResult {
   const current = createCoordinatorRepairStateSnapshot(currentValue)
   const update = recordValue(updateValue)
-  const expectedRevision = boundedNonNegativeInteger(
-    update?.expectedRevision,
-    Number.NaN
-  )
+  const expectedRevision = strictRevision(update?.expectedRevision)
 
-  if (!Number.isFinite(expectedRevision) || expectedRevision !== current.revision) {
+  if (expectedRevision === null || expectedRevision !== current.revision) {
     return {
       status: 'conflict',
       reason: 'revision_conflict',
@@ -238,7 +274,10 @@ export function applyCoordinatorRepairStateUpdate(
   )
   const priorAttemptsByStepId = mergeAttempts(
     current.priorAttemptsByStepId,
-    safeAttempts(update?.priorAttemptsByStepId)
+    safeAttempts(
+      update?.priorAttemptsByStepId,
+      new Set(Object.keys(current.priorAttemptsByStepId))
+    )
   )
   for (const completedStepId of completedStepIds) {
     priorAttemptsByStepId[completedStepId] = Math.max(
