@@ -58,9 +58,7 @@ function boundedCaseTimeout(value: unknown): number {
   return Math.min(MAX_CASE_TIMEOUT_MS, Math.max(MIN_CASE_TIMEOUT_MS, Math.floor(value)))
 }
 
-function context(
-  signal = new AbortController().signal
-): CoordinatorRepairStatePersistenceOperationContext {
+function context(signal: AbortSignal): CoordinatorRepairStatePersistenceOperationContext {
   return { signal, attempt: 1 }
 }
 
@@ -73,10 +71,19 @@ function envelopeFor(
   return created.envelope
 }
 
-function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
+function withTimeout<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number
+): Promise<T> {
+  const controller = new AbortController()
+
   return new Promise<T>((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new ConformanceTimeoutError()), timeoutMs)
-    operation.then(
+    const timeout = setTimeout(() => {
+      controller.abort()
+      reject(new ConformanceTimeoutError())
+    }, timeoutMs)
+
+    operation(controller.signal).then(
       value => {
         clearTimeout(timeout)
         resolve(value)
@@ -92,10 +99,10 @@ function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
 async function runCase(
   testCase: CoordinatorRepairStatePersistenceConformanceCase,
   timeoutMs: number,
-  operation: () => Promise<boolean>
+  operation: (signal: AbortSignal) => Promise<boolean>
 ): Promise<CoordinatorRepairStatePersistenceConformanceResult> {
   try {
-    const passed = await withTimeout(operation(), timeoutMs)
+    const passed = await withTimeout(operation, timeoutMs)
     return passed
       ? { case: testCase, passed: true }
       : { case: testCase, passed: false, reason: 'unexpected_result' }
@@ -116,27 +123,27 @@ export async function runCoordinatorRepairStatePersistenceConformance(
   const results: CoordinatorRepairStatePersistenceConformanceResult[] = []
 
   results.push(
-    await runCase('atomic_create', timeoutMs, async () => {
+    await runCase('atomic_create', timeoutMs, async signal => {
       const adapter = await factory()
       const envelope = envelopeFor(scope, 0)
       const first = await adapter.compareAndSwap({
         scope,
         expectedRevision: null,
         envelope,
-        context: context()
+        context: context(signal)
       })
       const second = await adapter.compareAndSwap({
         scope,
         expectedRevision: null,
         envelope,
-        context: context()
+        context: context(signal)
       })
       return first.status === 'applied' && second.status === 'conflict'
     })
   )
 
   results.push(
-    await runCase('stale_update_rejected', timeoutMs, async () => {
+    await runCase('stale_update_rejected', timeoutMs, async signal => {
       const adapter = await factory()
       const initial = envelopeFor(scope, 0)
       const next = envelopeFor(scope, 1)
@@ -144,19 +151,19 @@ export async function runCoordinatorRepairStatePersistenceConformance(
         scope,
         expectedRevision: null,
         envelope: initial,
-        context: context()
+        context: context(signal)
       })
       const applied = await adapter.compareAndSwap({
         scope,
         expectedRevision: 0,
         envelope: next,
-        context: context()
+        context: context(signal)
       })
       const stale = await adapter.compareAndSwap({
         scope,
         expectedRevision: 0,
         envelope: next,
-        context: context()
+        context: context(signal)
       })
       return (
         created.status === 'applied' &&
@@ -167,17 +174,25 @@ export async function runCoordinatorRepairStatePersistenceConformance(
   )
 
   results.push(
-    await runCase('atomic_delete', timeoutMs, async () => {
+    await runCase('atomic_delete', timeoutMs, async signal => {
       const adapter = await factory()
       const created = await adapter.compareAndSwap({
         scope,
         expectedRevision: null,
         envelope: envelopeFor(scope, 2),
-        context: context()
+        context: context(signal)
       })
-      const stale = await adapter.delete({ scope, expectedRevision: 1, context: context() })
-      const deleted = await adapter.delete({ scope, expectedRevision: 2, context: context() })
-      const missing = await adapter.read(scope, context())
+      const stale = await adapter.delete({
+        scope,
+        expectedRevision: 1,
+        context: context(signal)
+      })
+      const deleted = await adapter.delete({
+        scope,
+        expectedRevision: 2,
+        context: context(signal)
+      })
+      const missing = await adapter.read(scope, context(signal))
       return (
         created.status === 'applied' &&
         stale.status === 'conflict' &&
@@ -188,34 +203,34 @@ export async function runCoordinatorRepairStatePersistenceConformance(
   )
 
   results.push(
-    await runCase('owner_scope_isolation', timeoutMs, async () => {
+    await runCase('owner_scope_isolation', timeoutMs, async signal => {
       const adapter = await factory()
       const created = await adapter.compareAndSwap({
         scope,
         expectedRevision: null,
         envelope: envelopeFor(scope, 0),
-        context: context()
+        context: context(signal)
       })
       const other = await adapter.read(
         { ...scope, ownerScopeId: OTHER_OWNER_SCOPE },
-        context()
+        context(signal)
       )
       return created.status === 'applied' && other.status === 'not_found'
     })
   )
 
   results.push(
-    await runCase('execution_scope_isolation', timeoutMs, async () => {
+    await runCase('execution_scope_isolation', timeoutMs, async signal => {
       const adapter = await factory()
       const created = await adapter.compareAndSwap({
         scope,
         expectedRevision: null,
         envelope: envelopeFor(scope, 0),
-        context: context()
+        context: context(signal)
       })
       const other = await adapter.read(
         { ...scope, executionScopeId: OTHER_EXECUTION_SCOPE },
-        context()
+        context(signal)
       )
       return created.status === 'applied' && other.status === 'not_found'
     })
