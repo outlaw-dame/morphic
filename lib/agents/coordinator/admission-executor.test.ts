@@ -7,7 +7,10 @@ import type {
 } from '@/lib/ai-architecture/evidence'
 import type { RoutePlan } from '@/lib/ai/schemas'
 
-import { createCoordinatorAdmission } from './admission'
+import {
+  createCoordinatorAdmission,
+  type CoordinatorAdmissionInput
+} from './admission'
 
 const now = new Date('2026-07-06T00:00:00.000Z')
 const retrievedAt = '2026-07-05T12:00:00.000Z'
@@ -95,6 +98,27 @@ function evidenceGraph(
   }
 }
 
+function repairAdmissionInput(): CoordinatorAdmissionInput {
+  return {
+    routePlan: baseRoutePlan,
+    evidenceGraph: evidenceGraph(
+      [
+        evidenceItem(),
+        evidenceItem({
+          id: 'ev_two',
+          url: 'https://other.example.net/report',
+          canonicalUrl: 'https://other.example.net/report',
+          host: 'other.example.net',
+          claimIds: ['cl_two']
+        })
+      ],
+      [evidenceConflict()]
+    ),
+    completedRoles: ['router', 'retriever'],
+    now
+  }
+}
+
 describe('coordinator admission repair executor metadata', () => {
   it('exposes blocked no-op executor metadata for compose admissions', () => {
     const admission = createCoordinatorAdmission({
@@ -119,24 +143,7 @@ describe('coordinator admission repair executor metadata', () => {
   })
 
   it('queues bounded repair steps as audited executor records without running them', () => {
-    const admission = createCoordinatorAdmission({
-      routePlan: baseRoutePlan,
-      evidenceGraph: evidenceGraph(
-        [
-          evidenceItem(),
-          evidenceItem({
-            id: 'ev_two',
-            url: 'https://other.example.net/report',
-            canonicalUrl: 'https://other.example.net/report',
-            host: 'other.example.net',
-            claimIds: ['cl_two']
-          })
-        ],
-        [evidenceConflict()]
-      ),
-      completedRoles: ['router', 'retriever'],
-      now
-    })
+    const admission = createCoordinatorAdmission(repairAdmissionInput())
 
     expect(admission.status).toBe('repair')
     expect(admission.repairExecutorPlan.canExecute).toBe(true)
@@ -174,24 +181,9 @@ describe('coordinator admission repair executor metadata', () => {
 
   it('does not queue retrieval records when retrieval repair budget is exhausted', () => {
     const admission = createCoordinatorAdmission({
-      routePlan: baseRoutePlan,
-      evidenceGraph: evidenceGraph(
-        [
-          evidenceItem(),
-          evidenceItem({
-            id: 'ev_two',
-            url: 'https://other.example.net/report',
-            canonicalUrl: 'https://other.example.net/report',
-            host: 'other.example.net',
-            claimIds: ['cl_two']
-          })
-        ],
-        [evidenceConflict()]
-      ),
-      completedRoles: ['router', 'retriever'],
+      ...repairAdmissionInput(),
       retrievalAttempts: 2,
-      maxRetrievalAttempts: 2,
-      now
+      maxRetrievalAttempts: 2
     })
 
     const queuedActions = admission.repairExecutorPlan.records
@@ -203,5 +195,93 @@ describe('coordinator admission repair executor metadata', () => {
     )
     expect(queuedActions).not.toContain('retrieve_independent_corroboration')
     expect(queuedActions).toContain('run_contradiction_review')
+  })
+
+  it('marks caller-reported completed repair steps without re-queuing them', () => {
+    const initial = createCoordinatorAdmission(repairAdmissionInput())
+    const completedStepId = initial.boundedRepairPlan.steps[0]?.id
+
+    expect(completedStepId).toBeDefined()
+
+    const admission = createCoordinatorAdmission({
+      ...repairAdmissionInput(),
+      repairExecutorState: {
+        completedStepIds: [` ${completedStepId} `],
+        priorAttemptsByStepId: completedStepId
+          ? { [completedStepId]: 2 }
+          : undefined
+      }
+    })
+
+    expect(admission.repairExecutorPlan.records[0]).toMatchObject({
+      stepId: completedStepId,
+      status: 'completed',
+      attempt: 2,
+      retryDelayMs: null,
+      skipReason: 'already_completed'
+    })
+  })
+
+  it('applies bounded retry state and deterministic exponential backoff metadata', () => {
+    const initial = createCoordinatorAdmission(repairAdmissionInput())
+    const retriedStepId = initial.boundedRepairPlan.steps[0]?.id
+
+    expect(retriedStepId).toBeDefined()
+
+    const admission = createCoordinatorAdmission({
+      ...repairAdmissionInput(),
+      repairExecutorState: {
+        priorAttemptsByStepId: retriedStepId
+          ? { [` ${retriedStepId} `]: 2 }
+          : undefined,
+        maxAttemptsPerStep: 4,
+        baseDelayMs: 500,
+        maxDelayMs: 10_000
+      }
+    })
+
+    expect(admission.repairExecutorPlan.retryPolicy).toEqual({
+      maxAttemptsPerStep: 4,
+      baseDelayMs: 500,
+      maxDelayMs: 10000
+    })
+    expect(admission.repairExecutorPlan.records[0]).toMatchObject({
+      stepId: retriedStepId,
+      status: 'queued',
+      attempt: 3,
+      maxAttempts: 4,
+      retryDelayMs: 1000
+    })
+  })
+
+  it('sanitizes malformed caller executor state without replacing the bounded plan', () => {
+    const input = {
+      ...repairAdmissionInput(),
+      repairExecutorState: {
+        completedStepIds: 'not-an-array',
+        priorAttemptsByStepId: ['not-an-object'],
+        maxAttemptsPerStep: 999,
+        baseDelayMs: -100,
+        maxDelayMs: Number.POSITIVE_INFINITY,
+        plan: {
+          steps: []
+        }
+      }
+    } as unknown as CoordinatorAdmissionInput
+
+    const admission = createCoordinatorAdmission(input)
+
+    expect(admission.boundedRepairPlan.steps.length).toBeGreaterThan(0)
+    expect(admission.repairExecutorPlan.retryPolicy).toEqual({
+      maxAttemptsPerStep: 5,
+      baseDelayMs: 1,
+      maxDelayMs: 30000
+    })
+    expect(admission.repairExecutorPlan.records).toHaveLength(
+      admission.boundedRepairPlan.steps.length
+    )
+    expect(admission.repairExecutorPlan.records.every(record => record.status === 'queued')).toBe(
+      true
+    )
   })
 })
