@@ -126,6 +126,9 @@ export async function writeCoordinatorRepairStateToPersistence(
     if (updated.update.status === 'conflict') {
       return { status: 'conflict', reason: updated.update.reason }
     }
+    if (updated.update.status === 'noop') {
+      return { status: 'noop', envelope: updated.envelope }
+    }
 
     try {
       const persisted = await adapter.compareAndSwap({
@@ -134,7 +137,7 @@ export async function writeCoordinatorRepairStateToPersistence(
         envelope: updated.envelope
       })
       return persisted.status === 'applied'
-        ? { status: updated.update.status, envelope: updated.envelope }
+        ? { status: 'applied', envelope: updated.envelope }
         : { status: 'conflict', reason: 'revision_conflict' }
     } catch {
       return unavailable()
