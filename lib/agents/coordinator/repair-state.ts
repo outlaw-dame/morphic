@@ -98,20 +98,37 @@ function safeAttempts(
   const input = recordValue(value)
   if (!input) return {}
 
-  const entries = Object.entries(input).sort(([rawA], [rawB]) => {
-    const idA = stableId(rawA)
-    const idB = stableId(rawB)
-    const preferredA = idA ? preferredIds.has(idA) : false
-    const preferredB = idB ? preferredIds.has(idB) : false
-
-    if (preferredA !== preferredB) return preferredA ? -1 : 1
-    return rawA.localeCompare(rawB)
-  })
+  const entries = Object.entries(input)
+    .map(([rawId, rawAttempts]) => {
+      const id = stableId(rawId)
+      return id
+        ? {
+            id,
+            rawId,
+            rawAttempts,
+            preferred: preferredIds.has(id)
+          }
+        : null
+    })
+    .filter(
+      (
+        entry
+      ): entry is {
+        id: string
+        rawId: string
+        rawAttempts: unknown
+        preferred: boolean
+      } => entry !== null
+    )
+    .sort((left, right) => {
+      if (left.preferred !== right.preferred) {
+        return left.preferred ? -1 : 1
+      }
+      return left.rawId.localeCompare(right.rawId)
+    })
   const attemptsById = new Map<string, number>()
 
-  for (const [rawId, rawAttempts] of entries) {
-    const id = stableId(rawId)
-    if (!id) continue
+  for (const { id, rawAttempts } of entries) {
     if (!attemptsById.has(id) && attemptsById.size >= MAX_REPAIR_STATE_ENTRIES) {
       continue
     }
