@@ -194,15 +194,20 @@ async function waitForRetry(delayMs: number, signal?: AbortSignal): Promise<void
   if (signal?.aborted) throw new PersistenceOperationAbortedError()
 
   await new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(resolve, delayMs)
+    let timeout: ReturnType<typeof setTimeout>
+    const cleanup = () => signal?.removeEventListener('abort', abort)
+    const finish = () => {
+      cleanup()
+      resolve()
+    }
     const abort = () => {
       clearTimeout(timeout)
+      cleanup()
       reject(new PersistenceOperationAbortedError())
     }
 
     signal?.addEventListener('abort', abort, { once: true })
-    const cleanup = () => signal?.removeEventListener('abort', abort)
-    Promise.resolve().then(() => undefined).finally(cleanup)
+    timeout = setTimeout(finish, delayMs)
   })
 }
 
