@@ -7,6 +7,7 @@ import {
 } from './repair-state-persistence-memory'
 import {
   createCoordinatorRepairStateEnvelope,
+  readCoordinatorRepairStateEnvelope,
   type CoordinatorRepairStateEnvelope,
   type CoordinatorRepairStateScope
 } from './repair-state-scope'
@@ -39,10 +40,11 @@ function envelopeFor(
 }
 
 function envelopeWithRawRevision(revision: unknown): CoordinatorRepairStateEnvelope {
+  const base = envelopeFor(scope, 0)
   return {
-    ...envelopeFor(scope, 0),
+    ...base,
     snapshot: {
-      ...envelopeFor(scope, 0).snapshot,
+      ...base.snapshot,
       revision
     }
   } as unknown as CoordinatorRepairStateEnvelope
@@ -165,12 +167,18 @@ describe('bounded in-memory Coordinator repair-state persistence adapter', () =>
     ]
 
     for (const revision of malformedCreateRevisions) {
+      const malformedEnvelope = envelopeWithRawRevision(revision)
+      expect(readCoordinatorRepairStateEnvelope(malformedEnvelope, scope)).toEqual({
+        status: 'denied',
+        reason: 'scope_denied'
+      })
+
       const adapter = createCoordinatorRepairStateInMemoryAdapter()
       await expect(
         adapter.compareAndSwap({
           scope,
           expectedRevision: null,
-          envelope: envelopeWithRawRevision(revision),
+          envelope: malformedEnvelope,
           context: context()
         })
       ).resolves.toEqual({ status: 'conflict' })
