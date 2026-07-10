@@ -87,7 +87,7 @@ describe('Coordinator repair state scope binding', () => {
     expect(readCoordinatorRepairStateEnvelope(null, authenticatedScope)).toEqual(denied)
   })
 
-  it('rejects weak, oversized, and control-character scope identifiers', () => {
+  it('rejects weak, oversized, padded, and control-character scope identifiers', () => {
     const denied = {
       status: 'denied',
       reason: 'scope_denied'
@@ -110,6 +110,27 @@ describe('Coordinator repair state scope binding', () => {
     expect(
       createCoordinatorRepairStateEnvelope({
         ownerScopeId: 'owner_scope_012345\n6789abcdef',
+        executionScopeId
+      })
+    ).toEqual(denied)
+
+    expect(
+      createCoordinatorRepairStateEnvelope({
+        ownerScopeId: `\n${ownerScopeId}`,
+        executionScopeId
+      })
+    ).toEqual(denied)
+
+    expect(
+      createCoordinatorRepairStateEnvelope({
+        ownerScopeId: ` ${ownerScopeId} `,
+        executionScopeId
+      })
+    ).toEqual(denied)
+
+    expect(
+      createCoordinatorRepairStateEnvelope({
+        ownerScopeId: ` ${'x'.repeat(255)}`,
         executionScopeId
       })
     ).toEqual(denied)
