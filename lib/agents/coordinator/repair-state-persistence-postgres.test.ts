@@ -35,10 +35,10 @@ function createFakePostgresQuery(): CoordinatorRepairStatePostgresQuery {
     if (statement.startsWith('INSERT INTO')) {
       if (records.has(recordKey)) return []
       const revision = parameters[2]
-      const envelope = JSON.parse(String(parameters[3])) as unknown
+      const storedEnvelope = JSON.parse(String(parameters[3])) as unknown
       if (typeof revision !== 'number') return []
-      records.set(recordKey, { revision, envelope })
-      return [{ revision }]
+      records.set(recordKey, { revision, envelope: storedEnvelope })
+      return [{ revision: String(revision) }]
     }
 
     if (statement.startsWith('UPDATE')) {
@@ -52,9 +52,9 @@ function createFakePostgresQuery(): CoordinatorRepairStatePostgresQuery {
       ) {
         return []
       }
-      const envelope = JSON.parse(String(parameters[3])) as unknown
-      records.set(recordKey, { revision, envelope })
-      return [{ revision }]
+      const storedEnvelope = JSON.parse(String(parameters[3])) as unknown
+      records.set(recordKey, { revision, envelope: storedEnvelope })
+      return [{ revision: String(revision) }]
     }
 
     if (statement.startsWith('DELETE')) {
@@ -62,20 +62,23 @@ function createFakePostgresQuery(): CoordinatorRepairStatePostgresQuery {
       const expectedRevision = parameters[2]
       if (!record || record.revision !== expectedRevision) return []
       records.delete(recordKey)
-      return [{ revision: expectedRevision }]
+      return [{ revision: String(expectedRevision) }]
     }
 
     if (statement.startsWith('SELECT revision')) {
       const record = records.get(recordKey)
-      return record ? [{ revision: record.revision }] : []
+      return record ? [{ revision: String(record.revision) }] : []
     }
 
     throw new Error('Unexpected SQL statement')
   }
 }
 
-function envelope(revision: number) {
-  const created = createCoordinatorRepairStateEnvelope(scope, { revision })
+function envelope(revision: number, completedStepIds: string[] = []) {
+  const created = createCoordinatorRepairStateEnvelope(scope, {
+    revision,
+    completedStepIds
+  })
   if (created.status !== 'created') throw new Error('invalid test scope')
   return created.envelope
 }
@@ -87,7 +90,9 @@ function context() {
 describe('Coordinator PostgreSQL repair-state persistence adapter', () => {
   it('passes the backend-neutral persistence conformance suite', async () => {
     const report = await runCoordinatorRepairStatePersistenceConformance(() =>
-      createCoordinatorRepairStatePostgresAdapter({ query: createFakePostgresQuery() })
+      createCoordinatorRepairStatePostgresAdapter({
+        query: createFakePostgresQuery()
+      })
     )
 
     expect(report.passed).toBe(true)
@@ -99,9 +104,12 @@ describe('Coordinator PostgreSQL repair-state persistence adapter', () => {
       statement: string
       parameters: readonly unknown[]
     }> = []
-    const query: CoordinatorRepairStatePostgresQuery = async (statement, parameters) => {
+    const query: CoordinatorRepairStatePostgresQuery = async (
+      statement,
+      parameters
+    ) => {
       calls.push({ statement, parameters })
-      return [{ revision: 0 }]
+      return [{ revision: '0' }]
     }
     const adapter = createCoordinatorRepairStatePostgresAdapter({ query })
 
@@ -152,7 +160,7 @@ describe('Coordinator PostgreSQL repair-state persistence adapter', () => {
     expect(calls).toBe(0)
   })
 
-  it('rejects oversized envelopes before issuing SQL', async () => {
+  it('rejects oversized normalized envelopes before issuing SQL', async () => {
     let calls = 0
     const query: CoordinatorRepairStatePostgresQuery = async () => {
       calls += 1
@@ -162,8 +170,7 @@ describe('Coordinator PostgreSQL repair-state persistence adapter', () => {
       query,
       maxEnvelopeBytes: 128
     })
-    const largeEnvelope = envelope(0)
-    ;(largeEnvelope.snapshot as unknown as Record<string, unknown>).extra = 'x'.repeat(512)
+    const largeEnvelope = envelope(0, ['x'.repeat(256)])
 
     const result = await adapter.compareAndSwap({
       scope,
@@ -177,10 +184,12 @@ describe('Coordinator PostgreSQL repair-state persistence adapter', () => {
   })
 
   it('fails closed for malformed or duplicate backend rows', async () => {
-    for (const rows of [
+    const malformedRows: readonly (readonly CoordinatorRepairStatePostgresRow[])[] = [
       [{ envelope: { unexpected: true } }],
       [{ envelope: envelope(0) }, { envelope: envelope(0) }]
-    ] satisfies readonly (readonly CoordinatorRepairStatePostgresRow[])[]) {
+    ]
+
+    for (const rows of malformedRows) {
       const adapter = createCoordinatorRepairStatePostgresAdapter({
         query: async () => rows
       })
@@ -188,6 +197,22 @@ describe('Coordinator PostgreSQL repair-state persistence adapter', () => {
       await expect(adapter.read(scope, context())).rejects.toThrow(
         'PostgreSQL repair-state persistence is unavailable'
       )
+    }
+  })
+
+  it('rejects malformed bigint revision results', async () => {
+    for (const revision of ['01', '-1', '9007199254740992', 1.5]) {
+      const adapter = createCoordinatorRepairStatePostgresAdapter({
+        query: async () => [{ revision }]
+      })
+
+      const result = await adapter.compareAndSwap({
+        scope,
+        expectedRevision: null,
+        envelope: envelope(0),
+        context: context()
+      })
+      expect(result).toEqual({ status: 'conflict' })
     }
   })
 
