@@ -155,12 +155,15 @@ describe('Coordinator repair state persistence contract', () => {
     expect(writes).toBe(0)
   })
 
-  it('requires revision-matched deletion and collapses adapter errors', async () => {
-    const created = createCoordinatorRepairStateEnvelope(scope, { revision: 3 })
-    if (created.status !== 'created') throw new Error('expected envelope')
+  it('delegates revision checks to atomic deletion and collapses adapter errors', async () => {
+    let reads = 0
     const stored = adapter({
-      read: async () => ({ status: 'found', envelope: created.envelope }),
-      delete: async () => {
+      read: async () => {
+        reads += 1
+        return { status: 'not_found' }
+      },
+      delete: async ({ expectedRevision }) => {
+        if (expectedRevision !== 3) return { status: 'conflict' }
         throw new Error('secret backend details')
       }
     })
@@ -175,5 +178,6 @@ describe('Coordinator repair state persistence contract', () => {
       status: 'unavailable',
       reason: 'persistence_unavailable'
     })
+    expect(reads).toBe(0)
   })
 })
