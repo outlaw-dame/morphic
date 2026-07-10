@@ -44,16 +44,6 @@ function validRevision(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 }
 
-function recordValue(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
-}
-
-function rawEnvelopeRevision(value: unknown): unknown {
-  return recordValue(recordValue(value)?.snapshot)?.revision
-}
-
 function validatedScope(value: unknown): CoordinatorRepairStateScope | null {
   const created = createCoordinatorRepairStateEnvelope(value)
   if (created.status !== 'created') return null
@@ -72,8 +62,6 @@ function cloneAuthorizedEnvelope(
   value: unknown,
   scope: CoordinatorRepairStateScope
 ): CoordinatorRepairStateEnvelope | null {
-  if (!validRevision(rawEnvelopeRevision(value))) return null
-
   const read = readCoordinatorRepairStateEnvelope(value, scope)
   if (read.status !== 'authorized') return null
 
