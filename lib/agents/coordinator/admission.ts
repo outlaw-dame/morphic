@@ -13,6 +13,7 @@ import type {
 } from './policy-types'
 import {
   createAuditedRepairExecutorPlan,
+  type CoordinatorRepairExecutorInput,
   type CoordinatorRepairExecutorPlan
 } from './repair-executor'
 import {
@@ -24,12 +25,18 @@ import {
 
 export type CoordinatorAdmissionStatus = 'compose' | 'repair'
 
+export type CoordinatorAdmissionRepairExecutorState = Omit<
+  CoordinatorRepairExecutorInput,
+  'plan'
+>
+
 export type CoordinatorAdmissionInput = {
   routePlan: RoutePlan
   evidenceGraph: EvidenceGraph
   retrievalAttempts?: number
   maxRetrievalAttempts?: number
   completedRoles?: string[]
+  repairExecutorState?: CoordinatorAdmissionRepairExecutorState
   now?: Date
 }
 
@@ -265,6 +272,22 @@ function createAdmissionBoundedRepairPlan(
   })
 }
 
+function createAdmissionRepairExecutorPlan(
+  input: CoordinatorAdmissionInput,
+  plan: CoordinatorBoundedRepairPlan
+): CoordinatorRepairExecutorPlan {
+  const state = input.repairExecutorState
+
+  return createAuditedRepairExecutorPlan({
+    plan,
+    completedStepIds: state?.completedStepIds,
+    priorAttemptsByStepId: state?.priorAttemptsByStepId,
+    maxAttemptsPerStep: state?.maxAttemptsPerStep,
+    baseDelayMs: state?.baseDelayMs,
+    maxDelayMs: state?.maxDelayMs
+  })
+}
+
 function toAdmission(
   evaluation: CoordinatorEvaluation,
   input: CoordinatorAdmissionInput
@@ -287,9 +310,10 @@ function toAdmission(
     requiredRepairActions,
     conflictRepairHints
   )
-  const repairExecutorPlan = createAuditedRepairExecutorPlan({
-    plan: boundedRepairPlan
-  })
+  const repairExecutorPlan = createAdmissionRepairExecutorPlan(
+    input,
+    boundedRepairPlan
+  )
 
   return {
     ...evaluation,
@@ -330,6 +354,7 @@ export function createCoordinatorAdmissionFromSearchResults(
     retrievalAttempts: input.retrievalAttempts,
     maxRetrievalAttempts: input.maxRetrievalAttempts,
     completedRoles: input.completedRoles,
+    repairExecutorState: input.repairExecutorState,
     now: input.now
   })
 }
