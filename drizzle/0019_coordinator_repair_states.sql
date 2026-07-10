@@ -53,7 +53,7 @@ BEGIN
   ) THEN
     CREATE POLICY "coordinator_repair_states_scoped_access"
       ON "coordinator_repair_states"
-      AS RESTRICTIVE
+      AS PERMISSIVE
       FOR ALL
       TO public
       USING (
