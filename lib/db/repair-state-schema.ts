@@ -60,7 +60,7 @@ export const coordinatorRepairStates = pgTable(
         AND (${table.envelope} -> 'snapshot' ->> 'revision')::numeric = ${table.revision}`
     ),
     pgPolicy('coordinator_repair_states_scoped_access', {
-      as: 'restrictive',
+      as: 'permissive',
       for: 'all',
       to: 'public',
       using: sql`${table.ownerScopeId} = current_setting('app.current_owner_scope_id', true)
