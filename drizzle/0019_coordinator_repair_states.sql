@@ -18,9 +18,7 @@ CREATE TABLE IF NOT EXISTS "coordinator_repair_states" (
     "envelope" ->> 'executionScopeId' = "execution_scope_id"
   ),
   CONSTRAINT "coordinator_repair_states_envelope_snapshot" CHECK (jsonb_typeof("envelope" -> 'snapshot') = 'object'),
-  CONSTRAINT "coordinator_repair_states_snapshot_version" CHECK (
-    "envelope" -> 'snapshot' ->> 'version' = '1'
-  ),
+  CONSTRAINT "coordinator_repair_states_snapshot_version" CHECK ("envelope" -> 'snapshot' ->> 'version' = '1'),
   CONSTRAINT "coordinator_repair_states_envelope_revision" CHECK (
     jsonb_typeof("envelope" -> 'snapshot' -> 'revision') = 'number'
     AND ("envelope" -> 'snapshot' ->> 'revision')::numeric = "revision"
