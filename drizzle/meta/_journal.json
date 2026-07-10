@@ -134,6 +134,13 @@
       "when": 1780767600000,
       "tag": "0018_subscribed_feeds",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1783732800000,
+      "tag": "0019_coordinator_repair_states",
+      "breakpoints": true
     }
   ]
 }
