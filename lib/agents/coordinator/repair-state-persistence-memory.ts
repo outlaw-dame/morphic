@@ -105,9 +105,7 @@ export function createCoordinatorRepairStateInMemoryAdapter(
       const current = records.get(key)
 
       if (expectedRevision === null) {
-        if (current || nextEnvelope.snapshot.revision !== 0) {
-          return { status: 'conflict' }
-        }
+        if (current) return { status: 'conflict' }
         if (records.size >= maxEntries) {
           throw new CoordinatorRepairStateInMemoryUnavailableError()
         }
