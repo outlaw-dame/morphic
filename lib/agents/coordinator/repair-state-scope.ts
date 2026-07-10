@@ -62,17 +62,16 @@ function recordValue(value: unknown): Record<string, unknown> | null {
 
 function stableScopeId(value: unknown): string | null {
   if (typeof value !== 'string') return null
-
-  const trimmed = value.trim()
   if (
-    trimmed.length < MIN_SCOPE_ID_LENGTH ||
-    trimmed.length > MAX_SCOPE_ID_LENGTH ||
-    CONTROL_CHARACTER_PATTERN.test(trimmed)
+    value.length < MIN_SCOPE_ID_LENGTH ||
+    value.length > MAX_SCOPE_ID_LENGTH ||
+    value !== value.trim() ||
+    CONTROL_CHARACTER_PATTERN.test(value)
   ) {
     return null
   }
 
-  return trimmed
+  return value
 }
 
 function validatedScope(value: unknown): CoordinatorRepairStateScope | null {
