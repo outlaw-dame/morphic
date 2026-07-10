@@ -184,7 +184,9 @@ describe('Coordinator PostgreSQL repair-state persistence adapter', () => {
   })
 
   it('fails closed for malformed or duplicate backend rows', async () => {
-    const malformedRows: readonly (readonly CoordinatorRepairStatePostgresRow[])[] = [
+    const malformedRows: readonly (
+      readonly CoordinatorRepairStatePostgresRow[]
+    )[] = [
       [{ envelope: { unexpected: true } }],
       [{ envelope: envelope(0) }, { envelope: envelope(0) }]
     ]
@@ -204,7 +206,7 @@ describe('Coordinator PostgreSQL repair-state persistence adapter', () => {
     const row = Object.create({ revision: 0 }) as Record<string, unknown>
     Object.defineProperty(row, 'revision', {
       enumerable: true,
-      get: () => 0n
+      get: () => BigInt(0)
     })
     const adapter = createCoordinatorRepairStatePostgresAdapter({
       query: async () => [row]
@@ -221,7 +223,13 @@ describe('Coordinator PostgreSQL repair-state persistence adapter', () => {
   })
 
   it('accepts safe native bigint revisions and rejects malformed results', async () => {
-    for (const revision of ['01', '-1', '9007199254740992', 1.5, 9007199254740992n]) {
+    for (const revision of [
+      '01',
+      '-1',
+      '9007199254740992',
+      1.5,
+      BigInt('9007199254740992')
+    ]) {
       const adapter = createCoordinatorRepairStatePostgresAdapter({
         query: async () => [{ revision }]
       })
@@ -236,7 +244,7 @@ describe('Coordinator PostgreSQL repair-state persistence adapter', () => {
     }
 
     const adapter = createCoordinatorRepairStatePostgresAdapter({
-      query: async () => [{ revision: 0n }]
+      query: async () => [{ revision: BigInt(0) }]
     })
     await expect(
       adapter.compareAndSwap({
