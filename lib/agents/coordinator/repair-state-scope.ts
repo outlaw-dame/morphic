@@ -118,6 +118,16 @@ function validatedEnvelope(value: unknown): CoordinatorRepairStateEnvelope | nul
   const scope = validatedScope(input)
   if (!scope) return null
 
+  const snapshot = recordValue(input.snapshot)
+  const revision = snapshot?.revision
+  if (
+    typeof revision !== 'number' ||
+    !Number.isSafeInteger(revision) ||
+    revision < 0
+  ) {
+    return null
+  }
+
   return {
     version: COORDINATOR_REPAIR_SCOPE_VERSION,
     ...scope,

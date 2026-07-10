@@ -7,6 +7,7 @@ import {
 } from './repair-state-persistence-memory'
 import {
   createCoordinatorRepairStateEnvelope,
+  readCoordinatorRepairStateEnvelope,
   type CoordinatorRepairStateEnvelope,
   type CoordinatorRepairStateScope
 } from './repair-state-scope'
@@ -36,6 +37,17 @@ function envelopeFor(
   })
   if (created.status !== 'created') throw new Error('invalid test scope')
   return created.envelope
+}
+
+function envelopeWithRawRevision(revision: unknown): CoordinatorRepairStateEnvelope {
+  const base = envelopeFor(scope, 0)
+  return {
+    ...base,
+    snapshot: {
+      ...base.snapshot,
+      revision
+    }
+  } as unknown as CoordinatorRepairStateEnvelope
 }
 
 describe('bounded in-memory Coordinator repair-state persistence adapter', () => {
@@ -144,6 +156,58 @@ describe('bounded in-memory Coordinator repair-state persistence adapter', () =>
     await expect(
       adapter.delete({ scope, expectedRevision: -1, context: context() })
     ).resolves.toEqual({ status: 'conflict' })
+  })
+
+  it('rejects malformed raw envelope revisions without sanitizing or mutating state', async () => {
+    const malformedCreateRevisions = [
+      -1,
+      1.5,
+      Number.POSITIVE_INFINITY,
+      Number.MAX_SAFE_INTEGER + 1
+    ]
+
+    for (const revision of malformedCreateRevisions) {
+      const malformedEnvelope = envelopeWithRawRevision(revision)
+      expect(readCoordinatorRepairStateEnvelope(malformedEnvelope, scope)).toEqual({
+        status: 'denied',
+        reason: 'scope_denied'
+      })
+
+      const adapter = createCoordinatorRepairStateInMemoryAdapter()
+      await expect(
+        adapter.compareAndSwap({
+          scope,
+          expectedRevision: null,
+          envelope: malformedEnvelope,
+          context: context()
+        })
+      ).resolves.toEqual({ status: 'conflict' })
+      await expect(adapter.read(scope, context())).resolves.toEqual({ status: 'not_found' })
+    }
+
+    const adapter = createCoordinatorRepairStateInMemoryAdapter()
+    await expect(
+      adapter.compareAndSwap({
+        scope,
+        expectedRevision: null,
+        envelope: envelopeFor(scope, 0),
+        context: context()
+      })
+    ).resolves.toEqual({ status: 'applied' })
+
+    await expect(
+      adapter.compareAndSwap({
+        scope,
+        expectedRevision: 0,
+        envelope: envelopeWithRawRevision(1.5),
+        context: context()
+      })
+    ).resolves.toEqual({ status: 'conflict' })
+
+    const current = await adapter.read(scope, context())
+    expect(current.status).toBe('found')
+    if (current.status !== 'found') throw new Error('expected stored envelope')
+    expect((current.envelope as CoordinatorRepairStateEnvelope).snapshot.revision).toBe(0)
   })
 
   it('requires monotonic stored revisions for compare-and-swap updates', async () => {
