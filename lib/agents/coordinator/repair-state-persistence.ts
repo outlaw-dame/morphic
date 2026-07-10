@@ -52,14 +52,31 @@ export type CoordinatorRepairStateStoreDeleteResult =
   | { status: 'denied'; reason: 'scope_denied' }
   | { status: 'unavailable'; reason: 'persistence_unavailable' }
 
+const SCOPE_DENIED = { status: 'denied', reason: 'scope_denied' } as const
+
 function unavailable(): { status: 'unavailable'; reason: 'persistence_unavailable' } {
   return { status: 'unavailable', reason: 'persistence_unavailable' }
 }
 
+function validatedPersistenceScope(
+  value: unknown
+): CoordinatorRepairStateScope | null {
+  const created = createCoordinatorRepairStateEnvelope(value)
+  if (created.status !== 'created') return null
+
+  return {
+    ownerScopeId: created.envelope.ownerScopeId,
+    executionScopeId: created.envelope.executionScopeId
+  }
+}
+
 export async function readCoordinatorRepairStateFromPersistence(
   adapter: CoordinatorRepairStatePersistenceAdapter,
-  authenticatedScope: CoordinatorRepairStateScope
+  authenticatedScopeValue: unknown
 ): Promise<CoordinatorRepairStateStoreReadResult> {
+  const authenticatedScope = validatedPersistenceScope(authenticatedScopeValue)
+  if (!authenticatedScope) return SCOPE_DENIED
+
   try {
     const stored = await adapter.read(authenticatedScope)
     if (stored.status === 'not_found') return stored
@@ -81,9 +98,12 @@ export async function readCoordinatorRepairStateFromPersistence(
 
 export async function writeCoordinatorRepairStateToPersistence(
   adapter: CoordinatorRepairStatePersistenceAdapter,
-  authenticatedScope: CoordinatorRepairStateScope,
+  authenticatedScopeValue: unknown,
   updateValue: unknown
 ): Promise<CoordinatorRepairStateStoreWriteResult> {
+  const authenticatedScope = validatedPersistenceScope(authenticatedScopeValue)
+  if (!authenticatedScope) return SCOPE_DENIED
+
   const current = await readCoordinatorRepairStateFromPersistence(
     adapter,
     authenticatedScope
@@ -104,10 +124,7 @@ export async function writeCoordinatorRepairStateToPersistence(
     )
     if (updated.status !== 'authorized') return updated
     if (updated.update.status === 'conflict') {
-      return {
-        status: 'conflict',
-        reason: updated.update.reason
-      }
+      return { status: 'conflict', reason: updated.update.reason }
     }
 
     try {
@@ -131,10 +148,7 @@ export async function writeCoordinatorRepairStateToPersistence(
   )
   if (updated.status !== 'authorized') return updated
   if (updated.update.status === 'conflict') {
-    return {
-      status: 'conflict',
-      reason: updated.update.reason
-    }
+    return { status: 'conflict', reason: updated.update.reason }
   }
   if (updated.update.status === 'noop') {
     return { status: 'noop', envelope: updated.envelope }
@@ -156,9 +170,12 @@ export async function writeCoordinatorRepairStateToPersistence(
 
 export async function deleteCoordinatorRepairStateFromPersistence(
   adapter: CoordinatorRepairStatePersistenceAdapter,
-  authenticatedScope: CoordinatorRepairStateScope,
+  authenticatedScopeValue: unknown,
   expectedRevision: number
 ): Promise<CoordinatorRepairStateStoreDeleteResult> {
+  const authenticatedScope = validatedPersistenceScope(authenticatedScopeValue)
+  if (!authenticatedScope) return SCOPE_DENIED
+
   const current = await readCoordinatorRepairStateFromPersistence(
     adapter,
     authenticatedScope
