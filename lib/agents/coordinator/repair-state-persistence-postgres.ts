@@ -107,7 +107,13 @@ function parseRevision(value: unknown): number | null {
 }
 
 function boundedEnvelopeBytes(value: unknown): number {
-  if (!validRevision(value) || value === 0) return MAX_ENVELOPE_BYTES
+  if (
+    typeof value !== 'number' ||
+    !Number.isSafeInteger(value) ||
+    value <= 0
+  ) {
+    return MAX_ENVELOPE_BYTES
+  }
   return Math.min(MAX_ENVELOPE_BYTES, value)
 }
 
