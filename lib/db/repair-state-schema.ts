@@ -6,6 +6,7 @@ import {
   jsonb,
   pgPolicy,
   pgTable,
+  primaryKey,
   timestamp,
   varchar
 } from 'drizzle-orm/pg-core'
@@ -28,10 +29,10 @@ export const coordinatorRepairStates = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
   },
   table => [
-    {
+    primaryKey({
       name: 'coordinator_repair_states_pk',
       columns: [table.ownerScopeId, table.executionScopeId]
-    },
+    }),
     index('coordinator_repair_states_updated_at_idx').on(table.updatedAt),
     check(
       'coordinator_repair_states_owner_scope_length',
