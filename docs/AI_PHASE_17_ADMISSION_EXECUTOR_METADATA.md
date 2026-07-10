@@ -43,7 +43,15 @@ This phase does not execute repairs. It does not perform or schedule any side ef
 
 ## Defensive behavior
 
-The admission bridge only passes its internally generated bounded repair plan into the audited executor planner. The executor planner remains responsible for sanitizing runtime step metadata, supported actions, retry policy bounds, completed step ids, prior attempts, evidence ids, and claim ids.
+The admission bridge only passes its internally generated bounded repair plan into the audited executor planner. The executor planner remains responsible for sanitizing:
+
+- runtime step metadata;
+- supported actions;
+- retry policy bounds;
+- completed step ids;
+- prior attempts;
+- evidence ids;
+- claim ids.
 
 ## Regression coverage
 

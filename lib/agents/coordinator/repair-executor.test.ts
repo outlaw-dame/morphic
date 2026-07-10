@@ -135,6 +135,35 @@ describe('createAuditedRepairExecutorPlan', () => {
     })
   })
 
+  it('normalizes padded ids before matching and emitting audit metadata', () => {
+    const result = createAuditedRepairExecutorPlan({
+      plan: plan({
+        steps: [
+          {
+            id: ' repair_step_1:retrieve_fresh_sources ',
+            action: ' retrieve_fresh_sources ',
+            source: 'policy_action',
+            priority: 'low',
+            reason: 'Retrieve fresh sources.',
+            evidenceIds: [' ev_one ', 'ev_one', ' ', '', 'ev_two'],
+            claimIds: [' cl_one ', 'cl_one', '   ']
+          }
+        ]
+      }),
+      completedStepIds: [' repair_step_1:retrieve_fresh_sources ']
+    })
+
+    expect(result.canExecute).toBe(false)
+    expect(result.records[0]).toMatchObject({
+      stepId: 'repair_step_1:retrieve_fresh_sources',
+      action: 'retrieve_fresh_sources',
+      status: 'completed',
+      skipReason: 'already_completed',
+      evidenceIds: ['ev_one', 'ev_two'],
+      claimIds: ['cl_one']
+    })
+  })
+
   it('skips malformed or unsupported runtime steps without throwing', () => {
     const result = createAuditedRepairExecutorPlan({
       plan: plan({

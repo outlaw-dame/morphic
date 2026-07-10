@@ -82,7 +82,16 @@ function stableString(value: unknown): string | null {
 
 function safeStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
-  return [...new Set(value.filter(item => typeof item === 'string'))]
+
+  const unique = new Set<string>()
+  for (const item of value) {
+    const normalized = stableString(item)
+    if (normalized) {
+      unique.add(normalized)
+    }
+  }
+
+  return [...unique]
 }
 
 function safeSource(value: unknown): CoordinatorRepairStep['source'] {
