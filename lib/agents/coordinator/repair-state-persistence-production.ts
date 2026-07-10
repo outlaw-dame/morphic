@@ -79,10 +79,10 @@ function extractContractFields(value: unknown): ExtractedFields | null {
     const prototype = Object.getPrototypeOf(value)
     if (prototype !== Object.prototype && prototype !== null) return null
 
-    const keys = Object.keys(value)
+    const ownKeys = Reflect.ownKeys(value)
     if (
-      keys.length !== CONTRACT_KEYS.length ||
-      keys.some(key => !CONTRACT_KEY_SET.has(key))
+      ownKeys.length !== CONTRACT_KEYS.length ||
+      ownKeys.some(key => typeof key !== 'string' || !CONTRACT_KEY_SET.has(key))
     ) {
       return null
     }
