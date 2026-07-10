@@ -141,17 +141,25 @@ describe('Coordinator repair-state persistence conformance runner', () => {
     })
   })
 
-  it('bounds a non-cooperative adapter case', async () => {
+  it('bounds non-cooperative cases and aborts their operation signals', async () => {
+    const signals: AbortSignal[] = []
+    const pending = (signal: AbortSignal) => {
+      signals.push(signal)
+      return new Promise<never>(() => undefined)
+    }
+
     const report = await runCoordinatorRepairStatePersistenceConformance(
       () => ({
-        read: async () => new Promise(() => undefined),
-        compareAndSwap: async () => new Promise(() => undefined),
-        delete: async () => new Promise(() => undefined)
+        read: async (_scope, context) => pending(context.signal),
+        compareAndSwap: async ({ context }) => pending(context.signal),
+        delete: async ({ context }) => pending(context.signal)
       }),
       { caseTimeoutMs: 10 }
     )
 
     expect(report.passed).toBe(false)
     expect(report.results.every(result => result.reason === 'timeout')).toBe(true)
+    expect(signals).toHaveLength(6)
+    expect(signals.every(signal => signal.aborted)).toBe(true)
   })
 })
