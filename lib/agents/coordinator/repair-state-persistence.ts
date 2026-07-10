@@ -93,6 +93,14 @@ const UNAVAILABLE = {
 
 class PersistenceOperationAbortedError extends Error {}
 
+type NormalizedOptions = {
+  signal?: AbortSignal
+  timeoutMs: number
+  maxReadAttempts: number
+  retryBaseDelayMs: number
+  retryMaxDelayMs: number
+}
+
 function boundedInteger(
   value: unknown,
   fallback: number,
@@ -105,9 +113,7 @@ function boundedInteger(
 
 function normalizedOptions(
   options: CoordinatorRepairStatePersistenceOperationOptions = {}
-): Required<Omit<CoordinatorRepairStatePersistenceOperationOptions, 'signal'>> & {
-  signal?: AbortSignal
-} {
+): NormalizedOptions {
   const retryBaseDelayMs = boundedInteger(
     options.retryBaseDelayMs,
     DEFAULT_RETRY_BASE_DELAY_MS,
@@ -147,7 +153,6 @@ function validatedPersistenceScope(
 ): CoordinatorRepairStateScope | null {
   const created = createCoordinatorRepairStateEnvelope(value)
   if (created.status !== 'created') return null
-
   return {
     ownerScopeId: created.envelope.ownerScopeId,
     executionScopeId: created.envelope.executionScopeId
@@ -161,31 +166,35 @@ function validRevision(value: unknown): value is number {
 async function runBoundedOperation<T>(
   operation: (context: CoordinatorRepairStatePersistenceOperationContext) => Promise<T>,
   attempt: number,
-  options: ReturnType<typeof normalizedOptions>
+  options: NormalizedOptions
 ): Promise<T> {
   if (options.signal?.aborted) throw new PersistenceOperationAbortedError()
 
   const controller = new AbortController()
   const abort = () => controller.abort()
   options.signal?.addEventListener('abort', abort, { once: true })
-
   const timeout = setTimeout(abort, options.timeoutMs)
-  let removeAbortListener: (() => void) | undefined
+
+  const rejectOnAbort = () => {
+    throw new PersistenceOperationAbortedError()
+  }
 
   try {
-    return await new Promise<T>((resolve, reject) => {
-      const rejectOnAbort = () => reject(new PersistenceOperationAbortedError())
-      controller.signal.addEventListener('abort', rejectOnAbort, { once: true })
-      removeAbortListener = () =>
-        controller.signal.removeEventListener('abort', rejectOnAbort)
-
-      Promise.resolve()
-        .then(() => operation({ signal: controller.signal, attempt }))
-        .then(resolve, reject)
-    })
+    return await Promise.race([
+      new Promise<never>((_, reject) => {
+        controller.signal.addEventListener(
+          'abort',
+          () => reject(new PersistenceOperationAbortedError()),
+          { once: true }
+        )
+      }),
+      Promise.resolve().then(() => {
+        if (controller.signal.aborted) rejectOnAbort()
+        return operation({ signal: controller.signal, attempt })
+      })
+    ])
   } finally {
     clearTimeout(timeout)
-    removeAbortListener?.()
     options.signal?.removeEventListener('abort', abort)
   }
 }
@@ -194,27 +203,21 @@ async function waitForRetry(delayMs: number, signal?: AbortSignal): Promise<void
   if (signal?.aborted) throw new PersistenceOperationAbortedError()
 
   await new Promise<void>((resolve, reject) => {
-    let timeout: ReturnType<typeof setTimeout>
-    const cleanup = () => signal?.removeEventListener('abort', abort)
-    const finish = () => {
-      cleanup()
-      resolve()
-    }
     const abort = () => {
       clearTimeout(timeout)
-      cleanup()
+      signal?.removeEventListener('abort', abort)
       reject(new PersistenceOperationAbortedError())
     }
+    const timeout = setTimeout(() => {
+      signal?.removeEventListener('abort', abort)
+      resolve()
+    }, delayMs)
 
     signal?.addEventListener('abort', abort, { once: true })
-    timeout = setTimeout(finish, delayMs)
   })
 }
 
-function retryDelayMs(
-  attempt: number,
-  options: ReturnType<typeof normalizedOptions>
-): number {
+function retryDelayMs(attempt: number, options: NormalizedOptions): number {
   return Math.min(
     options.retryMaxDelayMs,
     options.retryBaseDelayMs * 2 ** Math.max(0, attempt - 1)
@@ -240,7 +243,6 @@ async function readWithPolicy(
         error instanceof CoordinatorRepairStateTransientReadError &&
         attempt < options.maxReadAttempts &&
         !options.signal?.aborted
-
       if (!canRetry) throw error
       await waitForRetry(retryDelayMs(attempt, options), options.signal)
     }
@@ -287,57 +289,23 @@ export async function writeCoordinatorRepairStateToPersistence(
 ): Promise<CoordinatorRepairStateStoreWriteResult> {
   const authenticatedScope = validatedPersistenceScope(authenticatedScopeValue)
   if (!authenticatedScope) return SCOPE_DENIED
-  const normalized = normalizedOptions(options)
+  const policy = normalizedOptions(options)
 
   const current = await readCoordinatorRepairStateFromPersistence(
     adapter,
     authenticatedScope,
-    normalized
+    policy
   )
+  if (current.status === 'unavailable' || current.status === 'denied') return current
 
-  if (current.status === 'unavailable' || current.status === 'denied') {
-    return current
-  }
-
-  if (current.status === 'not_found') {
-    const created = createCoordinatorRepairStateEnvelope(authenticatedScope)
-    if (created.status !== 'created') return created
-
-    const updated = applyCoordinatorRepairStateEnvelopeUpdate(
-      created.envelope,
-      authenticatedScope,
-      updateValue
-    )
-    if (updated.status !== 'authorized') return updated
-    if (updated.update.status === 'conflict') {
-      return { status: 'conflict', reason: updated.update.reason }
-    }
-    if (updated.update.status === 'noop') {
-      return { status: 'noop', envelope: updated.envelope }
-    }
-
-    try {
-      const persisted = await runBoundedOperation(
-        context =>
-          adapter.compareAndSwap({
-            scope: authenticatedScope,
-            expectedRevision: null,
-            envelope: updated.envelope,
-            context
-          }),
-        1,
-        normalized
-      )
-      return persisted.status === 'applied'
-        ? { status: 'applied', envelope: updated.envelope }
-        : { status: 'conflict', reason: 'revision_conflict' }
-    } catch {
-      return UNAVAILABLE
-    }
-  }
+  const baseEnvelope =
+    current.status === 'not_found'
+      ? createCoordinatorRepairStateEnvelope(authenticatedScope)
+      : { status: 'created' as const, envelope: current.envelope }
+  if (baseEnvelope.status !== 'created') return baseEnvelope
 
   const updated = applyCoordinatorRepairStateEnvelopeUpdate(
-    current.envelope,
+    baseEnvelope.envelope,
     authenticatedScope,
     updateValue
   )
@@ -354,12 +322,15 @@ export async function writeCoordinatorRepairStateToPersistence(
       context =>
         adapter.compareAndSwap({
           scope: authenticatedScope,
-          expectedRevision: current.envelope.snapshot.revision,
+          expectedRevision:
+            current.status === 'not_found'
+              ? null
+              : current.envelope.snapshot.revision,
           envelope: updated.envelope,
           context
         }),
       1,
-      normalized
+      policy
     )
     return persisted.status === 'applied'
       ? { status: 'applied', envelope: updated.envelope }
