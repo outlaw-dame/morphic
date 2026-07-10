@@ -1,5 +1,6 @@
 import {
   createCoordinatorRepairStateEnvelope,
+  readCoordinatorRepairStateEnvelope,
   type CoordinatorRepairStateEnvelope,
   type CoordinatorRepairStateScope
 } from './repair-state-scope'
@@ -71,6 +72,11 @@ function envelopeFor(
   return created.envelope
 }
 
+function storedRevision(value: unknown): number | null {
+  const read = readCoordinatorRepairStateEnvelope(value, scope)
+  return read.status === 'authorized' ? read.snapshot.revision : null
+}
+
 function withTimeout<T>(
   operation: (signal: AbortSignal) => Promise<T>,
   timeoutMs: number
@@ -135,10 +141,16 @@ export async function runCoordinatorRepairStatePersistenceConformance(
       const second = await adapter.compareAndSwap({
         scope,
         expectedRevision: null,
-        envelope,
+        envelope: envelopeFor(scope, 99),
         context: context(signal)
       })
-      return first.status === 'applied' && second.status === 'conflict'
+      const current = await adapter.read(scope, context(signal))
+      return (
+        first.status === 'applied' &&
+        second.status === 'conflict' &&
+        current.status === 'found' &&
+        storedRevision(current.envelope) === 0
+      )
     })
   )
 
@@ -162,13 +174,16 @@ export async function runCoordinatorRepairStatePersistenceConformance(
       const stale = await adapter.compareAndSwap({
         scope,
         expectedRevision: 0,
-        envelope: next,
+        envelope: envelopeFor(scope, 99),
         context: context(signal)
       })
+      const current = await adapter.read(scope, context(signal))
       return (
         created.status === 'applied' &&
         applied.status === 'applied' &&
-        stale.status === 'conflict'
+        stale.status === 'conflict' &&
+        current.status === 'found' &&
+        storedRevision(current.envelope) === 1
       )
     })
   )
@@ -187,6 +202,7 @@ export async function runCoordinatorRepairStatePersistenceConformance(
         expectedRevision: 1,
         context: context(signal)
       })
+      const afterStale = await adapter.read(scope, context(signal))
       const deleted = await adapter.delete({
         scope,
         expectedRevision: 2,
@@ -196,6 +212,8 @@ export async function runCoordinatorRepairStatePersistenceConformance(
       return (
         created.status === 'applied' &&
         stale.status === 'conflict' &&
+        afterStale.status === 'found' &&
+        storedRevision(afterStale.envelope) === 2 &&
         deleted.status === 'deleted' &&
         missing.status === 'not_found'
       )
@@ -241,8 +259,32 @@ export async function runCoordinatorRepairStatePersistenceConformance(
       const adapter = await factory()
       const controller = new AbortController()
       controller.abort()
+
       try {
         await adapter.read(scope, context(controller.signal))
+        return false
+      } catch {
+        // Expected.
+      }
+
+      try {
+        await adapter.compareAndSwap({
+          scope,
+          expectedRevision: null,
+          envelope: envelopeFor(scope, 0),
+          context: context(controller.signal)
+        })
+        return false
+      } catch {
+        // Expected.
+      }
+
+      try {
+        await adapter.delete({
+          scope,
+          expectedRevision: 0,
+          context: context(controller.signal)
+        })
         return false
       } catch {
         return true
