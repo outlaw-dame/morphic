@@ -103,10 +103,13 @@ function scopesEqual(
   left: CoordinatorRepairStateScope,
   right: CoordinatorRepairStateScope
 ): boolean {
-  return (
-    constantTimeEqual(left.ownerScopeId, right.ownerScopeId) &&
-    constantTimeEqual(left.executionScopeId, right.executionScopeId)
+  const ownerEqual = constantTimeEqual(left.ownerScopeId, right.ownerScopeId)
+  const executionEqual = constantTimeEqual(
+    left.executionScopeId,
+    right.executionScopeId
   )
+
+  return ownerEqual && executionEqual
 }
 
 function validatedEnvelope(value: unknown): CoordinatorRepairStateEnvelope | null {
