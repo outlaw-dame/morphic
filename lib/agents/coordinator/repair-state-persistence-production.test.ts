@@ -144,6 +144,25 @@ describe('Coordinator production repair-state persistence contract', () => {
     }
   })
 
+  it('rejects hidden non-enumerable and symbol-keyed properties', () => {
+    const nonEnumerable = validContract() as unknown as Record<string, unknown>
+    Object.defineProperty(nonEnumerable, 'credential', {
+      configurable: true,
+      enumerable: false,
+      value: 'must-not-be-accepted'
+    })
+
+    const symbolKeyed = validContract() as unknown as Record<PropertyKey, unknown>
+    symbolKeyed[Symbol('credential')] = 'must-not-be-accepted'
+
+    for (const value of [nonEnumerable, symbolKeyed]) {
+      expect(validateCoordinatorRepairStateProductionContract(value)).toEqual({
+        status: 'rejected',
+        reasons: ['invalid_contract_shape']
+      })
+    }
+  })
+
   it('fails closed for hostile proxies without leaking thrown details', () => {
     const hostile = new Proxy(validContract(), {
       getPrototypeOf() {
