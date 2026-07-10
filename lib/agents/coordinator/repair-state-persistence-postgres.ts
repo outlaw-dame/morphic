@@ -59,7 +59,9 @@ WHERE owner_scope_id = $1
 LIMIT 1
 `.trim()
 
-export type CoordinatorRepairStatePostgresRow = Readonly<Record<string, unknown>>
+export type CoordinatorRepairStatePostgresRow = Readonly<
+  Record<string, unknown>
+>
 
 export type CoordinatorRepairStatePostgresQuery = (
   statement: string,
@@ -79,7 +81,9 @@ export class CoordinatorRepairStatePostgresUnavailableError extends Error {
   }
 }
 
-function assertActive(context: CoordinatorRepairStatePersistenceOperationContext): void {
+function assertActive(
+  context: CoordinatorRepairStatePersistenceOperationContext
+): void {
   if (!context?.signal || context.signal.aborted) {
     throw new CoordinatorRepairStatePostgresUnavailableError()
   }
@@ -128,7 +132,8 @@ function serializeEnvelope(
 ): string | null {
   try {
     const serialized = JSON.stringify(envelope)
-    if (new TextEncoder().encode(serialized).byteLength > maxEnvelopeBytes) return null
+    if (new TextEncoder().encode(serialized).byteLength > maxEnvelopeBytes)
+      return null
     return serialized
   } catch {
     return null
@@ -160,7 +165,9 @@ function ownDataValue(
   return descriptor.value
 }
 
-function returnedRevision(row: CoordinatorRepairStatePostgresRow | null): number | null {
+function returnedRevision(
+  row: CoordinatorRepairStatePostgresRow | null
+): number | null {
   return row ? parseRevision(ownDataValue(row, 'revision')) : null
 }
 
@@ -181,17 +188,29 @@ export function createCoordinatorRepairStatePostgresAdapter(
       if (!scope) throw new CoordinatorRepairStatePostgresUnavailableError()
 
       const row = singleRow(
-        await query(READ_SQL, [scope.ownerScopeId, scope.executionScopeId], context)
+        await query(
+          READ_SQL,
+          [scope.ownerScopeId, scope.executionScopeId],
+          context
+        )
       )
       assertActive(context)
       if (!row) return { status: 'not_found' }
 
-      const envelope = cloneAuthorizedEnvelope(ownDataValue(row, 'envelope'), scope)
+      const envelope = cloneAuthorizedEnvelope(
+        ownDataValue(row, 'envelope'),
+        scope
+      )
       if (!envelope) throw new CoordinatorRepairStatePostgresUnavailableError()
       return { status: 'found', envelope }
     },
 
-    async compareAndSwap({ scope: scopeValue, expectedRevision, envelope, context }) {
+    async compareAndSwap({
+      scope: scopeValue,
+      expectedRevision,
+      envelope,
+      context
+    }) {
       assertActive(context)
       const scope = validatedScope(scopeValue)
       if (!scope) return { status: 'conflict' }
@@ -253,7 +272,11 @@ export function createCoordinatorRepairStatePostgresAdapter(
       }
 
       const existing = singleRow(
-        await query(EXISTS_SQL, [scope.ownerScopeId, scope.executionScopeId], context)
+        await query(
+          EXISTS_SQL,
+          [scope.ownerScopeId, scope.executionScopeId],
+          context
+        )
       )
       assertActive(context)
       return existing ? { status: 'conflict' } : { status: 'not_found' }
