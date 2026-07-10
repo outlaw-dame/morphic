@@ -4,13 +4,16 @@ import { readFileSync } from 'node:fs'
 import postgres from 'postgres'
 
 import * as relations from './relations'
+import * as repairStateSchema from './repair-state-schema'
 import * as schema from './schema'
 
 // For server-side usage only
 // Use restricted user for application if available, otherwise fall back to regular user
 const isDevelopment = process.env.NODE_ENV === 'development'
 const isTest = process.env.NODE_ENV === 'test'
-type AppDb = ReturnType<typeof drizzle<typeof schema & typeof relations>>
+type AppDb = ReturnType<
+  typeof drizzle<typeof schema & typeof repairStateSchema & typeof relations>
+>
 
 const globalForDb = globalThis as typeof globalThis & {
   __gistDb?: AppDb
@@ -97,7 +100,7 @@ function createDb() {
   })
 
   const instance = drizzle(client, {
-    schema: { ...schema, ...relations }
+    schema: { ...schema, ...repairStateSchema, ...relations }
   })
 
   if (isDevelopment) {
@@ -122,7 +125,7 @@ export const db = new Proxy({} as ReturnType<typeof createDb>, {
 })
 
 // Helper type for all tables
-export type Schema = typeof schema
+export type Schema = typeof schema & typeof repairStateSchema
 
 // Verify restricted user permissions on startup (only at runtime, not during build)
 if (
