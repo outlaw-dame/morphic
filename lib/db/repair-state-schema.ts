@@ -63,6 +63,10 @@ export const coordinatorRepairStates = pgTable(
       sql`${table.envelope} ->> 'executionScopeId' = ${table.executionScopeId}`
     ),
     check(
+      'coordinator_repair_states_snapshot_version',
+      sql`${table.envelope} -> 'snapshot' ->> 'version' = '1'`
+    ),
+    check(
       'coordinator_repair_states_envelope_revision',
       sql`jsonb_typeof(${table.envelope} -> 'snapshot' -> 'revision') = 'number'
         AND (${table.envelope} -> 'snapshot' ->> 'revision')::numeric = ${table.revision}`
