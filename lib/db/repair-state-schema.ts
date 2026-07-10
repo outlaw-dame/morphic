@@ -19,14 +19,22 @@ const MAX_SAFE_REVISION = Number.MAX_SAFE_INTEGER
 export const coordinatorRepairStates = pgTable(
   'coordinator_repair_states',
   {
-    ownerScopeId: varchar('owner_scope_id', { length: SCOPE_ID_LENGTH }).notNull(),
+    ownerScopeId: varchar('owner_scope_id', {
+      length: SCOPE_ID_LENGTH
+    }).notNull(),
     executionScopeId: varchar('execution_scope_id', {
       length: SCOPE_ID_LENGTH
     }).notNull(),
     revision: bigint('revision', { mode: 'number' }).notNull(),
-    envelope: jsonb('envelope').$type<CoordinatorRepairStateEnvelope>().notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+    envelope: jsonb('envelope')
+      .$type<CoordinatorRepairStateEnvelope>()
+      .notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
   },
   table => [
     primaryKey({
