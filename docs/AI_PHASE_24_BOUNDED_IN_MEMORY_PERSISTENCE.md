@@ -51,11 +51,13 @@ This does not provide cross-process, cross-worker, or distributed atomicity. Pro
 
 ## Revision behavior
 
-- create requires no existing record and snapshot revision `0`;
+- create requires no existing record and a valid non-negative safe snapshot revision;
 - update requires the stored revision to equal `expectedRevision`;
 - update requires the replacement revision to equal `expectedRevision + 1`;
 - delete requires the stored revision to equal `expectedRevision`;
 - negative, fractional, infinite, unsafe, or otherwise malformed revisions fail closed.
+
+Allowing a valid non-zero initial revision supports restoring or importing an already-versioned snapshot without weakening create-only compare-and-swap semantics.
 
 ## Conformance and regression coverage
 
