@@ -92,6 +92,23 @@ describe('Coordinator repair state persistence contract', () => {
     expect(result).toEqual({ status: 'conflict', reason: 'revision_conflict' })
   })
 
+  it('does not create a missing record for a no-op update', async () => {
+    let writes = 0
+    const result = await writeCoordinatorRepairStateToPersistence(
+      adapter({
+        compareAndSwap: async () => {
+          writes += 1
+          return { status: 'applied' }
+        }
+      }),
+      scope,
+      { expectedRevision: 0 }
+    )
+
+    expect(result.status).toBe('noop')
+    expect(writes).toBe(0)
+  })
+
   it('uses the stored revision for compare-and-swap updates', async () => {
     const created = createCoordinatorRepairStateEnvelope(scope, { revision: 4 })
     if (created.status !== 'created') throw new Error('expected envelope')
