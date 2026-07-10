@@ -82,7 +82,11 @@ describe('Coordinator production repair-state persistence contract', () => {
   })
 
   it('rejects malformed numeric policy values without coercion', () => {
-    for (const retentionDays of [1.5, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1]) {
+    for (const retentionDays of [
+      1.5,
+      Number.POSITIVE_INFINITY,
+      Number.MAX_SAFE_INTEGER + 1
+    ]) {
       const result = validateCoordinatorRepairStateProductionContract({
         ...validContract(),
         retentionDays
@@ -106,14 +110,14 @@ describe('Coordinator production repair-state persistence contract', () => {
   })
 
   it('rejects missing, additional, inherited, accessor, array, and class-instance fields', () => {
-    const missing = validContract() as Record<string, unknown>
+    const missing = validContract() as unknown as Record<string, unknown>
     delete missing.auditMode
 
-    const inherited = Object.create(validContract())
+    const inherited = Object.create(validContract()) as Record<string, unknown>
     Object.assign(inherited, validContract())
     delete inherited.auditMode
 
-    const accessor = validContract() as Record<string, unknown>
+    const accessor = validContract() as unknown as Record<string, unknown>
     Object.defineProperty(accessor, 'auditMode', {
       enumerable: true,
       get() {
