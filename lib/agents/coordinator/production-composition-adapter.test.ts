@@ -105,7 +105,7 @@ async function runWithProvider(
       candidates: [candidate()],
       provider
     }),
-    signal,
+    ...(signal ? { signal } : {}),
     now
   })
 }
@@ -124,7 +124,10 @@ describe('AI-I3G evidence-only production composition adapter', () => {
         return {
           output: {
             draft: 'Photosynthesis converts light into chemical energy.',
-            citedEvidenceIds: [invocation.input.evidence[0]!.id]
+            citedEvidenceIds: [
+              invocation.input.evidence[0]!.id,
+              invocation.input.evidence[0]!.id
+            ]
           },
           outputTokens: 12
         }
@@ -133,6 +136,7 @@ describe('AI-I3G evidence-only production composition adapter', () => {
 
     const response = await runWithProvider(provider)
 
+    expect(response.output.citedEvidenceIds).toHaveLength(1)
     expect(response.output.releaseStatus).toBe(
       'pending_advisor_and_citation_verifier'
     )
@@ -202,6 +206,27 @@ describe('AI-I3G evidence-only production composition adapter', () => {
       'cancelled'
     )
     expect(provider.invoke).not.toHaveBeenCalled()
+  })
+
+  it('preserves cancellation reason during Composer invocation', async () => {
+    const controller = new AbortController()
+    const provider: RoleProviderAdapter<ComposerModelInput> = {
+      invoke: vi.fn(
+        () =>
+          new Promise<Readonly<{ output: unknown; outputTokens: number }>>(
+            () => undefined
+          )
+      )
+    }
+    setTimeout(
+      () => controller.abort(new Error('user cancelled composition')),
+      10
+    )
+
+    await expect(runWithProvider(provider, controller.signal)).rejects.toThrow(
+      'user cancelled composition'
+    )
+    expect(provider.invoke).toHaveBeenCalledTimes(1)
   })
 
   it('rejects malformed model output through the hardened role runner', async () => {

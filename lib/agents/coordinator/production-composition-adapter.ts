@@ -35,6 +35,17 @@ function deepFreeze<T>(value: T): T {
   return Object.freeze(value)
 }
 
+function throwCancellation(signal?: AbortSignal): never {
+  if (signal?.reason instanceof Error) throw signal.reason
+  const message =
+    typeof signal?.reason === 'string'
+      ? signal.reason
+      : 'The Composer operation was aborted.'
+  throw typeof DOMException !== 'undefined'
+    ? new DOMException(message, 'AbortError')
+    : new Error(message)
+}
+
 const ComposerEvidenceSchema = z
   .object({
     id: z.string().min(1).max(256),
@@ -79,6 +90,7 @@ const ComposerModelOutputSchema = z
     citedEvidenceIds: z
       .array(z.string().min(1).max(256))
       .max(MAX_CITED_EVIDENCE)
+      .transform(values => [...new Set(values)])
   })
   .strict()
 
@@ -135,7 +147,8 @@ function freezeRoles(value: readonly ModelRole[]): readonly ModelRole[] {
 
 function normalizeDate(value: unknown, nullable: boolean): string | null {
   if (value === null && nullable) return null
-  const date = value instanceof Date ? new Date(value.getTime()) : new Date(String(value))
+  const date =
+    value instanceof Date ? new Date(value.getTime()) : new Date(String(value))
   if (!Number.isFinite(date.getTime())) {
     throw new Error('Invalid Coordinator-approved composition evidence.')
   }
@@ -185,11 +198,10 @@ function validateCitations(
   input: ComposerModelInput
 ): readonly string[] {
   const admitted = new Set(input.evidence.map(item => item.id))
-  const citations = [...new Set(output.citedEvidenceIds)]
-  if (citations.some(id => !admitted.has(id))) {
+  if (output.citedEvidenceIds.some(id => !admitted.has(id))) {
     throw new Error('Composer cited evidence outside the approved graph.')
   }
-  return Object.freeze(citations)
+  return Object.freeze([...output.citedEvidenceIds])
 }
 
 export function createProductionCompositionAdapter(
@@ -246,6 +258,12 @@ export function createProductionCompositionAdapter(
         signal: input.signal
       })
 
+      if (
+        outcome.result.status === 'cancelled' ||
+        outcome.result.failureClass === 'cancelled'
+      ) {
+        throwCancellation(input.signal)
+      }
       if (outcome.result.status !== 'succeeded' || outcome.output === null) {
         throw new Error(
           `Composer execution failed: ${outcome.result.failureClass ?? 'unknown'}.`
