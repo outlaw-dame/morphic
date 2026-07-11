@@ -36,6 +36,6 @@ export function createCoordinatorExecutionState(input: {
     retrievalAttempts: Math.max(0, input.retrievalAttempts ?? 0),
     maxRetrievalAttempts: Math.max(1, input.maxRetrievalAttempts ?? 2),
     completedRoles,
-    ...(input.stage ? { stage: input.stage } : {})
+    stage: input.stage
   }
 }
