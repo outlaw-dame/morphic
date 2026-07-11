@@ -55,6 +55,7 @@ export type RoleSelectionProfile = Readonly<{
   allowedLocalities: readonly ModelLocality[]
   minimumCapabilityProvenance: CapabilityProvenance
   minimumRoleQualityScore: number
+  maximumQualityAgeDays: number
   requiredToolPermissionClass: string
   structuredOutputStrategy: 'native' | 'validated_json' | 'not_required'
   fallbackModelIds: readonly string[]
@@ -75,6 +76,29 @@ export type RoleSelectionDecision =
       reasonCodes: readonly string[]
     }>
 
+const CAPABILITY_PROVENANCE_VALUES = new Set<CapabilityProvenance>([
+  'evaluation_verified',
+  'deployment_configured',
+  'model_card_declared',
+  'provider_declared',
+  'inferred',
+  'unknown'
+])
+
+const AVAILABILITY_VALUES = new Set<ModelAvailability>([
+  'available',
+  'disabled',
+  'deprecated',
+  'unavailable'
+])
+const LOCALITY_VALUES = new Set<ModelLocality>(['local', 'remote'])
+const RELIABILITY_VALUES = new Set<ReliabilityTier>([
+  'unknown',
+  'experimental',
+  'standard',
+  'strong'
+])
+
 const PROVENANCE_RANK: Record<CapabilityProvenance, number> = {
   unknown: 0,
   inferred: 1,
@@ -91,19 +115,68 @@ const RELIABILITY_RANK: Record<ReliabilityTier, number> = {
   strong: 3
 }
 
-function isFiniteNonNegative(value: number): boolean {
-  return Number.isFinite(value) && value >= 0
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function isCandidateStructurallyValid(candidate: RoleModelCandidate): boolean {
+function isFiniteNonNegative(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+function isIsoDate(value: unknown): value is string {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value))
+}
+
+function isCapabilityAssertion(value: unknown): value is CapabilityAssertion {
+  if (!isRecord(value)) return false
   return (
-    candidate.providerId.length > 0 &&
-    candidate.modelId.length > 0 &&
-    candidate.family.length > 0 &&
-    Number.isSafeInteger(candidate.maxContextTokens) &&
-    candidate.maxContextTokens > 0 &&
-    isFiniteNonNegative(candidate.estimatedLatencyMs) &&
-    isFiniteNonNegative(candidate.estimatedCostPerMillionTokensUsd)
+    isNonEmptyString(value.capability) &&
+    isNonEmptyString(value.provenance) &&
+    CAPABILITY_PROVENANCE_VALUES.has(value.provenance as CapabilityProvenance)
+  )
+}
+
+function isRoleQualityScore(value: unknown): value is RoleQualityScore {
+  if (!isRecord(value)) return false
+  return (
+    isNonEmptyString(value.role) &&
+    typeof value.score === 'number' &&
+    Number.isFinite(value.score) &&
+    value.score >= 0 &&
+    value.score <= 1 &&
+    isNonEmptyString(value.fixtureVersion) &&
+    isIsoDate(value.verifiedAt)
+  )
+}
+
+function isCandidateStructurallyValid(value: unknown): value is RoleModelCandidate {
+  if (!isRecord(value)) return false
+
+  return (
+    isNonEmptyString(value.providerId) &&
+    isNonEmptyString(value.modelId) &&
+    isNonEmptyString(value.family) &&
+    isNonEmptyString(value.availability) &&
+    AVAILABILITY_VALUES.has(value.availability as ModelAvailability) &&
+    isNonEmptyString(value.locality) &&
+    LOCALITY_VALUES.has(value.locality as ModelLocality) &&
+    isNonEmptyString(value.reliability) &&
+    RELIABILITY_VALUES.has(value.reliability as ReliabilityTier) &&
+    Number.isSafeInteger(value.maxContextTokens) &&
+    (value.maxContextTokens as number) > 0 &&
+    isFiniteNonNegative(value.estimatedLatencyMs) &&
+    isFiniteNonNegative(value.estimatedCostPerMillionTokensUsd) &&
+    Array.isArray(value.capabilities) &&
+    value.capabilities.every(isCapabilityAssertion) &&
+    Array.isArray(value.roleQuality) &&
+    value.roleQuality.every(isRoleQualityScore) &&
+    (value.cooldownUntil === undefined ||
+      value.cooldownUntil === null ||
+      isIsoDate(value.cooldownUntil))
   )
 }
 
@@ -126,14 +199,17 @@ function strongestCapabilityProvenance(
 
 function roleQualityScore(
   candidate: RoleModelCandidate,
-  role: ModelRole
+  role: ModelRole,
+  now: Date,
+  maximumAgeDays: number
 ): number | null {
   let score: number | null = null
+  const minimumVerifiedAt = now.getTime() - maximumAgeDays * 24 * 60 * 60 * 1000
+
   for (const quality of candidate.roleQuality) {
     if (quality.role !== role) continue
-    if (!Number.isFinite(quality.score) || quality.score < 0 || quality.score > 1) {
-      continue
-    }
+    const verifiedAt = Date.parse(quality.verifiedAt)
+    if (!Number.isFinite(verifiedAt) || verifiedAt < minimumVerifiedAt) continue
     score = score === null ? quality.score : Math.max(score, quality.score)
   }
   return score
@@ -141,21 +217,52 @@ function roleQualityScore(
 
 function isCooldownActive(candidate: RoleModelCandidate, now: Date): boolean {
   if (!candidate.cooldownUntil) return false
-  const timestamp = Date.parse(candidate.cooldownUntil)
-  return Number.isFinite(timestamp) && timestamp > now.getTime()
+  return Date.parse(candidate.cooldownUntil) > now.getTime()
+}
+
+function isProfileStructurallyValid(profile: RoleSelectionProfile): boolean {
+  return (
+    isNonEmptyString(profile.role) &&
+    Array.isArray(profile.hardCapabilities) &&
+    Array.isArray(profile.preferredCapabilities) &&
+    isNonEmptyString(profile.minimumReliability) &&
+    RELIABILITY_VALUES.has(profile.minimumReliability) &&
+    Number.isSafeInteger(profile.minimumContextTokens) &&
+    profile.minimumContextTokens > 0 &&
+    isFiniteNonNegative(profile.maximumLatencyMs) &&
+    isFiniteNonNegative(profile.maximumCostPerMillionTokensUsd) &&
+    Array.isArray(profile.allowedLocalities) &&
+    profile.allowedLocalities.length > 0 &&
+    profile.allowedLocalities.every(locality => LOCALITY_VALUES.has(locality)) &&
+    CAPABILITY_PROVENANCE_VALUES.has(profile.minimumCapabilityProvenance) &&
+    Number.isFinite(profile.minimumRoleQualityScore) &&
+    profile.minimumRoleQualityScore >= 0 &&
+    profile.minimumRoleQualityScore <= 1 &&
+    Number.isSafeInteger(profile.maximumQualityAgeDays) &&
+    profile.maximumQualityAgeDays > 0 &&
+    isNonEmptyString(profile.requiredToolPermissionClass) &&
+    Array.isArray(profile.fallbackModelIds)
+  )
 }
 
 function evaluateCandidate(
-  candidate: RoleModelCandidate,
+  value: unknown,
   profile: RoleSelectionProfile,
   now: Date
 ): readonly string[] {
+  if (!isCandidateStructurallyValid(value)) return ['invalid_candidate']
+  if (!isProfileStructurallyValid(profile)) return ['invalid_selection_profile']
+
+  const candidate = value
   const reasons: string[] = []
 
-  if (!isCandidateStructurallyValid(candidate)) reasons.push('invalid_candidate')
-  if (candidate.availability !== 'available') reasons.push(`availability_${candidate.availability}`)
+  if (candidate.availability !== 'available') {
+    reasons.push(`availability_${candidate.availability}`)
+  }
   if (isCooldownActive(candidate, now)) reasons.push('cooldown_active')
-  if (!profile.allowedLocalities.includes(candidate.locality)) reasons.push('locality_not_allowed')
+  if (!profile.allowedLocalities.includes(candidate.locality)) {
+    reasons.push('locality_not_allowed')
+  }
   if (
     RELIABILITY_RANK[candidate.reliability] <
     RELIABILITY_RANK[profile.minimumReliability]
@@ -189,7 +296,12 @@ function evaluateCandidate(
     }
   }
 
-  const quality = roleQualityScore(candidate, profile.role)
+  const quality = roleQualityScore(
+    candidate,
+    profile.role,
+    now,
+    profile.maximumQualityAgeDays
+  )
   if (quality === null) reasons.push('missing_verified_role_quality')
   else if (quality < profile.minimumRoleQualityScore) {
     reasons.push('role_quality_below_minimum')
@@ -211,14 +323,18 @@ function fallbackRank(
   candidate: RoleModelCandidate,
   profile: RoleSelectionProfile
 ): number {
-  const index = profile.fallbackModelIds.indexOf(candidate.modelId)
-  return index === -1 ? Number.MAX_SAFE_INTEGER : index
+  const qualifiedId = `${candidate.providerId}/${candidate.modelId}`
+  const qualifiedIndex = profile.fallbackModelIds.indexOf(qualifiedId)
+  if (qualifiedIndex !== -1) return qualifiedIndex
+  const modelIndex = profile.fallbackModelIds.indexOf(candidate.modelId)
+  return modelIndex === -1 ? Number.MAX_SAFE_INTEGER : modelIndex
 }
 
 function compareEligibleCandidates(
   left: RoleModelCandidate,
   right: RoleModelCandidate,
-  profile: RoleSelectionProfile
+  profile: RoleSelectionProfile,
+  now: Date
 ): number {
   const leftFallback = fallbackRank(left, profile)
   const rightFallback = fallbackRank(right, profile)
@@ -231,8 +347,10 @@ function compareEligibleCandidates(
     if (leftDiverse !== rightDiverse) return leftDiverse ? -1 : 1
   }
 
-  const leftQuality = roleQualityScore(left, profile.role) ?? -1
-  const rightQuality = roleQualityScore(right, profile.role) ?? -1
+  const leftQuality =
+    roleQualityScore(left, profile.role, now, profile.maximumQualityAgeDays) ?? -1
+  const rightQuality =
+    roleQualityScore(right, profile.role, now, profile.maximumQualityAgeDays) ?? -1
   if (leftQuality !== rightQuality) return rightQuality - leftQuality
 
   const preferredDifference =
@@ -262,7 +380,7 @@ function compareEligibleCandidates(
 }
 
 export function selectModelForRoleV2(
-  candidates: readonly RoleModelCandidate[],
+  candidates: readonly unknown[],
   profile: RoleSelectionProfile,
   options: Readonly<{
     now?: Date
@@ -271,7 +389,8 @@ export function selectModelForRoleV2(
 ): RoleSelectionDecision {
   const now = options.now ?? new Date()
   const eligible = candidates.filter(
-    candidate => evaluateCandidate(candidate, profile, now).length === 0
+    (candidate): candidate is RoleModelCandidate =>
+      evaluateCandidate(candidate, profile, now).length === 0
   )
 
   if (eligible.length === 0) {
@@ -281,12 +400,16 @@ export function selectModelForRoleV2(
         : 'no_eligible_model',
       role: profile.role,
       candidate: null,
-      reasonCodes: Object.freeze(['no_eligible_model'])
+      reasonCodes: Object.freeze([
+        options.deterministicFallbackAvailable
+          ? 'deterministic_fallback_selected'
+          : 'no_eligible_model'
+      ])
     })
   }
 
   const selected = [...eligible].sort((left, right) =>
-    compareEligibleCandidates(left, right, profile)
+    compareEligibleCandidates(left, right, profile, now)
   )[0]
 
   return Object.freeze({
@@ -302,7 +425,7 @@ export function selectModelForRoleV2(
 }
 
 export function getRoleSelectionRejectionReasons(
-  candidate: RoleModelCandidate,
+  candidate: unknown,
   profile: RoleSelectionProfile,
   now = new Date()
 ): readonly string[] {
