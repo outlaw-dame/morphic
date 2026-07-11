@@ -288,6 +288,26 @@ describe('AI-I3H evidence-and-draft-only Advisor adapter', () => {
     ).rejects.toThrow('Advisor execution failed: malformed_output.')
   })
 
+  it('requires advisor_ready for an approval decision', async () => {
+    const prepared = await prepareReview()
+    const provider: RoleProviderAdapter<AdvisorModelInput> = {
+      invoke: vi.fn(async () => ({
+        output: {
+          decision: 'approve',
+          reasonCodes: [],
+          unsupportedClaimIds: [],
+          citationRiskEvidenceIds: [],
+          confidence: 0.9
+        },
+        outputTokens: 6
+      }))
+    }
+
+    await expect(
+      advisor(provider).review(reviewInput(prepared))
+    ).rejects.toThrow('Advisor execution failed: malformed_output.')
+  })
+
   it('rejects evidence identifiers outside the approved graph', async () => {
     const prepared = await prepareReview()
     const provider: RoleProviderAdapter<AdvisorModelInput> = {
@@ -313,19 +333,13 @@ describe('AI-I3H evidence-and-draft-only Advisor adapter', () => {
     const controller = new AbortController()
     const provider: RoleProviderAdapter<AdvisorModelInput> = {
       invoke: vi.fn(
-        invocation =>
+        () =>
           new Promise<Readonly<{ output: unknown; outputTokens: number }>>(
-            (_, reject) => {
-              invocation.signal.addEventListener(
-                'abort',
-                () => reject(new Error('provider observed cancellation')),
-                { once: true }
-              )
-              controller.abort(new Error('user cancelled review'))
-            }
+            () => undefined
           )
       )
     }
+    setTimeout(() => controller.abort(new Error('user cancelled review')), 10)
 
     await expect(
       advisor(provider).review(reviewInput(prepared, controller.signal))
