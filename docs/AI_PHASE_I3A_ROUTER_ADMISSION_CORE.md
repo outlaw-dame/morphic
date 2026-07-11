@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented in isolation. This phase corrects and consolidates Router behavior before live chat-path wiring. It does not yet make Router admission mandatory for production chat execution.
+Implementation complete in isolation and awaiting final merge verification. This phase corrects and consolidates Router behavior before live chat-path wiring. It does not yet make Router admission mandatory for production chat execution.
 
 ## Purpose
 
@@ -30,7 +30,7 @@ The floor classifies:
 - citation verification;
 - bounded tool-call budgets.
 
-Requested quick mode cannot downgrade high-risk or freshness policy. Deployment tool caps are applied before any model proposal.
+Stable research may remain in quick mode. Requested quick mode cannot downgrade freshness, entity, high-risk, or critical policy. Deployment tool caps are applied before any model proposal.
 
 ## Entity sensitivity
 
@@ -58,13 +58,22 @@ A Router model may add requirements but cannot:
 - re-enable deterministically disallowed source classes;
 - remove required model roles.
 
-The final route is schema-validated, frozen, hashed with SHA-256, and bound to a branded trusted execution scope.
+Any final research mode necessarily promotes `requiresResearch` and citation verification. The final route is schema-validated, frozen, hashed with SHA-256, and bound to a branded trusted execution scope.
 
 ## Compatibility
 
 `routeResearchRequest()` remains available for synchronous deterministic callers, but it now delegates to the canonical floor and never claims that a Router model was selected or invoked.
 
+Historical `RoutePlan` construction remains source-compatible, while Router admission operates only on fully normalized `CanonicalRoutePlan` values.
+
 Model-assisted callers must use `admitResearchRoute()`.
+
+## Classification safeguards
+
+- Bare ambiguous words are not sufficient to promote unrelated requests into a high-risk domain. For example, `basketball court` does not trigger legal classification.
+- Legal court classification requires legal context such as a ruling, decision, legal case, or court of law.
+- Stable explanatory research may use quick mode, while freshness, entity sensitivity, or high-risk requirements promote the route monotonically.
+- Empty queries preserve the compatibility entrypoint's explicit `Query cannot be empty` error.
 
 ## Safety boundaries
 
@@ -74,6 +83,7 @@ Model-assisted callers must use `admitResearchRoute()`.
 - Malformed, timed-out, cancelled, unavailable, or ineligible model execution falls back to the deterministic floor.
 - Query, output, token, and deadline limits are bounded.
 - Route reasons are allowlisted codes rather than hidden reasoning prose.
+- Generated rationale is capped below the canonical schema limit.
 - No authenticated scope is accepted from model output.
 - No live chat, provider SDK, retrieval, Wikidata, DBpedia, database, or streaming path is changed in this subphase.
 
@@ -84,7 +94,9 @@ Coverage includes:
 - explicit non-research bypass;
 - requested research-mode promotion;
 - quick-mode downgrade attempts;
+- stable quick research;
 - high-risk and critical classification;
+- ambiguous-domain false-positive regression cases;
 - entity-sensitive fixtures;
 - deployment budget caps;
 - monotonic model merge;
@@ -94,6 +106,7 @@ Coverage includes:
 - disallowed-source non-reenablement;
 - AI-I2 Router invocation and scope binding;
 - malformed model fallback;
+- compatibility wrapper behavior;
 - route immutability and digest generation.
 
 ## Completion gates
