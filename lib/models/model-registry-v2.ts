@@ -43,12 +43,21 @@ export const ConfiguredModelRegistryRecordSchema = z
     providerId: z.string().trim().min(1).max(128),
     modelId: z.string().trim().min(1).max(256),
     family: z.string().trim().min(1).max(128),
-    availability: z.enum(['available', 'disabled', 'deprecated', 'unavailable']),
+    availability: z.enum([
+      'available',
+      'disabled',
+      'deprecated',
+      'unavailable'
+    ]),
     locality: z.enum(['local', 'remote']),
     reliability: z.enum(['unknown', 'experimental', 'standard', 'strong']),
     maxContextTokens: z.number().int().positive().max(10_000_000),
     estimatedLatencyMs: z.number().finite().nonnegative().max(600_000),
-    estimatedCostPerMillionTokensUsd: z.number().finite().nonnegative().max(100_000),
+    estimatedCostPerMillionTokensUsd: z
+      .number()
+      .finite()
+      .nonnegative()
+      .max(100_000),
     capabilityAssertions: z.array(CapabilityAssertionSchema).max(64),
     legacyCapabilities: z.array(z.string().max(64)).max(64).default([]),
     roleQuality: z.array(RoleQualityScoreSchema).max(64),
@@ -117,7 +126,9 @@ function strongestAssertions(
   return Object.freeze(
     [...strongest.entries()]
       .sort(([left], [right]) => left.localeCompare(right))
-      .map(([capability, provenance]) => Object.freeze({ capability, provenance }))
+      .map(([capability, provenance]) =>
+        Object.freeze({ capability, provenance })
+      )
   )
 }
 
