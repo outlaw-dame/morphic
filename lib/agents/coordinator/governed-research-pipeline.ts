@@ -188,23 +188,30 @@ export async function runGovernedResearchPipeline<T>(
       retrievedAt: retrieval.retrievedAt,
       now
     })
+    repairActions = Object.freeze([
+      ...handoff.evaluation.repairPlan.actions
+    ])
+    const shouldRetryRetrieval =
+      attempt < maxAttempts && hasRetrievalRepair(repairActions)
 
-    if (handoff.evaluation.repairPlan.canProceedToComposition) {
+    if (
+      handoff.evaluation.repairPlan.canProceedToComposition &&
+      !shouldRetryRetrieval
+    ) {
       approvedHandoff = handoff
       break
     }
 
-    repairActions = Object.freeze([
-      ...handoff.evaluation.repairPlan.actions
-    ])
-    if (attempt === maxAttempts || !hasRetrievalRepair(repairActions)) {
-      return Object.freeze({
-        status: 'blocked',
-        phase: 'pre_composition',
-        attempts: attempt,
-        evaluation: handoff.evaluation,
-        repairActions
-      })
+    if (!handoff.evaluation.repairPlan.canProceedToComposition) {
+      if (attempt === maxAttempts || !shouldRetryRetrieval) {
+        return Object.freeze({
+          status: 'blocked',
+          phase: 'pre_composition',
+          attempts: attempt,
+          evaluation: handoff.evaluation,
+          repairActions
+        })
+      }
     }
   }
 
