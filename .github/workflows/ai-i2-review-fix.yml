@@ -1,0 +1,157 @@
+name: AI-I2 Review Fix
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.head_ref == 'agent/ai-i2-hardened-role-runner'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/ai-i2-hardened-role-runner
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - run: bun install --frozen-lockfile
+      - name: Apply review hardening
+        run: |
+          cat <<'PY' > /tmp/fix.py
+          from pathlib import Path
+
+          runner = Path('lib/ai/role-runner.ts')
+          text = runner.read_text()
+          old_normalize = """function normalizeCandidates(
+            candidates: readonly unknown[]
+          ): readonly unknown[] {
+            return Object.freeze(
+              candidates.map(candidate => {
+                try {
+                  return parseArchitectureContract(RoleModelCandidateSchema, candidate)
+                } catch {
+                  return null
+                }
+              })
+            )
+          }
+          """
+          new_normalize = """function normalizeCandidates(candidates: unknown): readonly unknown[] {
+            let candidateValues: readonly unknown[]
+            try {
+              if (!Array.isArray(candidates)) {
+                throw new InvalidRoleRunnerConfigurationError()
+              }
+              candidateValues = candidates
+            } catch {
+              throw new InvalidRoleRunnerConfigurationError()
+            }
+
+            return Object.freeze(
+              candidateValues.map(candidate => {
+                try {
+                  return parseArchitectureContract(RoleModelCandidateSchema, candidate)
+                } catch {
+                  return null
+                }
+              })
+            )
+          }
+
+          function assertProviderAdapter(adapter: unknown): void {
+            if (adapter === null || typeof adapter !== 'object') {
+              throw new InvalidRoleRunnerConfigurationError()
+            }
+
+            try {
+              const descriptor = Object.getOwnPropertyDescriptor(adapter, 'invoke')
+              if (!descriptor || !('value' in descriptor) || typeof descriptor.value !== 'function') {
+                throw new InvalidRoleRunnerConfigurationError()
+              }
+            } catch {
+              throw new InvalidRoleRunnerConfigurationError()
+            }
+          }
+          """
+          if old_normalize not in text:
+              raise SystemExit('normalize block not found')
+          text = text.replace(old_normalize, new_normalize)
+          old_start = """  assertTrustedScope(options.scope)
+
+            const retryPolicy = options.retryPolicy ?? {
+          """
+          new_start = """  assertTrustedScope(options.scope)
+            assertProviderAdapter(options.adapter)
+
+            const retryPolicy = options.retryPolicy ?? {
+          """
+          if old_start not in text:
+              raise SystemExit('runner start block not found')
+          text = text.replace(old_start, new_start)
+          runner.write_text(text)
+
+          tests = Path('lib/ai/role-runner.test.ts')
+          test_text = tests.read_text()
+          anchor = """  it('does not execute hostile input or candidate accessors', async () => {"""
+          addition = """  it('rejects malformed candidate collections and adapters as configuration errors', async () => {
+              const adapterGetter = vi.fn(() => successfulAdapter().invoke)
+              const hostileAdapter = Object.defineProperty({}, 'invoke', {
+                enumerable: true,
+                get: adapterGetter
+              })
+
+              await expect(
+                runRole({
+                  scope: scope(),
+                  role: 'advisor',
+                  candidates: null as never,
+                  prompt,
+                  inputSchema: InputSchema,
+                  outputSchema: OutputSchema,
+                  input: { query: 'invalid candidates' },
+                  adapter: successfulAdapter(),
+                  limits
+                })
+              ).rejects.toThrow('Invalid role runner configuration.')
+
+              await expect(
+                runRole({
+                  scope: scope(),
+                  role: 'advisor',
+                  candidates: [candidate()],
+                  prompt,
+                  inputSchema: InputSchema,
+                  outputSchema: OutputSchema,
+                  input: { query: 'invalid adapter' },
+                  adapter: hostileAdapter as never,
+                  limits
+                })
+              ).rejects.toThrow('Invalid role runner configuration.')
+              expect(adapterGetter).not.toHaveBeenCalled()
+            })
+
+          """
+          if anchor not in test_text:
+              raise SystemExit('test anchor not found')
+          tests.write_text(test_text.replace(anchor, addition + anchor))
+          PY
+          python /tmp/fix.py
+      - name: Format and lint
+        run: |
+          bunx eslint --fix lib/ai/role-runner.ts lib/ai/role-runner.test.ts
+          bunx prettier --write lib/ai/role-runner.ts lib/ai/role-runner.test.ts
+      - name: Remove temporary workflow
+        run: rm .github/workflows/ai-i2-review-fix.yml
+      - name: Commit fixes
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "fix(ai): validate AI-I2 adapters and candidate collections"
+          git push origin HEAD:agent/ai-i2-hardened-role-runner
