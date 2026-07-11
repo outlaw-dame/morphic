@@ -121,6 +121,8 @@ export const ROLE_SELECTION_PROFILES_V2: Readonly<
   })
 })
 
-export function getRoleSelectionProfileV2(role: ModelRole): RoleSelectionProfile {
+export function getRoleSelectionProfileV2(
+  role: ModelRole
+): RoleSelectionProfile {
   return ROLE_SELECTION_PROFILES_V2[role]
 }
