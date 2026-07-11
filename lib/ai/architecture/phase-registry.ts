@@ -121,14 +121,28 @@ export const AI_PHASE_REGISTRY: readonly AIPhaseRegistryEntry[] = Object.freeze(
     phase({
       id: 'AI-I1',
       title: 'Model registry and role-selection policy V2',
+      status: 'implemented_in_isolation',
       dependencies: ['AI-I0'],
       requiredRoles: [],
       historicalRequirements: [
         carried(
           'Original AI-2A model capability registry',
-          'Existing capability inference remains useful but needs verified provenance and stronger role policy.',
-          'completed_but_not_integrated'
+          'Legacy inference remains available, while V2 adds provenance-aware normalization and canonical role policies.',
+          'completed_and_retained'
         )
+      ],
+      evidence: [
+        {
+          kind: 'document',
+          reference: 'docs/AI_PHASE_I1_MODEL_REGISTRY_ROLE_SELECTION_V2.md'
+        },
+        { kind: 'code', reference: 'lib/models/model-registry-v2.ts' },
+        { kind: 'code', reference: 'lib/models/role-selection-v2.ts' },
+        { kind: 'code', reference: 'lib/models/role-profiles-v2.ts' },
+        { kind: 'test', reference: 'lib/models/model-registry-v2.test.ts' },
+        { kind: 'test', reference: 'lib/models/role-selection-v2.test.ts' },
+        { kind: 'test', reference: 'lib/models/role-profiles-v2.test.ts' },
+        { kind: 'pull_request', reference: 'PR #80' }
       ]
     }),
     phase({
