@@ -17,10 +17,14 @@ const BASE_PROFILE = {
   preferFamilyDiversityFrom: null
 } as const
 
+function roleProfile(value: RoleSelectionProfile): RoleSelectionProfile {
+  return Object.freeze(value)
+}
+
 export const ROLE_SELECTION_PROFILES_V2: Readonly<
   Record<ModelRole, RoleSelectionProfile>
 > = Object.freeze({
-  router: Object.freeze({
+  router: roleProfile({
     ...BASE_PROFILE,
     role: 'router',
     hardCapabilities: ['structured_output'],
@@ -31,7 +35,7 @@ export const ROLE_SELECTION_PROFILES_V2: Readonly<
     minimumRoleQualityScore: 0.85,
     requiredToolPermissionClass: 'none'
   }),
-  coordinator: Object.freeze({
+  coordinator: roleProfile({
     ...BASE_PROFILE,
     role: 'coordinator',
     hardCapabilities: ['structured_output'],
@@ -40,7 +44,7 @@ export const ROLE_SELECTION_PROFILES_V2: Readonly<
     minimumRoleQualityScore: 0.9,
     requiredToolPermissionClass: 'none'
   }),
-  fusion_planner: Object.freeze({
+  fusion_planner: roleProfile({
     ...BASE_PROFILE,
     role: 'fusion_planner',
     hardCapabilities: ['structured_output'],
@@ -49,7 +53,7 @@ export const ROLE_SELECTION_PROFILES_V2: Readonly<
     minimumRoleQualityScore: 0.85,
     requiredToolPermissionClass: 'retrieval_plan_only'
   }),
-  retriever: Object.freeze({
+  retriever: roleProfile({
     ...BASE_PROFILE,
     role: 'retriever',
     hardCapabilities: ['tool_calling'],
@@ -60,7 +64,7 @@ export const ROLE_SELECTION_PROFILES_V2: Readonly<
     requiredToolPermissionClass: 'bounded_retrieval',
     structuredOutputStrategy: 'validated_json'
   }),
-  source_quality: Object.freeze({
+  source_quality: roleProfile({
     ...BASE_PROFILE,
     role: 'source_quality',
     hardCapabilities: ['structured_output'],
@@ -69,7 +73,7 @@ export const ROLE_SELECTION_PROFILES_V2: Readonly<
     minimumRoleQualityScore: 0.9,
     requiredToolPermissionClass: 'none'
   }),
-  entity_grounding: Object.freeze({
+  entity_grounding: roleProfile({
     ...BASE_PROFILE,
     role: 'entity_grounding',
     hardCapabilities: ['structured_output'],
@@ -78,7 +82,7 @@ export const ROLE_SELECTION_PROFILES_V2: Readonly<
     minimumRoleQualityScore: 0.9,
     requiredToolPermissionClass: 'entity_resolution_only'
   }),
-  answer_composer: Object.freeze({
+  answer_composer: roleProfile({
     ...BASE_PROFILE,
     role: 'answer_composer',
     hardCapabilities: ['streaming'],
@@ -89,7 +93,7 @@ export const ROLE_SELECTION_PROFILES_V2: Readonly<
     requiredToolPermissionClass: 'none',
     structuredOutputStrategy: 'not_required'
   }),
-  advisor: Object.freeze({
+  advisor: roleProfile({
     ...BASE_PROFILE,
     role: 'advisor',
     hardCapabilities: ['structured_output'],
@@ -99,7 +103,7 @@ export const ROLE_SELECTION_PROFILES_V2: Readonly<
     minimumRoleQualityScore: 0.9,
     requiredToolPermissionClass: 'none'
   }),
-  citation_verifier: Object.freeze({
+  citation_verifier: roleProfile({
     ...BASE_PROFILE,
     role: 'citation_verifier',
     hardCapabilities: ['structured_output'],
@@ -109,7 +113,7 @@ export const ROLE_SELECTION_PROFILES_V2: Readonly<
     minimumRoleQualityScore: 0.92,
     requiredToolPermissionClass: 'evidence_read_only'
   }),
-  repair: Object.freeze({
+  repair: roleProfile({
     ...BASE_PROFILE,
     role: 'repair',
     hardCapabilities: ['structured_output'],
