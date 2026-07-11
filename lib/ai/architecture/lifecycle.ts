@@ -13,7 +13,12 @@ const LEGAL_TRANSITIONS: Readonly<
   created: ['routed', 'cancelled', 'failed'],
   routed: ['planning', 'cancelled', 'failed'],
   planning: ['retrieving', 'normalizing_evidence', 'cancelled', 'failed'],
-  retrieving: ['normalizing_evidence', 'awaiting_repairs', 'cancelled', 'failed'],
+  retrieving: [
+    'normalizing_evidence',
+    'awaiting_repairs',
+    'cancelled',
+    'failed'
+  ],
   normalizing_evidence: [
     'grounding_entities',
     'evaluating_evidence',
@@ -44,8 +49,20 @@ const LEGAL_TRANSITIONS: Readonly<
     'cancelled',
     'failed'
   ],
-  composing: ['advising', 'verifying', 'awaiting_repairs', 'cancelled', 'failed'],
-  advising: ['verifying', 'awaiting_repairs', 'refused_or_caveated', 'cancelled', 'failed'],
+  composing: [
+    'advising',
+    'verifying',
+    'awaiting_repairs',
+    'cancelled',
+    'failed'
+  ],
+  advising: [
+    'verifying',
+    'awaiting_repairs',
+    'refused_or_caveated',
+    'cancelled',
+    'failed'
+  ],
   verifying: [
     'repairing',
     'ready_for_release',
