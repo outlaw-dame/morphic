@@ -57,14 +57,6 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
 
-      - name: Upload type diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ai-i3e-typecheck
-          path: /tmp/typecheck.log
-          if-no-files-found: error
-
   format:
     runs-on: ubuntu-latest
     name: Format Check
