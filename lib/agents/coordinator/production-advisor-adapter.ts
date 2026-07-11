@@ -34,6 +34,7 @@ const ADVISOR_REASON_CODES = [
   'advisor_high_risk_caveat_required'
 ] as const
 
+type AdvisorReasonCode = (typeof ADVISOR_REASON_CODES)[number]
 const AdvisorReasonCodeSchema = z.enum(ADVISOR_REASON_CODES)
 
 function deepFreeze<T>(value: T): T {
@@ -99,18 +100,13 @@ const AdvisorInputSchema = z
 const AdvisorModelOutputSchema = z
   .object({
     decision: z.enum(['approve', 'repair', 'block']),
-    reasonCodes: z
-      .array(AdvisorReasonCodeSchema)
-      .max(MAX_REASON_CODES)
-      .transform(values => [...new Set(values)]),
+    reasonCodes: z.array(AdvisorReasonCodeSchema).max(MAX_REASON_CODES),
     unsupportedClaimIds: z
       .array(z.string().min(1).max(256))
-      .max(MAX_REFERENCED_IDS)
-      .transform(values => [...new Set(values)]),
+      .max(MAX_REFERENCED_IDS),
     citationRiskEvidenceIds: z
       .array(z.string().min(1).max(256))
-      .max(MAX_REFERENCED_IDS)
-      .transform(values => [...new Set(values)]),
+      .max(MAX_REFERENCED_IDS),
     confidence: z.number().finite().min(0).max(1)
   })
   .strict()
@@ -141,7 +137,7 @@ export type AdvisorModelOutput = z.infer<typeof AdvisorModelOutputSchema>
 
 export type PendingAdvisorReview = Readonly<{
   decision: AdvisorModelOutput['decision']
-  reasonCodes: readonly z.infer<typeof AdvisorReasonCodeSchema>[]
+  reasonCodes: readonly AdvisorReasonCode[]
   unsupportedClaimIds: readonly string[]
   citationRiskEvidenceIds: readonly string[]
   confidence: number
@@ -266,9 +262,7 @@ function validateReferences(
   input: AdvisorModelInput
 ): void {
   const admittedEvidence = new Set(input.evidence.map(item => item.id))
-  const admittedClaims = new Set(
-    input.evidence.flatMap(item => item.claimIds)
-  )
+  const admittedClaims = new Set(input.evidence.flatMap(item => item.claimIds))
   if (output.citationRiskEvidenceIds.some(id => !admittedEvidence.has(id))) {
     throw new Error('Advisor referenced evidence outside the approved graph.')
   }
@@ -349,12 +343,12 @@ export function createProductionAdvisorAdapter(
       validateReferences(outcome.output, advisorInput)
       return Object.freeze({
         decision: outcome.output.decision,
-        reasonCodes: Object.freeze([...outcome.output.reasonCodes]),
+        reasonCodes: Object.freeze([...new Set(outcome.output.reasonCodes)]),
         unsupportedClaimIds: Object.freeze([
-          ...outcome.output.unsupportedClaimIds
+          ...new Set(outcome.output.unsupportedClaimIds)
         ]),
         citationRiskEvidenceIds: Object.freeze([
-          ...outcome.output.citationRiskEvidenceIds
+          ...new Set(outcome.output.citationRiskEvidenceIds)
         ]),
         confidence: outcome.output.confidence,
         releaseStatus: 'pending_citation_verifier_and_final_release' as const,
