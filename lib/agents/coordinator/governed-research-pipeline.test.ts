@@ -19,8 +19,18 @@ import {
 
 const now = new Date('2026-07-11T12:00:00.000Z')
 
-function routeContext(query: string): RouteExecutionContext {
-  const routePlan = buildDeterministicRouteFloor({ query })
+function routeContext(
+  query: string,
+  options: { adaptive?: boolean } = {}
+): RouteExecutionContext {
+  const floor = buildDeterministicRouteFloor({ query })
+  const routePlan = options.adaptive
+    ? {
+        ...floor,
+        mode: 'adaptive' as const,
+        requiresResearch: true
+      }
+    : floor
   return createRouteExecutionContext({
     routePlan,
     routeDigest: digestRoutePlan(routePlan)
@@ -91,7 +101,7 @@ describe('governed two-stage research pipeline', () => {
   })
 
   it('passes repair actions into a bounded second retrieval attempt', async () => {
-    const context = routeContext('Explain photosynthesis')
+    const context = routeContext('Explain photosynthesis', { adaptive: true })
     const retrieve = vi.fn<
       (input: RetrievalStageInput) => Promise<RetrievalStageOutput>
     >()
