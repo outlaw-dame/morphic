@@ -1,0 +1,221 @@
+name: AI-I2 Edge Fix
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.head_ref == 'agent/ai-i2-hardened-role-runner'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/ai-i2-hardened-role-runner
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - run: bun install --frozen-lockfile
+      - name: Apply edge-case hardening
+        run: |
+          cat <<'PY' > /tmp/fix.py
+          from pathlib import Path
+
+          runner = Path("lib/ai/role-runner.ts")
+          text = runner.read_text()
+          text = text.replace(
+              "import { type ModelRole, ModelRoleSchema } from '@/lib/ai/schemas'",
+              "import {\n  ModelCapabilitySchema,\n  type ModelRole,\n  ModelRoleSchema\n} from '@/lib/ai/schemas'",
+          )
+          old_cap = """    capability: z.enum([
+                'tool_calling',
+                'structured_output',
+                'streaming',
+                'reasoning',
+                'vision',
+                'pdf_input',
+                'json_mode',
+                'local_execution'
+              ]),"""
+          if old_cap not in text:
+              old_cap = """    capability: z.enum([
+                    'tool_calling',
+                    'structured_output',
+                    'streaming',
+                    'reasoning',
+                    'vision',
+                    'pdf_input',
+                    'json_mode',
+                    'local_execution'
+                  ]),"""
+          text = text.replace(old_cap, "    capability: ModelCapabilitySchema,")
+          old_abort = """  const controller = new AbortController()
+            let timedOut = false
+            let rejectAbort: ((error: Error) => void) | undefined
+            const onCallerAbort = () => controller.abort()
+            const onCombinedAbort = () => {
+              rejectAbort?.(
+                timedOut ? new RoleRunnerTimeoutError() : new RoleRunnerCancelledError()
+              )
+            }
+
+            options.callerSignal?.addEventListener('abort', onCallerAbort, { once: true })
+            controller.signal.addEventListener('abort', onCombinedAbort, { once: true })
+            const timer = setTimeout(() => {
+              timedOut = true
+              controller.abort()
+            }, remainingMs)
+
+            const abortPromise = new Promise<T>((_, reject) => {
+              rejectAbort = reject
+            })
+          """
+          if old_abort not in text:
+              old_abort = """  const controller = new AbortController()
+            let timedOut = false
+            let rejectAbort: ((error: Error) => void) | undefined
+            const onCallerAbort = () => controller.abort()
+            const onCombinedAbort = () => {
+              rejectAbort?.(
+                timedOut ? new RoleRunnerTimeoutError() : new RoleRunnerCancelledError()
+              )
+            }
+
+            options.callerSignal?.addEventListener('abort', onCallerAbort, { once: true })
+            controller.signal.addEventListener('abort', onCombinedAbort, { once: true })
+            const timer = setTimeout(() => {
+              timedOut = true
+              controller.abort()
+            }, remainingMs)
+
+            const abortPromise = new Promise<T>((_, reject) => {
+              rejectAbort = reject
+            })
+          """
+          new_abort = """  const controller = new AbortController()
+            let timedOut = false
+            let rejectAbort!: (error: Error) => void
+            const abortPromise = new Promise<T>((_, reject) => {
+              rejectAbort = reject
+            })
+            const onCallerAbort = () => controller.abort()
+            const onCombinedAbort = () => {
+              rejectAbort(
+                timedOut ? new RoleRunnerTimeoutError() : new RoleRunnerCancelledError()
+              )
+            }
+
+            options.callerSignal?.addEventListener('abort', onCallerAbort, { once: true })
+            controller.signal.addEventListener('abort', onCombinedAbort, { once: true })
+            if (options.callerSignal?.aborted) controller.abort()
+            const timer = setTimeout(() => {
+              timedOut = true
+              controller.abort()
+            }, remainingMs)
+          """
+          if old_abort not in text:
+              raise SystemExit("abort block not found")
+          text = text.replace(old_abort, new_abort)
+          old_input = """  let parsedInput: TInput | null = null
+            try {
+              parsedInput = parseArchitectureContract(options.inputSchema, options.input)
+            } catch {
+              parsedInput = null
+            }
+
+            const inputJson = parsedInput === null ? '' : canonicalJson(parsedInput)
+            const contextJson = canonicalJson({
+              promptVersion: options.prompt.version,
+              instruction: options.prompt.instruction,
+              input: parsedInput
+            })
+          """
+          new_input = """  let inputResult:
+              | Readonly<{ success: true; value: TInput }>
+              | Readonly<{ success: false }>
+            try {
+              inputResult = Object.freeze({
+                success: true,
+                value: parseArchitectureContract(options.inputSchema, options.input)
+              })
+            } catch {
+              inputResult = Object.freeze({ success: false })
+            }
+
+            const inputJson = inputResult.success ? canonicalJson(inputResult.value) : ''
+            const contextJson = canonicalJson({
+              promptVersion: options.prompt.version,
+              instruction: options.prompt.instruction,
+              input: inputResult.success ? inputResult.value : null
+            })
+          """
+          if old_input not in text:
+              raise SystemExit("input block not found")
+          text = text.replace(old_input, new_input)
+          old_check = """  if (parsedInput === null) {
+              return fail('invalid_input', ['invalid_role_input'])
+            }
+            const trustedInput = parsedInput
+          """
+          new_check = """  if (!inputResult.success) {
+              return fail('invalid_input', ['invalid_role_input'])
+            }
+            const trustedInput = inputResult.value
+          """
+          if old_check not in text:
+              raise SystemExit("input check not found")
+          text = text.replace(old_check, new_check)
+          runner.write_text(text)
+
+          tests = Path("lib/ai/role-runner.test.ts")
+          test_text = tests.read_text()
+          anchor = """  it('fails before invocation when total prompt and input bytes exceed budget', async () => {"""
+          addition = """  it('accepts a schema-valid null input without confusing it with parse failure', async () => {
+              const NullInputSchema = z.null()
+              const adapter: RoleProviderAdapter<null> = {
+                invoke: vi.fn(async invocation => ({
+                  output: { answer: invocation.input === null ? 'null-ok' : 'wrong' },
+                  outputTokens: 2
+                }))
+              }
+
+              const outcome = await runRole({
+                scope: scope(),
+                role: 'advisor',
+                candidates: [candidate()],
+                prompt,
+                inputSchema: NullInputSchema,
+                outputSchema: OutputSchema,
+                input: null,
+                adapter,
+                limits
+              })
+
+              expect(outcome.result.status).toBe('succeeded')
+              expect(outcome.output).toEqual({ answer: 'null-ok' })
+            })
+
+          """
+          if anchor not in test_text:
+              raise SystemExit("test anchor not found")
+          tests.write_text(test_text.replace(anchor, addition + anchor))
+          PY
+          python /tmp/fix.py
+      - name: Format and lint
+        run: |
+          bunx eslint --fix lib/ai/role-runner.ts lib/ai/role-runner.test.ts
+          bunx prettier --write lib/ai/role-runner.ts lib/ai/role-runner.test.ts
+      - name: Remove temporary workflow
+        run: rm .github/workflows/ai-i2-edge-fix.yml
+      - name: Commit fixes
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "fix(ai): close AI-I2 abort and nullable-input edges"
+          git push origin HEAD:agent/ai-i2-hardened-role-runner
