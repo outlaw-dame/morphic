@@ -659,6 +659,10 @@ export async function runRole<TInput, TOutput>(
           )
       })
     } else {
+      if (selection.status !== 'selected' || selection.candidate === null) {
+        return fail('no_eligible_model', ['no_eligible_model'])
+      }
+      const selectedCandidate = selection.candidate
       let attempt = 1
       for (;;) {
         try {
@@ -672,8 +676,8 @@ export async function runRole<TInput, TOutput>(
                 executionId: options.scope.executionId,
                 invocationId: options.scope.invocationId,
                 role: options.role,
-                providerId: selection.candidate.providerId,
-                modelId: selection.candidate.modelId,
+                providerId: selectedCandidate.providerId,
+                modelId: selectedCandidate.modelId,
                 promptVersion: options.prompt.version,
                 instruction: options.prompt.instruction,
                 input: trustedInput,

@@ -375,7 +375,12 @@ describe('common hardened role runner', () => {
 
   it('races cancellation and deadlines against an uncooperative provider', async () => {
     const never: RoleProviderAdapter<{ query: string }> = {
-      invoke: vi.fn(() => new Promise(() => undefined))
+      invoke: vi.fn(
+        () =>
+          new Promise<Readonly<{ output: unknown; outputTokens: number }>>(
+            () => undefined
+          )
+      )
     }
     const controller = new AbortController()
     setTimeout(() => controller.abort(), 10)
