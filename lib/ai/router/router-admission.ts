@@ -15,10 +15,10 @@ import {
   RiskLevelSchema,
   RoutePlanSchema,
   SourceClassSchema,
+  type CanonicalRoutePlan,
   type ModelRole,
   type ResearchMode,
   type RiskLevel,
-  type RoutePlan,
   type SourceClass
 } from '@/lib/ai/schemas'
 
@@ -82,10 +82,10 @@ export type RouterModelConfiguration = Readonly<{
 }>
 
 export type RouterAdmissionResult = Readonly<{
-  routePlan: RoutePlan
+  routePlan: CanonicalRoutePlan
   routeDigest: string
   scope: TrustedRoleExecutionScope
-  deterministicFloor: RoutePlan
+  deterministicFloor: CanonicalRoutePlan
   modelExecution: RoleRunnerOutcome<RouterModelProposal> | null
   modelProposalApplied: boolean
 }>
@@ -172,7 +172,7 @@ function inferRequiredSourceClasses(query: string): SourceClass[] {
 }
 
 function inferRequiredRoles(
-  route: Omit<RoutePlan, 'requiredModelRoles'>
+  route: Omit<CanonicalRoutePlan, 'requiredModelRoles'>
 ): ModelRole[] {
   if (!route.requiresResearch) return ['router']
 
@@ -202,7 +202,7 @@ function routeRationale(reasonCodes: readonly string[]): string {
 
 export function buildDeterministicRouteFloor(
   input: RouterAdmissionInput
-): RoutePlan {
+): CanonicalRoutePlan {
   const parsed = RouterInputSchema.parse(input)
   const query = parsed.query
   const criticalRisk = includesAny(query, CRITICAL_RISK_PATTERNS)
@@ -271,7 +271,7 @@ export function buildDeterministicRouteFloor(
     ),
     reasonCodes: [...normalizedReasonCodes],
     rationale: routeRationale(normalizedReasonCodes)
-  } satisfies Omit<RoutePlan, 'requiredModelRoles'>
+  } satisfies Omit<CanonicalRoutePlan, 'requiredModelRoles'>
 
   return Object.freeze(
     RoutePlanSchema.parse({
@@ -282,9 +282,9 @@ export function buildDeterministicRouteFloor(
 }
 
 export function mergeRouterProposal(
-  floor: RoutePlan,
+  floor: CanonicalRoutePlan,
   proposal: RouterModelProposal
-): RoutePlan {
+): CanonicalRoutePlan {
   const parsedProposal = RouterModelProposalSchema.parse(proposal)
   const disallowed = uniqueSorted([
     ...floor.disallowedSourceClasses,
@@ -330,7 +330,7 @@ export function mergeRouterProposal(
     maxToolCalls: Math.min(floor.maxToolCalls, parsedProposal.maxToolCalls),
     reasonCodes: [...reasonCodes],
     rationale: routeRationale(reasonCodes)
-  } satisfies Omit<RoutePlan, 'requiredModelRoles'>
+  } satisfies Omit<CanonicalRoutePlan, 'requiredModelRoles'>
 
   return Object.freeze(
     RoutePlanSchema.parse({
@@ -340,7 +340,7 @@ export function mergeRouterProposal(
   )
 }
 
-function digestRoute(route: RoutePlan): string {
+function digestRoute(route: CanonicalRoutePlan): string {
   return createHash('sha256').update(JSON.stringify(route)).digest('hex')
 }
 
