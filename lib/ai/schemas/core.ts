@@ -50,6 +50,7 @@ export type EvidenceRole = z.infer<typeof EvidenceRoleSchema>
 export const ModelRoleSchema = z.enum([
   'router',
   'coordinator',
+  'fusion_planner',
   'retriever',
   'source_quality',
   'entity_grounding',
