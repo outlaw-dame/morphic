@@ -1,0 +1,39 @@
+name: AI-I3D Normalize
+
+on:
+  push:
+    branches: [agent/ai-i3d-live-coordinator-handoff]
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/ai-i3d-live-coordinator-handoff
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Normalize and validate
+        run: |
+          bunx prettier --write docs/AI_PHASE_I3D_COORDINATOR_LIVE_HANDOFF.md lib/agents/coordinator/coordinator.ts lib/agents/coordinator/execution-state.ts lib/agents/coordinator/live-handoff.ts lib/agents/coordinator/live-handoff.test.ts lib/agents/coordinator/role-completion-policy.ts
+          bunx eslint --fix lib/agents/coordinator/coordinator.ts lib/agents/coordinator/execution-state.ts lib/agents/coordinator/live-handoff.ts lib/agents/coordinator/live-handoff.test.ts lib/agents/coordinator/role-completion-policy.ts
+          bun typecheck
+          bun run test -- lib/agents/coordinator/live-handoff.test.ts lib/agents/coordinator/coordinator.test.ts
+      - name: Remove workflow and commit
+        run: |
+          rm .github/workflows/ai-i3d-normalize.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore(ai): normalize AI-I3D implementation"
+          git push origin HEAD:agent/ai-i3d-live-coordinator-handoff
