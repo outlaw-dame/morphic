@@ -28,6 +28,8 @@ Role inputs, model candidates, provider response envelopes, and role outputs pas
 - excessive depth and object graph size;
 - unknown fields where role schemas are strict.
 
+Candidate collections and provider adapters are also validated before selection or invocation. Non-array candidate collections and adapters without an own data-property `invoke` function fail as generic configuration errors; accessor-backed adapter methods are rejected without executing the accessor.
+
 Provider and validation failures use coarse failure classes and reason codes. Raw prompts, model responses, provider errors, owner identifiers, and configuration payloads are not copied into error messages.
 
 ## Model selection
@@ -122,6 +124,8 @@ The AI-I2 test suite covers:
 
 - trusted scope and owner/execution binding;
 - copied-scope and forged-scope rejection;
+- malformed candidate collections and adapters;
+- accessor-backed adapter rejection without accessor execution;
 - hostile input and candidate accessors without invocation;
 - canonical permission enforcement;
 - malformed, accessor-backed, oversized, and over-token output;
