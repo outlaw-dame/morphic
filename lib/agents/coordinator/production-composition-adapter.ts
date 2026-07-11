@@ -25,6 +25,16 @@ const MAX_EVIDENCE_ITEMS = 500
 const MAX_COMPLETED_ROLES = 32
 const MAX_CITED_EVIDENCE = 500
 
+function deepFreeze<T>(value: T): T {
+  if (value === null || typeof value !== 'object' || Object.isFrozen(value)) {
+    return value
+  }
+  for (const nested of Object.values(value as Record<string, unknown>)) {
+    deepFreeze(nested)
+  }
+  return Object.freeze(value)
+}
+
 const ComposerEvidenceSchema = z
   .object({
     id: z.string().min(1).max(256),
@@ -61,6 +71,7 @@ const ComposerInputSchema = z
       .max(500)
   })
   .strict()
+  .transform(value => deepFreeze(value))
 
 const ComposerModelOutputSchema = z
   .object({
@@ -122,6 +133,15 @@ function freezeRoles(value: readonly ModelRole[]): readonly ModelRole[] {
   )
 }
 
+function normalizeDate(value: unknown, nullable: boolean): string | null {
+  if (value === null && nullable) return null
+  const date = value instanceof Date ? new Date(value.getTime()) : new Date(String(value))
+  if (!Number.isFinite(date.getTime())) {
+    throw new Error('Invalid Coordinator-approved composition evidence.')
+  }
+  return date.toISOString()
+}
+
 function buildComposerInput(
   query: string,
   routeContext: RouteExecutionContext,
@@ -139,8 +159,8 @@ function buildComposerInput(
       sourceClass: item.sourceClass,
       evidenceRole: item.evidenceRole,
       claimIds: [...item.claimIds],
-      publishedAt: item.publishedAt,
-      retrievedAt: item.retrievedAt,
+      publishedAt: normalizeDate(item.publishedAt, true),
+      retrievedAt: normalizeDate(item.retrievedAt, false),
       confidence: item.confidence
     })),
     completedRoles: [...completedRoles],
@@ -181,7 +201,10 @@ export function createProductionCompositionAdapter(
 
   return Object.freeze({
     async compose(input) {
-      const query = typeof input?.query === 'string' ? input.query.trim() : ''
+      if (!input || typeof input !== 'object') {
+        throw new Error('Invalid production composition input.')
+      }
+      const query = typeof input.query === 'string' ? input.query.trim() : ''
       if (!query || query.length > MAX_QUERY_LENGTH) {
         throw new Error('Invalid production composition query.')
       }
