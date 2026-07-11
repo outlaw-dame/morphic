@@ -13,6 +13,7 @@ import {
   type CoordinatorRepairPlan,
   createRepairPlan
 } from './repair-policy'
+import { evaluateRoleCompletion } from './role-completion-policy'
 import { evaluateSourceMix } from './source-mix-policy'
 
 export type CoordinatorEvaluation = {
@@ -26,6 +27,7 @@ export function coordinateExecution(
   now = new Date()
 ): CoordinatorEvaluation {
   const policyResults = [
+    evaluateRoleCompletion(state),
     evaluateSourceMix(state),
     evaluateEntityGrounding(state),
     evaluateFreshness(state, now),
