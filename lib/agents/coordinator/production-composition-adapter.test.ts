@@ -124,7 +124,10 @@ describe('AI-I3G evidence-only production composition adapter', () => {
         return {
           output: {
             draft: 'Photosynthesis converts light into chemical energy.',
-            citedEvidenceIds: [invocation.input.evidence[0]!.id]
+            citedEvidenceIds: [
+              invocation.input.evidence[0]!.id,
+              invocation.input.evidence[0]!.id
+            ]
           },
           outputTokens: 12
         }
@@ -133,6 +136,7 @@ describe('AI-I3G evidence-only production composition adapter', () => {
 
     const response = await runWithProvider(provider)
 
+    expect(response.output.citedEvidenceIds).toHaveLength(1)
     expect(response.output.releaseStatus).toBe(
       'pending_advisor_and_citation_verifier'
     )
@@ -208,19 +212,16 @@ describe('AI-I3G evidence-only production composition adapter', () => {
     const controller = new AbortController()
     const provider: RoleProviderAdapter<ComposerModelInput> = {
       invoke: vi.fn(
-        invocation =>
+        () =>
           new Promise<Readonly<{ output: unknown; outputTokens: number }>>(
-            (_, reject) => {
-              invocation.signal.addEventListener(
-                'abort',
-                () => reject(new Error('provider observed cancellation')),
-                { once: true }
-              )
-              controller.abort(new Error('user cancelled composition'))
-            }
+            () => undefined
           )
       )
     }
+    setTimeout(
+      () => controller.abort(new Error('user cancelled composition')),
+      10
+    )
 
     await expect(runWithProvider(provider, controller.signal)).rejects.toThrow(
       'user cancelled composition'
