@@ -267,7 +267,7 @@ describe('AI-I3I evidence-bound Citation Verifier adapter', () => {
           decision: 'block'
         } as PendingAdvisorReview
       })
-    ).rejects.toThrow('Advisor review did not approve citation verification.')
+    ).rejects.toThrow('Advisor review did not approve this composition.')
   })
 
   it('requires every citation for a verified result', async () => {
@@ -286,7 +286,7 @@ describe('AI-I3I evidence-bound Citation Verifier adapter', () => {
           outputTokens: 8
         })
       }).verify(input(prepared))
-    ).rejects.toThrow('Citation Verifier did not verify every cited evidence item.')
+    ).rejects.toThrow('Citation Verifier execution failed: malformed_output.')
   })
 
   it('rejects identifiers outside the cited set', async () => {
@@ -305,7 +305,9 @@ describe('AI-I3I evidence-bound Citation Verifier adapter', () => {
           outputTokens: 8
         })
       }).verify(input(prepared))
-    ).rejects.toThrow('Citation Verifier referenced evidence outside the cited set.')
+    ).rejects.toThrow(
+      'Citation Verifier referenced evidence outside the cited set.'
+    )
   })
 
   it('preserves cancellation during verifier invocation', async () => {

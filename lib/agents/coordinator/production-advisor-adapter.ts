@@ -37,6 +37,15 @@ const ADVISOR_REASON_CODES = [
 type AdvisorReasonCode = (typeof ADVISOR_REASON_CODES)[number]
 const AdvisorReasonCodeSchema = z.enum(ADVISOR_REASON_CODES)
 
+const advisorReviewBindings = new WeakMap<
+  object,
+  Readonly<{
+    routeDigest: string
+    composerOutputDigest: string
+    evidenceGraph: EvidenceGraph
+  }>
+>()
+
 function deepFreeze<T>(value: T): T {
   if (value === null || typeof value !== 'object' || Object.isFrozen(value)) {
     return value
@@ -56,6 +65,10 @@ function throwCancellation(signal?: AbortSignal): never {
   throw typeof DOMException !== 'undefined'
     ? new DOMException(message, 'AbortError')
     : new Error(message)
+}
+
+function digest(value: unknown): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex')
 }
 
 const AdvisorEvidenceSchema = z
@@ -100,13 +113,18 @@ const AdvisorInputSchema = z
 const AdvisorModelOutputSchema = z
   .object({
     decision: z.enum(['approve', 'repair', 'block']),
-    reasonCodes: z.array(AdvisorReasonCodeSchema).max(MAX_REASON_CODES),
+    reasonCodes: z
+      .array(AdvisorReasonCodeSchema)
+      .max(MAX_REASON_CODES)
+      .transform(values => [...new Set(values)]),
     unsupportedClaimIds: z
       .array(z.string().min(1).max(256))
-      .max(MAX_REFERENCED_IDS),
+      .max(MAX_REFERENCED_IDS)
+      .transform(values => [...new Set(values)]),
     citationRiskEvidenceIds: z
       .array(z.string().min(1).max(256))
-      .max(MAX_REFERENCED_IDS),
+      .max(MAX_REFERENCED_IDS)
+      .transform(values => [...new Set(values)]),
     confidence: z.number().finite().min(0).max(1)
   })
   .strict()
@@ -143,6 +161,8 @@ export type PendingAdvisorReview = Readonly<{
   unsupportedClaimIds: readonly string[]
   citationRiskEvidenceIds: readonly string[]
   confidence: number
+  routeDigest: string
+  composerOutputDigest: string
   releaseStatus: 'pending_citation_verifier_and_final_release'
   roleExecution: RoleRunnerOutcome<AdvisorModelOutput>['result']
 }>
@@ -183,14 +203,10 @@ const ADVISOR_PROMPT = Object.freeze({
 })
 
 function digestComposition(composition: PendingCompositionDraft): string {
-  return createHash('sha256')
-    .update(
-      JSON.stringify({
-        draft: composition.draft,
-        citedEvidenceIds: [...composition.citedEvidenceIds]
-      })
-    )
-    .digest('hex')
+  return digest({
+    draft: composition.draft,
+    citedEvidenceIds: [...composition.citedEvidenceIds]
+  })
 }
 
 function assertCompositionIntegrity(composition: PendingCompositionDraft): string {
@@ -212,11 +228,11 @@ function assertCompositionIntegrity(composition: PendingCompositionDraft): strin
     throw new Error('Invalid pending composition draft.')
   }
 
-  const digest = digestComposition(composition)
-  if (digest !== result.outputDigest) {
+  const outputDigest = digestComposition(composition)
+  if (outputDigest !== result.outputDigest) {
     throw new Error('Composer output digest mismatch.')
   }
-  return digest
+  return outputDigest
 }
 
 function buildAdvisorInput(
@@ -271,6 +287,52 @@ function validateReferences(
   if (output.unsupportedClaimIds.some(id => !admittedClaims.has(id))) {
     throw new Error('Advisor referenced claims outside the approved graph.')
   }
+}
+
+export function assertProductionAdvisorReviewBinding(
+  review: PendingAdvisorReview,
+  routeContext: RouteExecutionContext,
+  evidenceGraph: EvidenceGraph,
+  composerOutputDigest: string
+): string {
+  if (!review || typeof review !== 'object') {
+    throw new Error('Invalid production Advisor review.')
+  }
+  const binding = advisorReviewBindings.get(review)
+  const result = review.roleExecution
+  if (
+    !binding ||
+    binding.routeDigest !== routeContext.routeDigest ||
+    binding.composerOutputDigest !== composerOutputDigest ||
+    binding.evidenceGraph !== evidenceGraph ||
+    review.routeDigest !== routeContext.routeDigest ||
+    review.composerOutputDigest !== composerOutputDigest ||
+    review.releaseStatus !== 'pending_citation_verifier_and_final_release' ||
+    review.decision !== 'approve' ||
+    review.reasonCodes.length !== 1 ||
+    review.reasonCodes[0] !== 'advisor_ready' ||
+    review.unsupportedClaimIds.length !== 0 ||
+    review.citationRiskEvidenceIds.length !== 0 ||
+    !result ||
+    result.role !== 'advisor' ||
+    result.status !== 'succeeded' ||
+    result.failureClass !== null ||
+    typeof result.outputDigest !== 'string'
+  ) {
+    throw new Error('Advisor review did not approve this composition.')
+  }
+
+  const outputDigest = digest({
+    decision: review.decision,
+    reasonCodes: [...review.reasonCodes],
+    unsupportedClaimIds: [...review.unsupportedClaimIds],
+    citationRiskEvidenceIds: [...review.citationRiskEvidenceIds],
+    confidence: review.confidence
+  })
+  if (outputDigest !== result.outputDigest) {
+    throw new Error('Advisor output digest mismatch.')
+  }
+  return outputDigest
 }
 
 export function createProductionAdvisorAdapter(
@@ -343,19 +405,30 @@ export function createProductionAdvisorAdapter(
       }
 
       validateReferences(outcome.output, advisorInput)
-      return Object.freeze({
+      const review = Object.freeze({
         decision: outcome.output.decision,
-        reasonCodes: Object.freeze([...new Set(outcome.output.reasonCodes)]),
+        reasonCodes: Object.freeze([...outcome.output.reasonCodes]),
         unsupportedClaimIds: Object.freeze([
-          ...new Set(outcome.output.unsupportedClaimIds)
+          ...outcome.output.unsupportedClaimIds
         ]),
         citationRiskEvidenceIds: Object.freeze([
-          ...new Set(outcome.output.citationRiskEvidenceIds)
+          ...outcome.output.citationRiskEvidenceIds
         ]),
         confidence: outcome.output.confidence,
+        routeDigest: routeContext.routeDigest,
+        composerOutputDigest,
         releaseStatus: 'pending_citation_verifier_and_final_release' as const,
         roleExecution: outcome.result
       })
+      advisorReviewBindings.set(
+        review,
+        Object.freeze({
+          routeDigest: routeContext.routeDigest,
+          composerOutputDigest,
+          evidenceGraph: input.evidenceGraph
+        })
+      )
+      return review
     }
   })
 }

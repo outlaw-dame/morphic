@@ -18,7 +18,10 @@ import {
   assertCoordinatorCompositionApproval,
   type CoordinatorCompositionApproval
 } from './governed-pipeline'
-import type { PendingAdvisorReview } from './production-advisor-adapter'
+import {
+  assertProductionAdvisorReviewBinding,
+  type PendingAdvisorReview
+} from './production-advisor-adapter'
 import type { PendingCompositionDraft } from './production-composition-adapter'
 
 const MAX_QUERY_LENGTH = 16_000
@@ -37,6 +40,16 @@ const CITATION_REASON_CODES = [
 
 type CitationReasonCode = (typeof CITATION_REASON_CODES)[number]
 const CitationReasonCodeSchema = z.enum(CITATION_REASON_CODES)
+
+const citationVerificationBindings = new WeakMap<
+  object,
+  Readonly<{
+    routeDigest: string
+    composerOutputDigest: string
+    advisorOutputDigest: string | null
+    evidenceGraph: EvidenceGraph
+  }>
+>()
 
 function deepFreeze<T>(value: T): T {
   if (value === null || typeof value !== 'object' || Object.isFrozen(value)) {
@@ -94,7 +107,9 @@ function assertCompositionIntegrity(composition: PendingCompositionDraft): strin
 
 function assertAdvisorIntegrity(
   review: PendingAdvisorReview | undefined,
-  routeContext: RouteExecutionContext
+  routeContext: RouteExecutionContext,
+  evidenceGraph: EvidenceGraph,
+  composerOutputDigest: string
 ): string | null {
   if (!routeContext.routePlan.needsAdvisorReview) {
     if (review !== undefined) {
@@ -105,34 +120,12 @@ function assertAdvisorIntegrity(
   if (!review || typeof review !== 'object') {
     throw new Error('Missing required Advisor review.')
   }
-  const result = review.roleExecution
-  if (
-    review.releaseStatus !== 'pending_citation_verifier_and_final_release' ||
-    review.decision !== 'approve' ||
-    review.reasonCodes.length !== 1 ||
-    review.reasonCodes[0] !== 'advisor_ready' ||
-    review.unsupportedClaimIds.length !== 0 ||
-    review.citationRiskEvidenceIds.length !== 0 ||
-    !result ||
-    result.role !== 'advisor' ||
-    result.status !== 'succeeded' ||
-    result.failureClass !== null ||
-    typeof result.outputDigest !== 'string'
-  ) {
-    throw new Error('Advisor review did not approve citation verification.')
-  }
-
-  const outputDigest = digest({
-    decision: review.decision,
-    reasonCodes: [...review.reasonCodes],
-    unsupportedClaimIds: [...review.unsupportedClaimIds],
-    citationRiskEvidenceIds: [...review.citationRiskEvidenceIds],
-    confidence: review.confidence
-  })
-  if (outputDigest !== result.outputDigest) {
-    throw new Error('Advisor output digest mismatch.')
-  }
-  return outputDigest
+  return assertProductionAdvisorReviewBinding(
+    review,
+    routeContext,
+    evidenceGraph,
+    composerOutputDigest
+  )
 }
 
 const CitationEvidenceSchema = z
@@ -155,8 +148,14 @@ const CitationVerifierInputSchema = z
     composerOutputDigest: z.string().regex(/^[a-f0-9]{64}$/),
     advisorOutputDigest: z.string().regex(/^[a-f0-9]{64}$/).nullable(),
     draft: z.string().min(1).max(200_000),
-    citedEvidenceIds: z.array(z.string().min(1).max(256)).max(MAX_REFERENCED_IDS),
-    citedEvidence: z.array(CitationEvidenceSchema).max(MAX_EVIDENCE_ITEMS),
+    citedEvidenceIds: z
+      .array(z.string().min(1).max(256))
+      .min(1)
+      .max(MAX_REFERENCED_IDS),
+    citedEvidence: z
+      .array(CitationEvidenceSchema)
+      .min(1)
+      .max(MAX_EVIDENCE_ITEMS),
     warnings: z.array(z.string().min(1).max(2048)).max(256),
     conflicts: z
       .array(
@@ -165,7 +164,9 @@ const CitationVerifierInputSchema = z
             id: z.string().min(1).max(256),
             severity: z.enum(['info', 'warn', 'block']),
             reason: z.string().min(1).max(4096),
-            evidenceIds: z.array(z.string().min(1).max(256)).max(MAX_REFERENCED_IDS)
+            evidenceIds: z
+              .array(z.string().min(1).max(256))
+              .max(MAX_REFERENCED_IDS)
           })
           .strict()
       )
@@ -201,12 +202,14 @@ const CitationVerifierOutputSchema = z
       if (
         value.reasonCodes.length !== 1 ||
         value.reasonCodes[0] !== 'citations_verified' ||
+        value.verifiedEvidenceIds.length === 0 ||
         value.unsupportedEvidenceIds.length > 0 ||
         value.missingCitationClaimIds.length > 0
       ) {
         context.addIssue({
           code: 'custom',
-          message: 'Verified citation output must contain only citations_verified and no unresolved IDs.'
+          message:
+            'Verified citation output must verify evidence, contain only citations_verified, and have no unresolved IDs.'
         })
       }
       return
@@ -233,6 +236,7 @@ export type PendingCitationVerification = Readonly<{
   unsupportedEvidenceIds: readonly string[]
   missingCitationClaimIds: readonly string[]
   confidence: number
+  routeDigest: string
   composerOutputDigest: string
   advisorOutputDigest: string | null
   releaseStatus: 'pending_final_deterministic_release'
@@ -283,6 +287,10 @@ function buildVerifierInput(
   composerOutputDigest: string,
   advisorOutputDigest: string | null
 ): CitationVerifierModelInput {
+  if (composition.citedEvidenceIds.length === 0) {
+    throw new Error('Citation verification requires at least one cited evidence item.')
+  }
+
   const cited = new Set(composition.citedEvidenceIds)
   const citedEvidence = evidenceGraph.items.filter(item => cited.has(item.id))
   if (citedEvidence.length !== cited.size) {
@@ -334,14 +342,89 @@ function validateOutputReferences(
     throw new Error('Citation Verifier referenced evidence outside the cited set.')
   }
   if (output.missingCitationClaimIds.some(id => !claimIds.has(id))) {
-    throw new Error('Citation Verifier referenced claims outside the cited evidence.')
+    throw new Error(
+      'Citation Verifier referenced claims outside the cited evidence.'
+    )
   }
   if (output.decision === 'verified') {
     const verified = new Set(output.verifiedEvidenceIds)
-    if (input.citedEvidenceIds.some(id => !verified.has(id))) {
-      throw new Error('Citation Verifier did not verify every cited evidence item.')
+    if (
+      input.citedEvidenceIds.length === 0 ||
+      input.citedEvidenceIds.some(id => !verified.has(id))
+    ) {
+      throw new Error(
+        'Citation Verifier did not verify every cited evidence item.'
+      )
     }
   }
+}
+
+export function assertProductionCitationVerificationBinding(
+  verification: PendingCitationVerification,
+  routeContext: RouteExecutionContext,
+  evidenceGraph: EvidenceGraph,
+  composition: PendingCompositionDraft,
+  advisorReview?: PendingAdvisorReview
+): string {
+  if (!verification || typeof verification !== 'object') {
+    throw new Error('Invalid production Citation Verification.')
+  }
+  const composerOutputDigest = assertCompositionIntegrity(composition)
+  const advisorOutputDigest = assertAdvisorIntegrity(
+    advisorReview,
+    routeContext,
+    evidenceGraph,
+    composerOutputDigest
+  )
+  const binding = citationVerificationBindings.get(verification)
+  const result = verification.roleExecution
+  if (
+    !binding ||
+    binding.routeDigest !== routeContext.routeDigest ||
+    binding.composerOutputDigest !== composerOutputDigest ||
+    binding.advisorOutputDigest !== advisorOutputDigest ||
+    binding.evidenceGraph !== evidenceGraph ||
+    verification.routeDigest !== routeContext.routeDigest ||
+    verification.composerOutputDigest !== composerOutputDigest ||
+    verification.advisorOutputDigest !== advisorOutputDigest ||
+    verification.releaseStatus !== 'pending_final_deterministic_release' ||
+    verification.decision !== 'verified' ||
+    verification.reasonCodes.length !== 1 ||
+    verification.reasonCodes[0] !== 'citations_verified' ||
+    verification.verifiedEvidenceIds.length === 0 ||
+    verification.unsupportedEvidenceIds.length !== 0 ||
+    verification.missingCitationClaimIds.length !== 0 ||
+    !result ||
+    result.role !== 'citation_verifier' ||
+    result.status !== 'succeeded' ||
+    result.failureClass !== null ||
+    typeof result.outputDigest !== 'string'
+  ) {
+    throw new Error('Citation Verification did not approve this composition.')
+  }
+
+  const cited = new Set(composition.citedEvidenceIds)
+  const verified = new Set(verification.verifiedEvidenceIds)
+  if (
+    cited.size === 0 ||
+    cited.size !== verified.size ||
+    [...cited].some(id => !verified.has(id))
+  ) {
+    throw new Error('Citation Verification does not cover every citation.')
+  }
+
+  const outputDigest = digest({
+    decision: verification.decision,
+    reasonCodes: [...verification.reasonCodes],
+    verifiedEvidenceIds: [...verification.verifiedEvidenceIds],
+    unsupportedEvidenceIds: [...verification.unsupportedEvidenceIds],
+    missingCitationClaimIds: [...verification.missingCitationClaimIds],
+    confidence: verification.confidence
+  })
+  if (outputDigest !== result.outputDigest) {
+    throw new Error('Citation Verifier output digest mismatch.')
+  }
+  return outputDigest
 }
 
 export function createProductionCitationVerifierAdapter(
@@ -371,14 +454,20 @@ export function createProductionCitationVerifierAdapter(
         routeContext,
         input.evidenceGraph
       )
-      if (!routeContext.routePlan.requiredModelRoles.includes('citation_verifier')) {
+      if (
+        !routeContext.routePlan.requiredModelRoles.includes(
+          'citation_verifier'
+        )
+      ) {
         throw new Error('Router did not authorize Citation Verifier execution.')
       }
 
       const composerOutputDigest = assertCompositionIntegrity(input.composition)
       const advisorOutputDigest = assertAdvisorIntegrity(
         input.advisorReview,
-        routeContext
+        routeContext,
+        input.evidenceGraph,
+        composerOutputDigest
       )
       const verifierInput = buildVerifierInput(
         query,
@@ -421,10 +510,12 @@ export function createProductionCitationVerifierAdapter(
       }
 
       validateOutputReferences(outcome.output, verifierInput)
-      return Object.freeze({
+      const verification = Object.freeze({
         decision: outcome.output.decision,
         reasonCodes: Object.freeze([...outcome.output.reasonCodes]),
-        verifiedEvidenceIds: Object.freeze([...outcome.output.verifiedEvidenceIds]),
+        verifiedEvidenceIds: Object.freeze([
+          ...outcome.output.verifiedEvidenceIds
+        ]),
         unsupportedEvidenceIds: Object.freeze([
           ...outcome.output.unsupportedEvidenceIds
         ]),
@@ -432,11 +523,22 @@ export function createProductionCitationVerifierAdapter(
           ...outcome.output.missingCitationClaimIds
         ]),
         confidence: outcome.output.confidence,
+        routeDigest: routeContext.routeDigest,
         composerOutputDigest,
         advisorOutputDigest,
         releaseStatus: 'pending_final_deterministic_release' as const,
         roleExecution: outcome.result
       })
+      citationVerificationBindings.set(
+        verification,
+        Object.freeze({
+          routeDigest: routeContext.routeDigest,
+          composerOutputDigest,
+          advisorOutputDigest,
+          evidenceGraph: input.evidenceGraph
+        })
+      )
+      return verification
     }
   })
 }
