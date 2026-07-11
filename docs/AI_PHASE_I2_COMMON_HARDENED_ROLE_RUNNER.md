@@ -141,6 +141,8 @@ The AI-I2 test suite covers:
 
 AI-I2 is complete only when the final permanent branch head passes the repository's normal test, type-check, lint, formatting, native-configuration, and production-build jobs. All review findings must be resolved, and no temporary diagnostic, formatting, or self-modifying workflow may remain in the pull-request diff.
 
+The focused pre-commit validation also runs TypeScript and ESLint against the hardened runner and its adversarial tests, but it does not substitute for the full repository CI matrix.
+
 ## Non-goals and deployment boundary
 
 AI-I2 does not:
