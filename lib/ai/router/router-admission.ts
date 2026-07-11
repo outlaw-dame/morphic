@@ -96,7 +96,8 @@ const FRESHNESS_PATTERNS = [
 ]
 
 const HIGH_RISK_PATTERNS = [
-  /\b(legal|lawyer|lawsuit|settlement|insurance|contract|court|regulation|compliance|liability)\b/i,
+  /\b(legal|lawyer|lawsuit|settlement|insurance|contract|regulation|compliance|liability)\b/i,
+  /\b(court of law|court ruling|court decision|legal case)\b/i,
   /\b(financial|investment|tax|loan|mortgage|bankruptcy|credit|securities|retirement)\b/i,
   /\b(election|voting|ballot|polling place|candidate|president|senator|governor|mayor)\b/i,
   /\b(medical|doctor|diagnosis|treatment|symptom|medication|concussion|injury|pregnancy)\b/i,
@@ -221,7 +222,7 @@ export function buildDeterministicRouteFloor(
       ? 'high'
       : 'low'
 
-  let mode: ResearchMode = initialRequiresResearch ? 'adaptive' : 'quick'
+  let mode: ResearchMode = 'quick'
   if (needsFreshness || needsEntityGrounding) mode = 'adaptive'
   if (highRisk) mode = 'critical'
   if (parsed.requestedMode) mode = strongerMode(mode, parsed.requestedMode)
