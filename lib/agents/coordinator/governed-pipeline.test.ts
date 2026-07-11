@@ -125,31 +125,24 @@ describe('AI-I3E governed two-stage pipeline', () => {
     expect(compose).not.toHaveBeenCalled()
   })
 
-  it('rejects unsupported repair actions instead of passing them to retrieval', async () => {
+  it('rejects invalid retrieval attempt limits before invoking adapters', async () => {
     const query = 'Explain photosynthesis'
-    const routeContext = context(query)
-    const retrieve = vi.fn(async () => ({
-      searchResults: [],
-      completedRoles: ['router', 'retriever'],
-      retrievedAt: now
-    }))
-
-    const original = routeContext.routePlan.requiredSourceClasses
-    Object.defineProperty(routeContext.routePlan, 'requiredSourceClasses', {
-      value: original,
-      configurable: false
-    })
+    const retrieve = vi.fn()
+    const compose = vi.fn()
 
     await expect(
       runGovernedResearchPipeline({
         query,
-        routeContext,
+        routeContext: context(query),
         retrieval: { retrieve },
-        composition: { compose: async () => 'answer' },
-        maxRetrievalAttempts: 1,
+        composition: { compose },
+        maxRetrievalAttempts: 6,
         now
       })
-    ).rejects.toThrow('Coordinator blocked composition')
+    ).rejects.toThrow('Invalid retrieval attempt limit.')
+
+    expect(retrieve).not.toHaveBeenCalled()
+    expect(compose).not.toHaveBeenCalled()
   })
 
   it('propagates cancellation before composition', async () => {
