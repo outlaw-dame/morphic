@@ -105,7 +105,7 @@ async function runWithProvider(
       candidates: [candidate()],
       provider
     }),
-    signal,
+    ...(signal ? { signal } : {}),
     now
   })
 }
@@ -209,14 +209,16 @@ describe('AI-I3G evidence-only production composition adapter', () => {
     const provider: RoleProviderAdapter<ComposerModelInput> = {
       invoke: vi.fn(
         invocation =>
-          new Promise((_, reject) => {
-            invocation.signal.addEventListener(
-              'abort',
-              () => reject(new Error('provider observed cancellation')),
-              { once: true }
-            )
-            controller.abort(new Error('user cancelled composition'))
-          })
+          new Promise<Readonly<{ output: unknown; outputTokens: number }>>(
+            (_, reject) => {
+              invocation.signal.addEventListener(
+                'abort',
+                () => reject(new Error('provider observed cancellation')),
+                { once: true }
+              )
+              controller.abort(new Error('user cancelled composition'))
+            }
+          )
       )
     }
 
