@@ -45,7 +45,7 @@ describe('AI-I3E governed two-stage pipeline', () => {
             result('https://example.edu/report'),
             result('https://science.example.org/report')
           ],
-          completedRoles: ['router', 'retriever'],
+          completedRoles: ['router', 'retriever'] as const,
           retrievedAt: now
         }))
       },
@@ -67,7 +67,7 @@ describe('AI-I3E governed two-stage pipeline', () => {
       .fn()
       .mockResolvedValueOnce({
         searchResults: [result('https://example.edu/report')],
-        completedRoles: ['router', 'retriever'],
+        completedRoles: ['router', 'retriever'] as const,
         retrievedAt: now
       })
       .mockResolvedValueOnce({
@@ -75,7 +75,7 @@ describe('AI-I3E governed two-stage pipeline', () => {
           result('https://example.edu/report'),
           result('https://science.example.org/report')
         ],
-        completedRoles: ['router', 'retriever'],
+        completedRoles: ['router', 'retriever'] as const,
         retrievedAt: now
       })
 
@@ -115,7 +115,7 @@ describe('AI-I3E governed two-stage pipeline', () => {
               'fusion_planner',
               'source_quality',
               'entity_grounding'
-            ],
+            ] as const,
             retrievedAt: now
           })
         },
@@ -207,7 +207,7 @@ describe('AI-I3E governed two-stage pipeline', () => {
                 result('https://example.edu/report'),
                 result('https://science.example.org/report')
               ],
-              completedRoles: ['router', 'retriever'],
+              completedRoles: ['router', 'retriever'] as const,
               retrievedAt: now
             }
           }
