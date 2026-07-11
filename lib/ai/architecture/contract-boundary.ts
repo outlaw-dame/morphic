@@ -60,7 +60,11 @@ function extractPlainValue(
       const output: unknown[] = []
       for (let index = 0; index < value.length; index += 1) {
         const descriptor = Object.getOwnPropertyDescriptor(value, String(index))
-        if (!descriptor || !('value' in descriptor) || descriptor.enumerable !== true) {
+        if (
+          !descriptor ||
+          !('value' in descriptor) ||
+          descriptor.enumerable !== true
+        ) {
           fail()
         }
         output.push(extractPlainValue(descriptor.value, depth + 1, state))
@@ -75,7 +79,11 @@ function extractPlainValue(
     for (const key of Reflect.ownKeys(value)) {
       if (typeof key !== 'string') fail()
       const descriptor = Object.getOwnPropertyDescriptor(value, key)
-      if (!descriptor || !('value' in descriptor) || descriptor.enumerable !== true) {
+      if (
+        !descriptor ||
+        !('value' in descriptor) ||
+        descriptor.enumerable !== true
+      ) {
         fail()
       }
       output[key] = extractPlainValue(descriptor.value, depth + 1, state)
