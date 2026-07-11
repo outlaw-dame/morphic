@@ -38,7 +38,8 @@ describe('deterministic AI router', () => {
     expect(result.routePlan.requiredModelRoles).toContain('repair')
     expect(result.routePlan.needsCitationVerification).toBe(true)
     expect(result.routePlan.needsEntityGrounding).toBe(false)
-    expect(result.selectedModelId).toBe('router-ready')
+    expect(result.selectedModelId).toBeNull()
+    expect(result.rejectedModelCount).toBe(models.length)
   })
 
   it('routes current requests through adaptive freshness-aware plans', () => {
@@ -49,7 +50,7 @@ describe('deterministic AI router', () => {
 
     expect(result.routePlan.mode).toBe('adaptive')
     expect(result.routePlan.needsFreshness).toBe(true)
-    expect(result.routePlan.maxToolCalls).toBe(35)
+    expect(result.routePlan.maxToolCalls).toBe(30)
   })
 
   it('routes high-risk requests through critical advisor-reviewed plans', () => {
@@ -67,14 +68,14 @@ describe('deterministic AI router', () => {
     expect(result.routePlan.maxToolCalls).toBe(50)
   })
 
-  it('honors an explicit requested mode while preserving risk gates', () => {
+  it('preserves high-risk gates over an explicitly weaker requested mode', () => {
     const result = routeResearchRequest({
       query: 'Check current legal policy updates.',
       requestedMode: 'adaptive',
       availableModels: []
     })
 
-    expect(result.routePlan.mode).toBe('adaptive')
+    expect(result.routePlan.mode).toBe('critical')
     expect(result.routePlan.riskLevel).toBe('high')
     expect(result.routePlan.needsAdvisorReview).toBe(true)
     expect(result.selectedModelId).toBeNull()
