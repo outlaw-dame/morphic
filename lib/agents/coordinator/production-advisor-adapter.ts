@@ -115,11 +115,13 @@ const AdvisorModelOutputSchema = z
       if (
         value.unsupportedClaimIds.length > 0 ||
         value.citationRiskEvidenceIds.length > 0 ||
-        value.reasonCodes.some(code => code !== 'advisor_ready')
+        value.reasonCodes.length !== 1 ||
+        value.reasonCodes[0] !== 'advisor_ready'
       ) {
         context.addIssue({
           code: 'custom',
-          message: 'Approved Advisor output cannot contain unresolved risks.'
+          message:
+            'Approved Advisor output must contain exactly advisor_ready and no unresolved risks.'
         })
       }
       return
