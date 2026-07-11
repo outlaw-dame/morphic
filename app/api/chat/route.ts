@@ -6,6 +6,12 @@ import {
   parsePersonalizationCookie,
   PERSONALIZATION_COOKIE_NAME
 } from '@/lib/agents/personalization'
+import {
+  admitChatRequest,
+  ChatAdmissionInputError,
+  executionSearchMode,
+  extractAdmissionQuery
+} from '@/lib/ai/router/chat-admission'
 import { calculateConversationTurn, trackChatEvent } from '@/lib/analytics'
 import { getCurrentUserId } from '@/lib/auth/get-current-user'
 import { checkAndEnforceAdaptiveLimit } from '@/lib/rate-limit/adaptive-limit'
@@ -99,16 +105,43 @@ export async function POST(req: Request) {
       cookieStore.get(PERSONALIZATION_COOKIE_NAME)?.value
     )
 
-    // Get search mode from cookie
+    // Treat the cookie as a user preference, not authorization to weaken the
+    // canonical Router decision.
     const searchModeCookie = cookieStore.get('searchMode')?.value
-    const searchMode: SearchMode =
+    const requestedSearchMode: SearchMode =
       searchModeCookie && ['quick', 'adaptive'].includes(searchModeCookie)
         ? (searchModeCookie as SearchMode)
         : 'quick'
 
-    // Adaptive mode is gated to authenticated users on cloud deployments.
-    // Check before model/provider selection so guests always get the
-    // intentional auth payload instead of lower-level configuration errors.
+    let admissionQuery: string
+    try {
+      admissionQuery = extractAdmissionQuery({ trigger, message, messages })
+    } catch (error) {
+      if (error instanceof ChatAdmissionInputError) {
+        return new Response(error.message, {
+          status: 400,
+          statusText: 'Bad Request'
+        })
+      }
+      throw error
+    }
+
+    const admissionStart = performance.now()
+    const admission = await admitChatRequest({
+      query: admissionQuery,
+      requestedSearchMode,
+      userId: userId ?? null,
+      signal: abortSignal
+    })
+    const searchMode = executionSearchMode(admission.routePlan.mode)
+    perfTime('Router admission completed', admissionStart)
+    perfLog(
+      `Router admission: mode=${admission.routePlan.mode}, executionMode=${searchMode}, risk=${admission.routePlan.riskLevel}, digest=${admission.routeDigest.slice(0, 12)}`
+    )
+
+    // Adaptive execution is gated to authenticated users on cloud deployments.
+    // This check uses the Router-promoted execution mode so a guest cannot
+    // obtain governed adaptive execution by selecting a quick-mode cookie.
     if (
       isAdaptiveModeAuthBlocked({
         mode: searchMode,
@@ -129,6 +162,8 @@ export async function POST(req: Request) {
       )
     }
 
+    // No model selection, tools, research, or streaming may start before a
+    // schema-valid canonical Router admission result exists.
     const selectedModel = await selectModel({ searchMode, cookieStore })
 
     if (!selectedModel) {
@@ -176,7 +211,7 @@ export async function POST(req: Request) {
           message,
           model: selectedModel,
           chatId,
-          userId: userId, // userId is guaranteed to be non-null after authentication check above
+          userId,
           trigger,
           messageId,
           abortSignal,
