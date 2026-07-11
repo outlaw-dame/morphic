@@ -23,6 +23,16 @@ describe('AI-I3B chat admission boundary', () => {
     ).toBe('Explain photosynthesis.')
   })
 
+  it('does not fall back to stale history when the submitted message has no text', () => {
+    expect(() =>
+      extractAdmissionQuery({
+        trigger: 'submit-message',
+        message: { role: 'user', parts: [{ type: 'file' }] },
+        messages: [{ role: 'user', content: 'Stale previous question' }]
+      })
+    ).toThrow('A user query is required.')
+  })
+
   it('uses the latest user message for regeneration', () => {
     expect(
       extractAdmissionQuery({
@@ -35,6 +45,20 @@ describe('AI-I3B chat admission boundary', () => {
         ]
       })
     ).toBe('Latest question')
+  })
+
+  it('does not fall back past a non-text latest user message during regeneration', () => {
+    expect(() =>
+      extractAdmissionQuery({
+        trigger: 'regenerate-message',
+        messages: [
+          { role: 'user', content: 'Stale previous question' },
+          { role: 'assistant', content: 'Previous answer' },
+          { role: 'user', parts: [{ type: 'file' }] },
+          { role: 'assistant', content: 'Answer being regenerated' }
+        ]
+      })
+    ).toThrow('A user query is required.')
   })
 
   it('rejects missing and oversized user queries', () => {
