@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented for the chat streaming and researcher boundaries. The permanent CI and review gates must pass before merge.
+Implemented for the chat streaming and researcher boundaries. The final permanent CI and review gates must pass before merge.
 
 ## Purpose
 
@@ -69,3 +69,5 @@ Coverage includes:
 - deterministic generated guidance;
 - required freshness, Advisor, and citation instructions;
 - propagation through live stream configuration and researcher metadata via repository type and integration checks.
+
+The branch-level formatter, linter, focused tests, and type checker have been run against the corrected implementation. The repository-wide permanent CI remains the merge authority.
