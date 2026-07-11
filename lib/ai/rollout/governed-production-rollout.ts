@@ -25,11 +25,7 @@ export function decideGovernedProductionRollout(
     configuredValue?: string
   }>
 ): GovernedProductionRolloutDecision {
-  if (
-    !input ||
-    typeof input !== 'object' ||
-    !input.routeContext?.routePlan
-  ) {
+  if (!input || typeof input !== 'object' || !input.routeContext?.routePlan) {
     return Object.freeze({
       enabled: false,
       useGovernedChain: false,
