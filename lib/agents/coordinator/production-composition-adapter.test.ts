@@ -204,6 +204,28 @@ describe('AI-I3G evidence-only production composition adapter', () => {
     expect(provider.invoke).not.toHaveBeenCalled()
   })
 
+  it('preserves cancellation reason during Composer invocation', async () => {
+    const controller = new AbortController()
+    const provider: RoleProviderAdapter<ComposerModelInput> = {
+      invoke: vi.fn(
+        invocation =>
+          new Promise((_, reject) => {
+            invocation.signal.addEventListener(
+              'abort',
+              () => reject(new Error('provider observed cancellation')),
+              { once: true }
+            )
+            controller.abort(new Error('user cancelled composition'))
+          })
+      )
+    }
+
+    await expect(runWithProvider(provider, controller.signal)).rejects.toThrow(
+      'user cancelled composition'
+    )
+    expect(provider.invoke).toHaveBeenCalledTimes(1)
+  })
+
   it('rejects malformed model output through the hardened role runner', async () => {
     const provider: RoleProviderAdapter<ComposerModelInput> = {
       invoke: vi.fn(async () => ({
