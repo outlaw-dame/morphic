@@ -82,16 +82,23 @@ Model-assisted callers must use `admitResearchRoute()`.
 Coverage includes:
 
 - explicit non-research bypass;
+- requested research-mode promotion;
 - quick-mode downgrade attempts;
 - high-risk and critical classification;
 - entity-sensitive fixtures;
 - deployment budget caps;
 - monotonic model merge;
+- model-proposed research-mode promotion;
 - model-added stricter requirements;
+- bounded rationale generation;
 - disallowed-source non-reenablement;
 - AI-I2 Router invocation and scope binding;
 - malformed model fallback;
 - route immutability and digest generation.
+
+## Completion gates
+
+AI-I3A is ready to merge only when tests, type checking, lint, formatting, native configuration verification, and production build all pass on the permanent head. The final diff must contain no temporary workflow or diagnostic artifact, and every actionable review thread must be resolved against the final code.
 
 ## Next step
 
