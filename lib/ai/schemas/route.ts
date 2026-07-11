@@ -50,7 +50,20 @@ export const RoutePlanSchema = z
       })
     }
   })
-export type RoutePlan = z.infer<typeof RoutePlanSchema>
+
+export type CanonicalRoutePlan = z.output<typeof RoutePlanSchema>
+
+type NewRoutePlanFields = Pick<
+  CanonicalRoutePlan,
+  | 'requiresResearch'
+  | 'disallowedSourceClasses'
+  | 'needsSourceQuality'
+  | 'needsFusionPlanning'
+  | 'reasonCodes'
+>
+
+export type RoutePlan = Omit<CanonicalRoutePlan, keyof NewRoutePlanFields> &
+  Partial<NewRoutePlanFields>
 
 export const CoordinatorDecisionSchema = z.object({
   routePlan: RoutePlanSchema,
@@ -78,7 +91,7 @@ export const EvidenceItemSchema = z.object({
 })
 export type EvidenceItem = z.infer<typeof EvidenceItemSchema>
 
-export function parseRoutePlan(input: unknown): RoutePlan {
+export function parseRoutePlan(input: unknown): CanonicalRoutePlan {
   return RoutePlanSchema.parse(input)
 }
 
