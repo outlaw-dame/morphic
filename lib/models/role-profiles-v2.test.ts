@@ -24,9 +24,9 @@ describe('canonical role selection profiles v2', () => {
   })
 
   it('keeps Router and Coordinator tool permissions non-executing', () => {
-    expect(getRoleSelectionProfileV2('router').requiredToolPermissionClass).toBe(
-      'none'
-    )
+    expect(
+      getRoleSelectionProfileV2('router').requiredToolPermissionClass
+    ).toBe('none')
     expect(
       getRoleSelectionProfileV2('coordinator').requiredToolPermissionClass
     ).toBe('none')
