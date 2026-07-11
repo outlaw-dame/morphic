@@ -17,8 +17,36 @@ export class InvalidRouteExecutionContextError extends Error {
   }
 }
 
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize)
+  if (value === null || typeof value !== 'object') return value
+
+  return Object.keys(value)
+    .sort()
+    .reduce<Record<string, unknown>>((result, key) => {
+      result[key] = canonicalize((value as Record<string, unknown>)[key])
+      return result
+    }, {})
+}
+
+export function serializeRoutePlan(routePlan: CanonicalRoutePlan): string {
+  return JSON.stringify(canonicalize(routePlan))
+}
+
 export function digestRoutePlan(routePlan: CanonicalRoutePlan): string {
-  return createHash('sha256').update(JSON.stringify(routePlan)).digest('hex')
+  return createHash('sha256').update(serializeRoutePlan(routePlan)).digest('hex')
+}
+
+function deepFreeze<T>(value: T): T {
+  if (value === null || typeof value !== 'object' || Object.isFrozen(value)) {
+    return value
+  }
+
+  for (const nested of Object.values(value as Record<string, unknown>)) {
+    deepFreeze(nested)
+  }
+
+  return Object.freeze(value)
 }
 
 export function createRouteExecutionContext(
@@ -36,7 +64,7 @@ export function createRouteExecutionContext(
     }
 
     return Object.freeze({
-      routePlan: Object.freeze(routePlan),
+      routePlan: deepFreeze(routePlan),
       routeDigest
     })
   } catch (error) {
