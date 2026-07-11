@@ -1,10 +1,7 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 
-import {
-  type CanonicalRoutePlan,
-  RoutePlanSchema
-} from '@/lib/ai/schemas'
+import { type CanonicalRoutePlan, RoutePlanSchema } from '@/lib/ai/schemas'
 
 const RouteDigestSchema = z.string().regex(/^[a-f0-9]{64}$/)
 
@@ -24,10 +21,12 @@ export function digestRoutePlan(routePlan: CanonicalRoutePlan): string {
   return createHash('sha256').update(JSON.stringify(routePlan)).digest('hex')
 }
 
-export function createRouteExecutionContext(input: Readonly<{
-  routePlan: unknown
-  routeDigest: unknown
-}>): RouteExecutionContext {
+export function createRouteExecutionContext(
+  input: Readonly<{
+    routePlan: unknown
+    routeDigest: unknown
+  }>
+): RouteExecutionContext {
   try {
     const routePlan = RoutePlanSchema.parse(input.routePlan)
     const routeDigest = RouteDigestSchema.parse(input.routeDigest)

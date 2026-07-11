@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildDeterministicRouteFloor } from './router-admission'
 import {
   buildRouteExecutionGuidance,
   createRouteExecutionContext,
   digestRoutePlan,
   InvalidRouteExecutionContextError
 } from './execution-context'
+import { buildDeterministicRouteFloor } from './router-admission'
 
 describe('AI-I3C Router execution context', () => {
   it('accepts a canonical route only when its digest matches', () => {

@@ -219,7 +219,6 @@ export async function POST(req: Request) {
         })
 
     perfTime('createChatStreamResponse resolved', streamStart)
-
     ;(async () => {
       try {
         let conversationTurn = 1

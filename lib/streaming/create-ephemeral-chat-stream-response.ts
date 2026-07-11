@@ -27,11 +27,7 @@ import { BaseStreamConfig } from './types'
 
 type EphemeralStreamConfig = Pick<
   BaseStreamConfig,
-  | 'model'
-  | 'abortSignal'
-  | 'searchMode'
-  | 'personalization'
-  | 'routeContext'
+  'model' | 'abortSignal' | 'searchMode' | 'personalization' | 'routeContext'
 > & {
   messages: UIMessage[]
   chatId?: string

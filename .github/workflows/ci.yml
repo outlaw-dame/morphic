@@ -6,96 +6,48 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write
-
 jobs:
-  ai-i3c-normalize:
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/ai-i3c-route-context-handoff'
-    runs-on: ubuntu-latest
-    name: AI-I3C Normalize
-
-    steps:
-      - name: Checkout AI-I3C branch
-        uses: actions/checkout@v4
-        with:
-          ref: agent/ai-i3c-route-context-handoff
-          fetch-depth: 0
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.11
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Normalize files and capture diagnostics
-        shell: bash
-        run: |
-          set +e
-          bunx eslint --fix \
-            app/api/chat/route.ts \
-            lib/agents/researcher.ts \
-            lib/ai/router/execution-context.ts \
-            lib/ai/router/execution-context.test.ts \
-            lib/streaming/create-chat-stream-response.ts \
-            lib/streaming/create-ephemeral-chat-stream-response.ts \
-            lib/streaming/types.ts
-          bunx prettier --write \
-            app/api/chat/route.ts \
-            docs/AI_PHASE_I3C_ROUTE_CONTEXT_HANDOFF.md \
-            lib/agents/researcher.ts \
-            lib/ai/router/execution-context.ts \
-            lib/ai/router/execution-context.test.ts \
-            lib/streaming/create-chat-stream-response.ts \
-            lib/streaming/create-ephemeral-chat-stream-response.ts \
-            lib/streaming/types.ts
-          bun run typecheck > .ai-i3c-typecheck.txt 2>&1
-          echo $? > .ai-i3c-typecheck-exit.txt
-
-      - name: Restore permanent CI workflow and commit
-        run: |
-          git fetch origin main
-          git checkout origin/main -- .github/workflows/ci.yml
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add -A
-          git commit -m 'chore(ai): normalize AI-I3C route handoff'
-          git push origin HEAD:agent/ai-i3c-route-context-handoff
-
   lint:
     runs-on: ubuntu-latest
     name: Lint
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.11
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
       - name: Run linting
         run: bun lint
 
   typecheck:
     runs-on: ubuntu-latest
     name: Type Check
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.11
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
       - name: Run type checking
         run: |
           bun typecheck 2>&1 | tee /tmp/typecheck.log
           exit ${PIPESTATUS[0]}
         shell: bash
+
       - name: Surface type errors
         if: failure()
         run: |
@@ -108,30 +60,38 @@ jobs:
   format:
     runs-on: ubuntu-latest
     name: Format Check
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.11
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
       - name: Check formatting
         run: bun format:check
 
   test:
     runs-on: ubuntu-latest
     name: Test
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.11
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
       - name: Run tests
         run: |
           if [ -f "vitest.config.ts" ] || [ -f "vitest.config.mts" ]; then
@@ -143,6 +103,7 @@ jobs:
           DATABASE_URL: postgresql://user:pass@localhost:5432/db
           DATABASE_RESTRICTED_URL: postgresql://user:pass@localhost:5432/db
           NODE_ENV: test
+
       - name: Surface test errors
         if: failure()
         run: |
@@ -155,15 +116,19 @@ jobs:
   native-verify:
     runs-on: ubuntu-latest
     name: Native Config Verify
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.11
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
       - name: Verify Capacitor config
         run: bun run cap:verify
 
@@ -171,15 +136,19 @@ jobs:
     runs-on: ubuntu-latest
     name: Build
     needs: [lint, typecheck, format, test, native-verify]
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.11
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
       - name: Build application
         run: bun run build
         env:

@@ -1,7 +1,7 @@
 import { UIMessage } from '@ai-sdk/react'
 
-import type { RouteExecutionContext } from '../ai/router/execution-context'
 import type { PersonalizationSettings } from '../agents/personalization'
+import type { RouteExecutionContext } from '../ai/router/execution-context'
 import { Model } from '../types/models'
 import { SearchMode } from '../types/search'
 
