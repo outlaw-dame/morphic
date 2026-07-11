@@ -145,6 +145,47 @@ describe('AI-I3E governed two-stage pipeline', () => {
     expect(compose).not.toHaveBeenCalled()
   })
 
+  it('rejects null retrieval adapter results before property access', async () => {
+    const query = 'Explain photosynthesis'
+    const compose = vi.fn()
+
+    await expect(
+      runGovernedResearchPipeline({
+        query,
+        routeContext: context(query),
+        retrieval: {
+          retrieve: async () => null
+        } as unknown as Parameters<typeof runGovernedResearchPipeline>[0]['retrieval'],
+        composition: { compose },
+        now
+      })
+    ).rejects.toThrow('Invalid retrieval result returned from adapter.')
+
+    expect(compose).not.toHaveBeenCalled()
+  })
+
+  it('falls back to Error when DOMException is unavailable', async () => {
+    const query = 'Explain photosynthesis'
+    const controller = new AbortController()
+    controller.abort('cancelled without DOMException')
+    vi.stubGlobal('DOMException', undefined)
+
+    try {
+      await expect(
+        runGovernedResearchPipeline({
+          query,
+          routeContext: context(query),
+          retrieval: { retrieve: vi.fn() },
+          composition: { compose: vi.fn() },
+          signal: controller.signal,
+          now
+        })
+      ).rejects.toThrow('cancelled without DOMException')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('propagates cancellation before composition', async () => {
     const query = 'Explain photosynthesis'
     const controller = new AbortController()
