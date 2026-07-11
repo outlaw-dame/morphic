@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { RoleProviderAdapter } from '@/lib/ai/role-runner'
+import type { ResearchMode } from '@/lib/ai/schemas'
 
 import {
   admitResearchRoute,
@@ -65,7 +66,9 @@ function routerCandidate(): Record<string, unknown> {
 
 function adapter(
   output: RouterModelProposal
-): RoleProviderAdapter<Readonly<{ query: string; requestedMode: string | null }>> {
+): RoleProviderAdapter<
+  Readonly<{ query: string; requestedMode: ResearchMode | null }>
+> {
   return {
     invoke: vi.fn(async () => ({ output, outputTokens: 100 }))
   }
@@ -79,6 +82,26 @@ describe('AI-I3 Router admission', () => {
     expect(route.mode).toBe('quick')
     expect(route.requiredModelRoles).toEqual(['router'])
     expect(route.maxToolCalls).toBe(10)
+  })
+
+  it('promotes an explicit non-research query when a research mode is requested', () => {
+    const route = buildDeterministicRouteFloor({
+      query: 'Hello!',
+      requestedMode: 'deep'
+    })
+
+    expect(route.mode).toBe('deep')
+    expect(route.requiresResearch).toBe(true)
+    expect(route.needsCitationVerification).toBe(true)
+    expect(route.requiredModelRoles).toEqual(
+      expect.arrayContaining([
+        'router',
+        'retriever',
+        'answer_composer',
+        'citation_verifier',
+        'repair'
+      ])
+    )
   })
 
   it('does not allow requested quick mode to downgrade high-risk policy', () => {
@@ -150,6 +173,26 @@ describe('AI-I3 Router admission', () => {
     expect(merged.maxToolCalls).toBe(floor.maxToolCalls)
   })
 
+  it('promotes research requirements when the model proposes a research mode', () => {
+    const floor = buildDeterministicRouteFloor({ query: 'Hello!' })
+    const merged = mergeRouterProposal(
+      floor,
+      proposal({ mode: 'deep', requiresResearch: false })
+    )
+
+    expect(merged.mode).toBe('deep')
+    expect(merged.requiresResearch).toBe(true)
+    expect(merged.needsCitationVerification).toBe(true)
+    expect(merged.requiredModelRoles).toEqual(
+      expect.arrayContaining([
+        'retriever',
+        'answer_composer',
+        'citation_verifier',
+        'repair'
+      ])
+    )
+  })
+
   it('allows the model to add stricter requirements and reduce budget', () => {
     const floor = buildDeterministicRouteFloor({ query: 'Explain photosynthesis' })
     const merged = mergeRouterProposal(
@@ -191,6 +234,21 @@ describe('AI-I3 Router admission', () => {
     expect(merged.disallowedSourceClasses).toContain('content_farm')
   })
 
+  it('keeps generated rationale within the canonical schema bound', () => {
+    const floor = buildDeterministicRouteFloor({ query: 'Explain photosynthesis' })
+    const longCodes = Array.from(
+      { length: 16 },
+      (_, index) => `reason_${index}_${'x'.repeat(110)}`
+    )
+    const merged = mergeRouterProposal(
+      floor,
+      proposal({ reasonCodes: longCodes })
+    )
+
+    expect(merged.rationale.length).toBeLessThanOrEqual(2048)
+    expect(merged.rationale.startsWith('Router admission reasons: ')).toBe(true)
+  })
+
   it('invokes the configured Router through the hardened role runner and binds scope', async () => {
     const modelAdapter = adapter(
       proposal({
@@ -208,7 +266,7 @@ describe('AI-I3 Router admission', () => {
       invocationId: 'invocation_0000001',
       model: {
         candidates: [routerCandidate()],
-        adapter: modelAdapter as never
+        adapter: modelAdapter
       }
     })
 
@@ -227,7 +285,9 @@ describe('AI-I3 Router admission', () => {
   })
 
   it('falls back to the deterministic floor when the Router model is malformed', async () => {
-    const malformedAdapter: RoleProviderAdapter<Readonly<{ query: string }>> = {
+    const malformedAdapter: RoleProviderAdapter<
+      Readonly<{ query: string; requestedMode: ResearchMode | null }>
+    > = {
       invoke: vi.fn(async () => ({ output: { mode: 'quick' }, outputTokens: 2 }))
     }
 
@@ -238,7 +298,7 @@ describe('AI-I3 Router admission', () => {
       invocationId: 'invocation_0000001',
       model: {
         candidates: [routerCandidate()],
-        adapter: malformedAdapter as never
+        adapter: malformedAdapter
       }
     })
 
