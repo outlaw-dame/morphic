@@ -172,7 +172,9 @@ function isRoleQualityScore(value: unknown): value is RoleQualityScore {
   )
 }
 
-function isCandidateStructurallyValid(value: unknown): value is RoleModelCandidate {
+function isCandidateStructurallyValid(
+  value: unknown
+): value is RoleModelCandidate {
   if (!isRecord(value)) return false
 
   return (
@@ -253,7 +255,9 @@ function isProfileStructurallyValid(profile: RoleSelectionProfile): boolean {
     isFiniteNonNegative(profile.maximumCostPerMillionTokensUsd) &&
     Array.isArray(profile.allowedLocalities) &&
     profile.allowedLocalities.length > 0 &&
-    profile.allowedLocalities.every(locality => LOCALITY_VALUES.has(locality)) &&
+    profile.allowedLocalities.every(locality =>
+      LOCALITY_VALUES.has(locality)
+    ) &&
     CAPABILITY_PROVENANCE_VALUES.has(profile.minimumCapabilityProvenance) &&
     Number.isFinite(profile.minimumRoleQualityScore) &&
     profile.minimumRoleQualityScore >= 0 &&
@@ -376,9 +380,11 @@ function compareEligibleCandidates(
   }
 
   const leftQuality =
-    roleQualityScore(left, profile.role, now, profile.maximumQualityAgeDays) ?? -1
+    roleQualityScore(left, profile.role, now, profile.maximumQualityAgeDays) ??
+    -1
   const rightQuality =
-    roleQualityScore(right, profile.role, now, profile.maximumQualityAgeDays) ?? -1
+    roleQualityScore(right, profile.role, now, profile.maximumQualityAgeDays) ??
+    -1
   if (leftQuality !== rightQuality) return rightQuality - leftQuality
 
   const preferredDifference =
@@ -387,7 +393,9 @@ function compareEligibleCandidates(
   if (preferredDifference !== 0) return preferredDifference
 
   if (left.reliability !== right.reliability) {
-    return RELIABILITY_RANK[right.reliability] - RELIABILITY_RANK[left.reliability]
+    return (
+      RELIABILITY_RANK[right.reliability] - RELIABILITY_RANK[left.reliability]
+    )
   }
   if (left.estimatedLatencyMs !== right.estimatedLatencyMs) {
     return left.estimatedLatencyMs - right.estimatedLatencyMs
