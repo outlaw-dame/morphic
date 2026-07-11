@@ -93,7 +93,7 @@ function assertSuccessfulRoleExecution(
   expectedRole: 'answer_composer' | 'advisor' | 'citation_verifier'
 ): Readonly<{
   executionId: string
-  completedAt: string
+  completedAtMs: number
   outputDigest: string
 }> {
   if (!value || typeof value !== 'object') {
@@ -118,7 +118,7 @@ function assertSuccessfulRoleExecution(
   }
   return Object.freeze({
     executionId: candidate.executionId,
-    completedAt: candidate.completedAt,
+    completedAtMs,
     outputDigest: candidate.outputDigest
   })
 }
@@ -136,7 +136,7 @@ function assertExecutionChain(
     'citation_verifier'
   )
   const executions = [composer.executionId, citation.executionId]
-  const completions = [composer.completedAt, citation.completedAt]
+  const completionsMs = [composer.completedAtMs, citation.completedAtMs]
 
   if (input.routeContext.routePlan.needsAdvisorReview) {
     const advisor = assertSuccessfulRoleExecution(
@@ -144,7 +144,7 @@ function assertExecutionChain(
       'advisor'
     )
     executions.push(advisor.executionId)
-    completions.push(advisor.completedAt)
+    completionsMs.push(advisor.completedAtMs)
   }
 
   if (new Set(executions).size !== 1) {
@@ -152,8 +152,7 @@ function assertExecutionChain(
   }
 
   const nowMs = now.getTime()
-  for (const completedAt of completions) {
-    const completedAtMs = Date.parse(completedAt)
+  for (const completedAtMs of completionsMs) {
     if (completedAtMs > nowMs + MAX_CLOCK_SKEW_MS) {
       throw new Error('Release role completion time is in the future.')
     }
