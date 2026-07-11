@@ -27,7 +27,11 @@ import { BaseStreamConfig } from './types'
 
 type EphemeralStreamConfig = Pick<
   BaseStreamConfig,
-  'model' | 'abortSignal' | 'searchMode' | 'personalization'
+  | 'model'
+  | 'abortSignal'
+  | 'searchMode'
+  | 'personalization'
+  | 'routeContext'
 > & {
   messages: UIMessage[]
   chatId?: string
@@ -36,8 +40,15 @@ type EphemeralStreamConfig = Pick<
 export async function createEphemeralChatStreamResponse(
   config: EphemeralStreamConfig
 ): Promise<Response> {
-  const { messages, model, abortSignal, searchMode, chatId, personalization } =
-    config
+  const {
+    messages,
+    model,
+    abortSignal,
+    searchMode,
+    chatId,
+    personalization,
+    routeContext
+  } = config
 
   if (!messages || messages.length === 0) {
     return new Response('messages are required', {
@@ -46,7 +57,6 @@ export async function createEphemeralChatStreamResponse(
     })
   }
 
-  // Create parent trace ID for grouping all operations
   let parentTraceId: string | undefined
   let langfuse: Langfuse | undefined
 
@@ -61,7 +71,10 @@ export async function createEphemeralChatStreamResponse(
         chatId,
         userId: 'guest',
         modelId: `${model.providerId}:${model.id}`,
-        trigger: 'submit-message'
+        trigger: 'submit-message',
+        routeDigest: routeContext.routeDigest,
+        routeMode: routeContext.routePlan.mode,
+        routeRisk: routeContext.routePlan.riskLevel
       }
     })
   }
@@ -92,7 +105,8 @@ export async function createEphemeralChatStreamResponse(
       modelConfig: model,
       parentTraceId,
       searchMode,
-      personalization
+      personalization,
+      routeContext
     })
 
     const result = await researchAgent.stream({
@@ -108,7 +122,9 @@ export async function createEphemeralChatStreamResponse(
           return {
             traceId: parentTraceId,
             searchMode,
-            modelId: `${model.providerId}:${model.id}`
+            modelId: `${model.providerId}:${model.id}`,
+            routeDigest: routeContext.routeDigest,
+            routeMode: routeContext.routePlan.mode
           }
         }
       },
