@@ -17,10 +17,12 @@ function parseEnabled(value: string | undefined): boolean | null {
   return null
 }
 
-export function decideGovernedProductionRollout(input: Readonly<{
-  routeContext: RouteExecutionContext
-  configuredValue?: string
-}>): GovernedProductionRolloutDecision {
+export function decideGovernedProductionRollout(
+  input: Readonly<{
+    routeContext: RouteExecutionContext
+    configuredValue?: string
+  }>
+): GovernedProductionRolloutDecision {
   if (!input || typeof input !== 'object' || !input.routeContext) {
     return Object.freeze({
       enabled: false,
