@@ -139,4 +139,47 @@ describe('AI-I3D live Coordinator handoff', () => {
       })
     ).toThrow('Coordinator search result limit exceeded.')
   })
+
+  it('rejects non-string queries without executing string methods', () => {
+    const context = routeContext('Explain photosynthesis')
+
+    expect(() =>
+      evaluateLiveCoordinatorHandoff({
+        routeContext: context,
+        query: null,
+        searchResults: [],
+        completedRoles: ['router', 'retriever'],
+        now
+      } as unknown as Parameters<typeof evaluateLiveCoordinatorHandoff>[0])
+    ).toThrow('Invalid Coordinator query.')
+  })
+
+  it('rejects missing route contexts through the canonical verifier', () => {
+    expect(() =>
+      evaluateLiveCoordinatorHandoff({
+        routeContext: null,
+        query: 'Explain photosynthesis',
+        searchResults: [],
+        completedRoles: ['router', 'retriever'],
+        now
+      } as unknown as Parameters<typeof evaluateLiveCoordinatorHandoff>[0])
+    ).toThrow('Invalid Router execution context.')
+  })
+
+  it('does not treat null timestamps as the Unix epoch', () => {
+    const context = routeContext('Explain photosynthesis')
+    const handoff = evaluateLiveCoordinatorHandoff({
+      routeContext: context,
+      query: 'Explain photosynthesis',
+      searchResults: [
+        result('https://example.edu/photosynthesis'),
+        result('https://science.example.org/photosynthesis')
+      ],
+      completedRoles: ['router', 'retriever'],
+      retrievedAt: null,
+      now: null
+    })
+
+    expect(handoff.state.evidenceGraph.items).toHaveLength(2)
+  })
 })
