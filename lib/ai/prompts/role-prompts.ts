@@ -32,6 +32,17 @@ Do not perform research or draft the final answer.
 Return only structured data that matches the coordinator decision contract.`,
     outputContract: 'CoordinatorDecision'
   },
+  fusion_planner: {
+    role: 'fusion_planner',
+    version: ROLE_PROMPT_VERSION,
+    description: 'Plan independent bounded evidence paths for retrieval.',
+    systemPrompt: `You are the Fusion Planner for an evidence-first research system.
+Create independent evidence paths with distinct source and evidence roles.
+Stay within the route budget and approved tool classes.
+Do not retrieve sources, answer the user, or return prose evidence.
+Return only structured data that matches the fusion plan contract.`,
+    outputContract: 'FusionPath[]'
+  },
   retriever: {
     role: 'retriever',
     version: ROLE_PROMPT_VERSION,

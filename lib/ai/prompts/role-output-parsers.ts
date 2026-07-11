@@ -17,6 +17,7 @@ import {
 export type ParsedRoleOutputByRole = {
   router: RoutePlan
   coordinator: CoordinatorDecision
+  fusion_planner: unknown
   retriever: EvidenceItem[]
   source_quality: SourceQualityAssessment
   entity_grounding: unknown
@@ -50,6 +51,7 @@ type RoleOutputSchemas = {
 const ROLE_OUTPUT_SCHEMAS: RoleOutputSchemas = {
   router: RoutePlanSchema,
   coordinator: CoordinatorDecisionSchema,
+  fusion_planner: z.unknown(),
   retriever: z.array(EvidenceItemSchema),
   source_quality: SourceQualityAssessmentSchema,
   entity_grounding: z.unknown(),
