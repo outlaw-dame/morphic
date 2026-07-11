@@ -22,8 +22,8 @@ export type LiveCoordinatorHandoffInput = Readonly<{
   completedRoles: readonly ModelRole[]
   retrievalAttempts?: number
   maxRetrievalAttempts?: number
-  retrievedAt?: string | Date
-  now?: Date
+  retrievedAt?: string | Date | null
+  now?: Date | null
 }>
 
 export type LiveCoordinatorHandoffResult = Readonly<{
@@ -32,8 +32,11 @@ export type LiveCoordinatorHandoffResult = Readonly<{
   evaluation: CoordinatorEvaluation
 }>
 
-function validateDate(value: string | Date | undefined, field: string): void {
-  if (value === undefined) return
+function validateDate(
+  value: string | Date | null | undefined,
+  field: string
+): void {
+  if (value === undefined || value === null) return
   const date = value instanceof Date ? value : new Date(value)
   if (!Number.isFinite(date.getTime())) {
     throw new Error(`Invalid ${field}.`)
@@ -43,7 +46,7 @@ function validateDate(value: string | Date | undefined, field: string): void {
 export function evaluateLiveCoordinatorHandoff(
   input: LiveCoordinatorHandoffInput
 ): LiveCoordinatorHandoffResult {
-  const query = input.query.trim()
+  const query = typeof input?.query === 'string' ? input.query.trim() : ''
   if (!query || query.length > MAX_COORDINATOR_QUERY_LENGTH) {
     throw new Error('Invalid Coordinator query.')
   }
@@ -58,8 +61,8 @@ export function evaluateLiveCoordinatorHandoff(
   validateDate(input.now, 'Coordinator clock')
 
   const routeContext = createRouteExecutionContext({
-    routePlan: input.routeContext.routePlan,
-    routeDigest: input.routeContext.routeDigest
+    routePlan: input.routeContext?.routePlan,
+    routeDigest: input.routeContext?.routeDigest
   })
   const evidenceGraph = buildEvidenceGraph({
     query,
