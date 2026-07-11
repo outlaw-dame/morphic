@@ -23,24 +23,16 @@ jobs:
       - name: Update canonical AI phase registry
         run: |
           python - <<'PY'
+          import re
           from pathlib import Path
 
           path = Path('lib/ai/architecture/phase-registry.ts')
           text = path.read_text()
-          old = """    phase({
-              id: 'AI-I1',
-              title: 'Model registry and role-selection policy V2',
-              dependencies: ['AI-I0'],
-              requiredRoles: [],
-              historicalRequirements: [
-                carried(
-                  'Original AI-2A model capability registry',
-                  'Existing capability inference remains useful but needs verified provenance and stronger role policy.',
-                  'completed_but_not_integrated'
-                )
-              ]
-            }),"""
-          new = """    phase({
+          pattern = re.compile(
+              r"    phase\(\{\n      id: 'AI-I1',.*?\n    \}\),\n(?=    phase\(\{\n      id: 'AI-I2',)",
+              re.DOTALL,
+          )
+          replacement = """    phase({
               id: 'AI-I1',
               title: 'Model registry and role-selection policy V2',
               status: 'implemented_in_isolation',
@@ -66,10 +58,12 @@ jobs:
                 { kind: 'test', reference: 'lib/models/role-profiles-v2.test.ts' },
                 { kind: 'pull_request', reference: 'PR #80' }
               ]
-            }),"""
-          if text.count(old) != 1:
-              raise SystemExit('AI-I1 registry block did not match exactly once')
-          path.write_text(text.replace(old, new))
+            }),
+"""
+          updated, count = pattern.subn(replacement, text)
+          if count != 1:
+              raise SystemExit(f'AI-I1 registry block matched {count} times')
+          path.write_text(updated)
           PY
       - name: Format changed files
         run: |
