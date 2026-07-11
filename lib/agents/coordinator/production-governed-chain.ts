@@ -126,7 +126,14 @@ export async function runProductionGovernedChain(
 
   throwIfAborted(input.signal)
 
-  const advisorReview = routeContext.routePlan.needsAdvisorReview
+  if (
+    approvedRouteContext.routePlan.needsAdvisorReview &&
+    typeof input.advisor?.review !== 'function'
+  ) {
+    throw new Error('Governed production chain is missing the required Advisor port.')
+  }
+
+  const advisorReview = approvedRouteContext.routePlan.needsAdvisorReview
     ? await input.advisor!.review({
         query,
         routeContext: approvedRouteContext,
