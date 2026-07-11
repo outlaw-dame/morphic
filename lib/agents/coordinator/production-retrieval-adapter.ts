@@ -2,7 +2,7 @@ import {
   createRouteExecutionContext,
   type RouteExecutionContext
 } from '@/lib/ai/router/execution-context'
-import type { ModelRole } from '@/lib/ai/schemas'
+import { ModelRoleSchema, type ModelRole } from '@/lib/ai/schemas'
 import type { SearchResultItem } from '@/lib/types'
 
 import type {
@@ -73,8 +73,10 @@ function freezeSearchResults(value: unknown): readonly SearchResultItem[] {
       if (
         typeof candidate.title !== 'string' ||
         typeof candidate.url !== 'string' ||
-        candidate.title.length === 0 ||
-        candidate.url.length === 0
+        typeof candidate.content !== 'string' ||
+        candidate.title.trim().length === 0 ||
+        candidate.url.trim().length === 0 ||
+        candidate.content.trim().length === 0
       ) {
         throw new Error('Invalid production retrieval search result.')
       }
@@ -91,16 +93,29 @@ function freezeCompletedRoles(value: unknown): readonly ModelRole[] {
 
   return Object.freeze(
     value.map(role => {
-      if (typeof role !== 'string' || role.length === 0) {
+      const parsed = ModelRoleSchema.safeParse(role)
+      if (!parsed.success) {
         throw new Error('Invalid production retrieval completed role.')
       }
-      return role as ModelRole
+      return parsed.data
     })
   )
 }
 
 function normalizeRetrievedAt(value: unknown): Date {
-  const date = value instanceof Date ? new Date(value.getTime()) : new Date(String(value))
+  let date: Date
+
+  if (value instanceof Date) {
+    date = new Date(value.getTime())
+  } else if (typeof value === 'number' || typeof value === 'string') {
+    if (typeof value === 'string' && value.trim().length === 0) {
+      throw new Error('Invalid production retrieval timestamp.')
+    }
+    date = new Date(value)
+  } else {
+    throw new Error('Invalid production retrieval timestamp.')
+  }
+
   if (!Number.isFinite(date.getTime())) {
     throw new Error('Invalid production retrieval timestamp.')
   }
@@ -131,7 +146,11 @@ export function createProductionRetrievalAdapter(
     async retrieve(input) {
       const query = typeof input?.query === 'string' ? input.query.trim() : ''
       if (!query) throw new Error('Invalid production retrieval query.')
-      if (!Number.isSafeInteger(input.attempt) || input.attempt < 1 || input.attempt > 5) {
+      if (
+        !Number.isSafeInteger(input.attempt) ||
+        input.attempt < 1 ||
+        input.attempt > 5
+      ) {
         throw new Error('Invalid production retrieval attempt.')
       }
 
