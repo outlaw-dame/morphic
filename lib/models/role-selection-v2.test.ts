@@ -146,7 +146,10 @@ describe('model role selection policy v2', () => {
       {
         ...candidate(),
         capabilities: [
-          { capability: 'unknown_capability', provenance: 'deployment_configured' }
+          {
+            capability: 'unknown_capability',
+            provenance: 'deployment_configured'
+          }
         ]
       },
       {
@@ -163,9 +166,9 @@ describe('model role selection policy v2', () => {
     ]
 
     for (const malformed of malformedCandidates) {
-      expect(getRoleSelectionRejectionReasons(malformed, profile, now)).toEqual([
-        'invalid_candidate'
-      ])
+      expect(getRoleSelectionRejectionReasons(malformed, profile, now)).toEqual(
+        ['invalid_candidate']
+      )
     }
 
     expect(
