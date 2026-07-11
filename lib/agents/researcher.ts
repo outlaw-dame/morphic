@@ -1,5 +1,9 @@
 import { stepCountIs, tool, ToolLoopAgent } from 'ai'
 
+import {
+  buildRouteExecutionGuidance,
+  type RouteExecutionContext
+} from '@/lib/ai/router/execution-context'
 import type { ResearcherTools } from '@/lib/types/agent'
 import { type Model } from '@/lib/types/models'
 
@@ -32,7 +36,6 @@ import {
 } from './personalization'
 import { applyPromptOverrideSync } from './prompt-overrides'
 
-// Enhanced wrapper function with better type safety and streaming support
 function wrapSearchToolForQuickMode<
   T extends ReturnType<typeof createSearchTool>
 >(originalTool: T): T {
@@ -45,16 +48,13 @@ function wrapSearchToolForQuickMode<
         throw new Error('Search tool execute function is not defined')
       }
 
-      // Force optimized type for quick mode
       const modifiedParams = {
         ...params,
         type: 'optimized' as const
       }
 
-      // Execute the original tool and pass through all yielded values
       const result = executeFunc(modifiedParams, context)
 
-      // Handle AsyncIterable (streaming) case
       if (
         result &&
         typeof result === 'object' &&
@@ -64,7 +64,6 @@ function wrapSearchToolForQuickMode<
           yield chunk
         }
       } else {
-        // Fallback for non-streaming (shouldn't happen with new implementation)
         const finalResult = await result
         yield finalResult || {
           state: 'complete' as const,
@@ -78,25 +77,24 @@ function wrapSearchToolForQuickMode<
   }) as T
 }
 
-// Enhanced researcher function with improved type safety using ToolLoopAgent
-// Note: abortSignal should be passed to agent.stream() or agent.generate() calls, not to the agent constructor
 export function createResearcher({
   model,
   modelConfig,
   parentTraceId,
   searchMode = 'adaptive',
-  personalization
+  personalization,
+  routeContext
 }: {
   model: string
   modelConfig?: Model
   parentTraceId?: string
   searchMode?: SearchMode
   personalization?: PersonalizationSettings
+  routeContext?: RouteExecutionContext
 }) {
   try {
     const currentDate = new Date().toLocaleString()
 
-    // Create model-specific tools with proper typing
     const originalSearchTool = createSearchTool(model)
     const askQuestionTool = createQuestionTool(model)
     const todoTools = createTodoTools()
@@ -111,7 +109,6 @@ export function createResearcher({
     let maxSteps: number
     let searchTool = originalSearchTool
 
-    // Configure based on search mode
     switch (searchMode) {
       case 'quick':
         console.log(
@@ -127,7 +124,6 @@ export function createResearcher({
         maxSteps = 20
         searchTool = wrapSearchToolForQuickMode(originalSearchTool)
         break
-
       case 'adaptive':
       default:
         systemPrompt = applyPromptOverrideSync(
@@ -162,8 +158,10 @@ export function createResearcher({
       'Router model guidance: act as the orchestrator for the answer. For simple questions, search directly and answer with citations. For high-cost, adversarial, multi-domain, or ambiguous questions, use a Fusion-style pattern: gather independent evidence paths with search, feedSearch, fact-checking, and researchSubtask, then synthesize consensus, contradictions, blind spots, and source quality. Before finalizing complex answers, use an Advisor-style self-review: check whether a stronger or more specialized subtask/review pass is warranted, verify citations, and state uncertainty honestly. Do not use extra agents when the task is simple enough for direct search.',
       'router'
     )
+    const routeGuidance = routeContext
+      ? buildRouteExecutionGuidance(routeContext)
+      : ''
 
-    // Build tools object with proper typing
     const tools: ResearcherTools = {
       search: searchTool,
       feedSearch: feedSearchTool,
@@ -176,12 +174,12 @@ export function createResearcher({
       ...todoTools
     } as ResearcherTools
 
-    // Create ToolLoopAgent with all configuration
     const agent = new ToolLoopAgent({
       model: getModel(model),
       instructions: [
         systemPrompt,
         `Current date and time: ${currentDate}`,
+        routeGuidance,
         routerPrompt,
         hasMistralNativeSearch
           ? MISTRAL_SOURCE_FIRST_NATIVE_SEARCH_GUIDANCE
@@ -232,6 +230,11 @@ export function createResearcher({
           modelId: model,
           agentType: 'researcher',
           searchMode,
+          ...(routeContext && {
+            routeDigest: routeContext.routeDigest,
+            routeMode: routeContext.routePlan.mode,
+            routeRisk: routeContext.routePlan.riskLevel
+          }),
           ...(parentTraceId && {
             langfuseTraceId: parentTraceId,
             langfuseUpdateParent: false
@@ -247,12 +250,10 @@ export function createResearcher({
   }
 }
 
-// Helper function to access agent tools
 export function getResearcherTools(
   agent: ToolLoopAgent<never, ResearcherTools, never>
 ): ResearcherTools {
   return agent.tools
 }
 
-// Export the legacy function name for backward compatibility
 export const researcher = createResearcher
