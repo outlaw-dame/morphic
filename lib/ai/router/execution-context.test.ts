@@ -47,7 +47,9 @@ describe('AI-I3C Router execution context', () => {
 
     expect(Object.isFrozen(context.routePlan)).toBe(true)
     expect(Object.isFrozen(context.routePlan.requiredSourceClasses)).toBe(true)
-    expect(Object.isFrozen(context.routePlan.disallowedSourceClasses)).toBe(true)
+    expect(Object.isFrozen(context.routePlan.disallowedSourceClasses)).toBe(
+      true
+    )
     expect(Object.isFrozen(context.routePlan.requiredModelRoles)).toBe(true)
     expect(Object.isFrozen(context.routePlan.reasonCodes)).toBe(true)
     expect(() =>
