@@ -11,6 +11,16 @@ import {
 
 const MAX_CHAT_QUERY_LENGTH = 16_000
 const PROCESS_SCOPE_KEY = randomBytes(32)
+const SCOPE_BINDING_KEY = (() => {
+  const configured =
+    process.env.AI_SCOPE_BINDING_SECRET ??
+    process.env.AUTH_SECRET ??
+    process.env.NEXTAUTH_SECRET
+
+  return configured
+    ? createHash('sha256').update(configured).digest()
+    : PROCESS_SCOPE_KEY
+})()
 
 const MessagePartSchema = z
   .object({
@@ -71,6 +81,7 @@ export function extractAdmissionQuery(
     const submitted = textFromMessage(input.message)
     if (submitted) return boundedQuery(submitted)
     if (typeof input.message === 'string') return boundedQuery(input.message)
+    throw new ChatAdmissionInputError('A user query is required.')
   }
 
   if (Array.isArray(input.messages)) {
@@ -79,6 +90,7 @@ export function extractAdmissionQuery(
       if (!parsed.success || parsed.data.role !== 'user') continue
       const query = textFromMessage(parsed.data)
       if (query) return boundedQuery(query)
+      break
     }
   }
 
@@ -97,21 +109,10 @@ export function executionSearchMode(mode: ResearchMode): SearchMode {
   return mode === 'quick' ? 'quick' : 'adaptive'
 }
 
-function scopeBindingKey(): Buffer {
-  const configured =
-    process.env.AI_SCOPE_BINDING_SECRET ??
-    process.env.AUTH_SECRET ??
-    process.env.NEXTAUTH_SECRET
-
-  return configured
-    ? createHash('sha256').update(configured).digest()
-    : PROCESS_SCOPE_KEY
-}
-
 function ownerScopeId(userId: string | null): string {
   if (!userId) return `guest_${randomUUID()}`
 
-  const digest = createHmac('sha256', scopeBindingKey())
+  const digest = createHmac('sha256', SCOPE_BINDING_KEY)
     .update(userId)
     .digest('hex')
   return `user_${digest}`
