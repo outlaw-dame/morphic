@@ -182,4 +182,25 @@ describe('AI-I3D live Coordinator handoff', () => {
 
     expect(handoff.state.evidenceGraph.items).toHaveLength(2)
   })
+
+  it('rejects freshness-sensitive evidence without an audited retrieval timestamp', () => {
+    const query = 'What is the latest OpenAI news?'
+    const context = routeContext(query)
+
+    expect(() =>
+      evaluateLiveCoordinatorHandoff({
+        routeContext: context,
+        query,
+        searchResults: [
+          result('https://example.com/openai-news'),
+          result('https://other.example.net/openai-news')
+        ],
+        completedRoles: ['router', 'retriever'],
+        retrievedAt: null,
+        now
+      })
+    ).toThrow(
+      'Freshness-sensitive routes require an audited retrieval timestamp.'
+    )
+  })
 })
