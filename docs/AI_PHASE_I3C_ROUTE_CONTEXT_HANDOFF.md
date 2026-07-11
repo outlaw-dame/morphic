@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented for the chat streaming and researcher boundaries and pending CI and review.
+Implemented for the chat streaming and researcher boundaries. The permanent CI and review gates must pass before merge.
 
 ## Purpose
 
@@ -14,11 +14,11 @@ AI-I3C prevents the canonical Router decision from being reduced to an execution
 
 1. parses the route through the canonical `RoutePlanSchema`;
 2. validates the digest format;
-3. recomputes SHA-256 over the canonical route serialization;
+3. recomputes SHA-256 over recursively canonicalized route serialization with sorted object keys;
 4. rejects mismatched or malformed input;
-5. returns a frozen route context.
+5. recursively freezes the route and every nested collection before returning the context.
 
-A route cannot be changed after admission without invalidating its digest.
+Router admission and execution verification use the same shared digest function. Equivalent schema-valid route objects therefore produce the same digest regardless of object-key insertion order, while any value mutation invalidates the digest. Nested route arrays cannot be modified after context creation.
 
 ## Propagation
 
@@ -62,9 +62,10 @@ Wikidata and DBpedia execution also remains a later entity-grounding stage. AI-I
 Coverage includes:
 
 - valid route/digest acceptance;
+- key-order-independent canonical digests;
 - route tampering rejection;
 - digest tampering rejection;
-- frozen context output;
+- recursive immutability of nested route collections;
 - deterministic generated guidance;
 - required freshness, Advisor, and citation instructions;
 - propagation through live stream configuration and researcher metadata via repository type and integration checks.
