@@ -26,8 +26,8 @@ describe('production governed-chain facade', () => {
   it('rejects non-research routes before invoking any adapter', async () => {
     await expect(
       runProductionGovernedChain({
-        query: 'Hello there',
-        routeContext: context('Hello there'),
+        query: 'Hello',
+        routeContext: context('Hello'),
         ...invalidPorts
       })
     ).rejects.toThrow('Governed production chain requires a research route.')
