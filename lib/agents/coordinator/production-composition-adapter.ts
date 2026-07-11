@@ -35,6 +35,17 @@ function deepFreeze<T>(value: T): T {
   return Object.freeze(value)
 }
 
+function throwCancellation(signal?: AbortSignal): never {
+  if (signal?.reason instanceof Error) throw signal.reason
+  const message =
+    typeof signal?.reason === 'string'
+      ? signal.reason
+      : 'The Composer operation was aborted.'
+  throw typeof DOMException !== 'undefined'
+    ? new DOMException(message, 'AbortError')
+    : new Error(message)
+}
+
 const ComposerEvidenceSchema = z
   .object({
     id: z.string().min(1).max(256),
@@ -135,7 +146,8 @@ function freezeRoles(value: readonly ModelRole[]): readonly ModelRole[] {
 
 function normalizeDate(value: unknown, nullable: boolean): string | null {
   if (value === null && nullable) return null
-  const date = value instanceof Date ? new Date(value.getTime()) : new Date(String(value))
+  const date =
+    value instanceof Date ? new Date(value.getTime()) : new Date(String(value))
   if (!Number.isFinite(date.getTime())) {
     throw new Error('Invalid Coordinator-approved composition evidence.')
   }
@@ -246,6 +258,12 @@ export function createProductionCompositionAdapter(
         signal: input.signal
       })
 
+      if (
+        outcome.result.status === 'cancelled' ||
+        outcome.result.failureClass === 'cancelled'
+      ) {
+        throwCancellation(input.signal)
+      }
       if (outcome.result.status !== 'succeeded' || outcome.output === null) {
         throw new Error(
           `Composer execution failed: ${outcome.result.failureClass ?? 'unknown'}.`
