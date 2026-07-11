@@ -11,7 +11,7 @@ import {
 const MAX_REPAIR_ACTIONS = 32
 const MAX_REPAIR_ACTION_LENGTH = 128
 
-const ALLOWED_PRECOMPOSITION_ACTIONS = new Set([
+const ALLOWED_RETRIEVAL_REPAIR_ACTIONS = new Set([
   'retrieve_more_sources',
   'retrieve_required_source_classes',
   'retrieve_authoritative_sources',
@@ -23,6 +23,13 @@ const ALLOWED_PRECOMPOSITION_ACTIONS = new Set([
   'run_source_quality',
   'run_entity_grounding',
   'run_contradiction_review'
+])
+
+const KNOWN_NON_RETRIEVAL_ACTIONS = new Set([
+  'escalate_to_advisor',
+  'run_advisor_review',
+  'run_citation_verifier',
+  'select_stronger_model'
 ])
 
 export type GovernedRetrievalResult = Readonly<{
@@ -84,24 +91,34 @@ function throwIfAborted(signal?: AbortSignal): void {
     : new Error(message)
 }
 
-function sanitizeRepairActions(actions: readonly string[]): readonly string[] {
+function selectRetrievalRepairActions(
+  actions: readonly string[]
+): readonly string[] {
   if (!Array.isArray(actions) || actions.length > MAX_REPAIR_ACTIONS) {
     throw new Error('Invalid Coordinator repair action set.')
   }
 
-  const sanitized = [...new Set(actions)].map(action => {
+  const retrievalActions: string[] = []
+  for (const action of new Set(actions)) {
     if (
       typeof action !== 'string' ||
       action.length === 0 ||
-      action.length > MAX_REPAIR_ACTION_LENGTH ||
-      !ALLOWED_PRECOMPOSITION_ACTIONS.has(action)
+      action.length > MAX_REPAIR_ACTION_LENGTH
     ) {
+      throw new Error('Coordinator proposed an invalid repair action.')
+    }
+
+    if (ALLOWED_RETRIEVAL_REPAIR_ACTIONS.has(action)) {
+      retrievalActions.push(action)
+      continue
+    }
+
+    if (!KNOWN_NON_RETRIEVAL_ACTIONS.has(action)) {
       throw new Error('Coordinator proposed an unsupported repair action.')
     }
-    return action
-  })
+  }
 
-  return Object.freeze(sanitized)
+  return Object.freeze(retrievalActions)
 }
 
 function normalizeAttemptLimit(value: number | undefined): number {
@@ -163,7 +180,7 @@ export async function runGovernedResearchPipeline<TOutput>(
       lastHandoff.evaluation.repairPlan.canProceedToComposition
 
     if (proposedRepairs.length > 0 && attempt < maxRetrievalAttempts) {
-      repairActions = sanitizeRepairActions(proposedRepairs)
+      repairActions = selectRetrievalRepairActions(proposedRepairs)
       if (repairActions.length > 0) {
         continue
       }
