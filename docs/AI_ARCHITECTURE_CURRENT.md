@@ -22,6 +22,24 @@ The documents have complementary authority rather than replacing one another:
 
 No old requirement is removed merely because a newer roadmap exists. Removal requires an explicit rejected disposition, rationale, threat analysis, and architecture decision record.
 
+## Historical document handling
+
+Old documents remain in place. They should not be bulk-rewritten or deleted.
+
+Permitted maintenance:
+
+- add a short non-destructive status banner linking to this entrypoint and the crosswalk;
+- fix broken links or narrowly scoped factual errata;
+- record supersession of future sequencing without changing the document's original claims;
+- preserve original scope, non-goals, validation statements, and security boundaries.
+
+Prohibited maintenance:
+
+- rewriting an old phase so it appears to have implemented later work;
+- deleting still-useful requirements because a new roadmap exists;
+- using an old phase number as proof of live integration;
+- silently changing completion criteria or role authority.
+
 ## Current decision
 
 The previously proposed AI-27 restricted PostgreSQL integration is not the next coding phase.
