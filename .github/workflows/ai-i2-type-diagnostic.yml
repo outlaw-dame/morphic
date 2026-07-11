@@ -1,0 +1,27 @@
+name: AI-I2 Type Diagnostic
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    if: github.head_ref == 'agent/ai-i2-hardened-role-runner'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - run: bun install --frozen-lockfile
+      - name: Capture type output
+        run: bun typecheck > typecheck.log 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-i2-typecheck
+          path: typecheck.log
+          retention-days: 1
