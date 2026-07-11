@@ -4,22 +4,22 @@ import { z } from 'zod'
 import { getRolePrompt } from '@/lib/ai/prompts'
 import {
   createTrustedRoleExecutionScope,
-  runRole,
   type RoleProviderAdapter,
   type RoleRunnerOutcome,
+  runRole,
   type TrustedRoleExecutionScope
 } from '@/lib/ai/role-runner'
 import {
-  ModelRoleSchema,
-  ResearchModeSchema,
-  RiskLevelSchema,
-  RoutePlanSchema,
-  SourceClassSchema,
   type CanonicalRoutePlan,
   type ModelRole,
+  ModelRoleSchema,
   type ResearchMode,
+  ResearchModeSchema,
   type RiskLevel,
-  type SourceClass
+  RiskLevelSchema,
+  RoutePlanSchema,
+  type SourceClass,
+  SourceClassSchema
 } from '@/lib/ai/schemas'
 
 const MAX_QUERY_LENGTH = 16_000
@@ -65,9 +65,7 @@ const RouterModelProposalSchema = z
     needsAdvisorReview: z.boolean(),
     needsCitationVerification: z.boolean(),
     maxToolCalls: z.number().int().positive().max(100),
-    reasonCodes: z
-      .array(z.string().regex(/^[a-z0-9_:-]{1,128}$/))
-      .max(16)
+    reasonCodes: z.array(z.string().regex(/^[a-z0-9_:-]{1,128}$/)).max(16)
   })
   .strict()
 
@@ -192,7 +190,8 @@ function routeRationale(reasonCodes: readonly string[]): string {
   const prefix = 'Router admission reasons: '
   const suffix = '.'
   const joined = reasonCodes.join(', ') || 'default_research_route'
-  const maximumJoinedLength = MAX_RATIONALE_LENGTH - prefix.length - suffix.length
+  const maximumJoinedLength =
+    MAX_RATIONALE_LENGTH - prefix.length - suffix.length
 
   if (joined.length > maximumJoinedLength) {
     return `${prefix}${joined.slice(0, maximumJoinedLength - 3)}...${suffix}`

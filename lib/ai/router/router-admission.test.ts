@@ -194,7 +194,9 @@ describe('AI-I3 Router admission', () => {
   })
 
   it('allows the model to add stricter requirements and reduce budget', () => {
-    const floor = buildDeterministicRouteFloor({ query: 'Explain photosynthesis' })
+    const floor = buildDeterministicRouteFloor({
+      query: 'Explain photosynthesis'
+    })
     const merged = mergeRouterProposal(
       floor,
       proposal({
@@ -213,14 +215,14 @@ describe('AI-I3 Router admission', () => {
     expect(merged.mode).toBe('deep')
     expect(merged.riskLevel).toBe('medium')
     expect(merged.maxToolCalls).toBe(5)
-    expect(merged.requiredSourceClasses).toContain(
-      'academic_or_peer_reviewed'
-    )
+    expect(merged.requiredSourceClasses).toContain('academic_or_peer_reviewed')
     expect(merged.reasonCodes).toContain('subtle_complexity')
   })
 
   it('prevents model-required sources from re-enabling deterministically disallowed classes', () => {
-    const floor = buildDeterministicRouteFloor({ query: 'Research a current topic' })
+    const floor = buildDeterministicRouteFloor({
+      query: 'Research a current topic'
+    })
     const merged = mergeRouterProposal(
       floor,
       proposal({
@@ -235,7 +237,9 @@ describe('AI-I3 Router admission', () => {
   })
 
   it('keeps generated rationale within the canonical schema bound', () => {
-    const floor = buildDeterministicRouteFloor({ query: 'Explain photosynthesis' })
+    const floor = buildDeterministicRouteFloor({
+      query: 'Explain photosynthesis'
+    })
     const longCodes = Array.from(
       { length: 16 },
       (_, index) => `reason_${index}_${'x'.repeat(110)}`
@@ -288,7 +292,10 @@ describe('AI-I3 Router admission', () => {
     const malformedAdapter: RoleProviderAdapter<
       Readonly<{ query: string; requestedMode: ResearchMode | null }>
     > = {
-      invoke: vi.fn(async () => ({ output: { mode: 'quick' }, outputTokens: 2 }))
+      invoke: vi.fn(async () => ({
+        output: { mode: 'quick' },
+        outputTokens: 2
+      }))
     }
 
     const result = await admitResearchRoute({
@@ -309,7 +316,9 @@ describe('AI-I3 Router admission', () => {
   })
 
   it('returns immutable route data', () => {
-    const route = buildDeterministicRouteFloor({ query: 'Latest OpenAI release' })
+    const route = buildDeterministicRouteFloor({
+      query: 'Latest OpenAI release'
+    })
 
     expect(Object.isFrozen(route)).toBe(true)
     expect(() => {
