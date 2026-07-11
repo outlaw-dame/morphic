@@ -1,4 +1,9 @@
-import type { ModelCapability, ModelRole } from '@/lib/ai/schemas'
+import {
+  ModelCapabilitySchema,
+  ModelRoleSchema,
+  type ModelCapability,
+  type ModelRole
+} from '@/lib/ai/schemas'
 
 export type CapabilityProvenance =
   | 'evaluation_verified'
@@ -76,6 +81,8 @@ export type RoleSelectionDecision =
       reasonCodes: readonly string[]
     }>
 
+const CAPABILITY_VALUES = new Set<string>(ModelCapabilitySchema.options)
+const ROLE_VALUES = new Set<string>(ModelRoleSchema.options)
 const CAPABILITY_PROVENANCE_VALUES = new Set<CapabilityProvenance>([
   'evaluation_verified',
   'deployment_configured',
@@ -84,7 +91,6 @@ const CAPABILITY_PROVENANCE_VALUES = new Set<CapabilityProvenance>([
   'inferred',
   'unknown'
 ])
-
 const AVAILABILITY_VALUES = new Set<ModelAvailability>([
   'available',
   'disabled',
@@ -97,6 +103,11 @@ const RELIABILITY_VALUES = new Set<ReliabilityTier>([
   'experimental',
   'standard',
   'strong'
+])
+const STRUCTURED_OUTPUT_STRATEGIES = new Set([
+  'native',
+  'validated_json',
+  'not_required'
 ])
 
 const PROVENANCE_RANK: Record<CapabilityProvenance, number> = {
@@ -131,11 +142,19 @@ function isIsoDate(value: unknown): value is string {
   return typeof value === 'string' && Number.isFinite(Date.parse(value))
 }
 
+function isCapability(value: unknown): value is ModelCapability {
+  return typeof value === 'string' && CAPABILITY_VALUES.has(value)
+}
+
+function isRole(value: unknown): value is ModelRole {
+  return typeof value === 'string' && ROLE_VALUES.has(value)
+}
+
 function isCapabilityAssertion(value: unknown): value is CapabilityAssertion {
   if (!isRecord(value)) return false
   return (
-    isNonEmptyString(value.capability) &&
-    isNonEmptyString(value.provenance) &&
+    isCapability(value.capability) &&
+    typeof value.provenance === 'string' &&
     CAPABILITY_PROVENANCE_VALUES.has(value.provenance as CapabilityProvenance)
   )
 }
@@ -143,7 +162,7 @@ function isCapabilityAssertion(value: unknown): value is CapabilityAssertion {
 function isRoleQualityScore(value: unknown): value is RoleQualityScore {
   if (!isRecord(value)) return false
   return (
-    isNonEmptyString(value.role) &&
+    isRole(value.role) &&
     typeof value.score === 'number' &&
     Number.isFinite(value.score) &&
     value.score >= 0 &&
@@ -160,11 +179,11 @@ function isCandidateStructurallyValid(value: unknown): value is RoleModelCandida
     isNonEmptyString(value.providerId) &&
     isNonEmptyString(value.modelId) &&
     isNonEmptyString(value.family) &&
-    isNonEmptyString(value.availability) &&
+    typeof value.availability === 'string' &&
     AVAILABILITY_VALUES.has(value.availability as ModelAvailability) &&
-    isNonEmptyString(value.locality) &&
+    typeof value.locality === 'string' &&
     LOCALITY_VALUES.has(value.locality as ModelLocality) &&
-    isNonEmptyString(value.reliability) &&
+    typeof value.reliability === 'string' &&
     RELIABILITY_VALUES.has(value.reliability as ReliabilityTier) &&
     Number.isSafeInteger(value.maxContextTokens) &&
     (value.maxContextTokens as number) > 0 &&
@@ -222,10 +241,11 @@ function isCooldownActive(candidate: RoleModelCandidate, now: Date): boolean {
 
 function isProfileStructurallyValid(profile: RoleSelectionProfile): boolean {
   return (
-    isNonEmptyString(profile.role) &&
+    isRole(profile.role) &&
     Array.isArray(profile.hardCapabilities) &&
+    profile.hardCapabilities.every(isCapability) &&
     Array.isArray(profile.preferredCapabilities) &&
-    isNonEmptyString(profile.minimumReliability) &&
+    profile.preferredCapabilities.every(isCapability) &&
     RELIABILITY_VALUES.has(profile.minimumReliability) &&
     Number.isSafeInteger(profile.minimumContextTokens) &&
     profile.minimumContextTokens > 0 &&
@@ -241,7 +261,12 @@ function isProfileStructurallyValid(profile: RoleSelectionProfile): boolean {
     Number.isSafeInteger(profile.maximumQualityAgeDays) &&
     profile.maximumQualityAgeDays > 0 &&
     isNonEmptyString(profile.requiredToolPermissionClass) &&
-    Array.isArray(profile.fallbackModelIds)
+    STRUCTURED_OUTPUT_STRATEGIES.has(profile.structuredOutputStrategy) &&
+    Array.isArray(profile.fallbackModelIds) &&
+    profile.fallbackModelIds.every(isNonEmptyString) &&
+    (profile.preferFamilyDiversityFrom === undefined ||
+      profile.preferFamilyDiversityFrom === null ||
+      isNonEmptyString(profile.preferFamilyDiversityFrom))
   )
 }
 
@@ -252,6 +277,9 @@ function evaluateCandidate(
 ): readonly string[] {
   if (!isCandidateStructurallyValid(value)) return ['invalid_candidate']
   if (!isProfileStructurallyValid(profile)) return ['invalid_selection_profile']
+  if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
+    return ['invalid_selection_time']
+  }
 
   const candidate = value
   const reasons: string[] = []
