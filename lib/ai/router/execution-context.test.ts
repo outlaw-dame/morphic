@@ -23,6 +23,38 @@ describe('AI-I3C Router execution context', () => {
     expect(Object.isFrozen(context)).toBe(true)
   })
 
+  it('produces the same digest regardless of object key insertion order', () => {
+    const routePlan = buildDeterministicRouteFloor({
+      query: 'Who is the current CEO of OpenAI?'
+    })
+    const { rationale, ...remainingFields } = routePlan
+    const reorderedRoutePlan = {
+      rationale,
+      ...remainingFields
+    } as typeof routePlan
+
+    expect(digestRoutePlan(reorderedRoutePlan)).toBe(digestRoutePlan(routePlan))
+  })
+
+  it('deep-freezes nested route collections', () => {
+    const routePlan = buildDeterministicRouteFloor({
+      query: 'Who is the current CEO of OpenAI?'
+    })
+    const context = createRouteExecutionContext({
+      routePlan,
+      routeDigest: digestRoutePlan(routePlan)
+    })
+
+    expect(Object.isFrozen(context.routePlan)).toBe(true)
+    expect(Object.isFrozen(context.routePlan.requiredSourceClasses)).toBe(true)
+    expect(Object.isFrozen(context.routePlan.disallowedSourceClasses)).toBe(true)
+    expect(Object.isFrozen(context.routePlan.requiredModelRoles)).toBe(true)
+    expect(Object.isFrozen(context.routePlan.reasonCodes)).toBe(true)
+    expect(() =>
+      (context.routePlan.reasonCodes as string[]).push('tampered')
+    ).toThrow()
+  })
+
   it('rejects a tampered route or digest', () => {
     const routePlan = buildDeterministicRouteFloor({
       query: 'Who is the current CEO of OpenAI?'
