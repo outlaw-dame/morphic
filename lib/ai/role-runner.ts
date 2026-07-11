@@ -4,6 +4,7 @@ import { z, type ZodType } from 'zod'
 
 import {
   AI_ARCHITECTURE_CONTRACT_VERSION,
+  parseArchitectureContract,
   RoleExecutionRequestSchema,
   RoleExecutionResultSchema,
   type RoleExecutionRequest,
@@ -33,23 +34,19 @@ export type RoleToolPermissionClass = z.infer<
   typeof RoleToolPermissionClassSchema
 >
 
+const MAX_ROLE_DEADLINE_MS = 10 * 60 * 1000
+
+const BoundedIdSchema = z
+  .string()
+  .min(16)
+  .max(128)
+  .regex(/^[A-Za-z0-9_-]+$/)
+
 const TrustedScopeInputSchema = z
   .object({
-    ownerScopeId: z
-      .string()
-      .min(16)
-      .max(128)
-      .regex(/^[A-Za-z0-9_-]+$/),
-    executionId: z
-      .string()
-      .min(16)
-      .max(128)
-      .regex(/^[A-Za-z0-9_-]+$/),
-    invocationId: z
-      .string()
-      .min(16)
-      .max(128)
-      .regex(/^[A-Za-z0-9_-]+$/),
+    ownerScopeId: BoundedIdSchema,
+    executionId: BoundedIdSchema,
+    invocationId: BoundedIdSchema,
     deadlineAt: z.string().datetime({ offset: true }),
     allowedPermissionClasses: z
       .array(RoleToolPermissionClassSchema)
@@ -92,6 +89,64 @@ const RetryPolicySchema = z
       })
     }
   })
+
+const CapabilityAssertionSchema = z
+  .object({
+    capability: z.enum([
+      'tool_calling',
+      'structured_output',
+      'streaming',
+      'reasoning',
+      'vision',
+      'pdf_input',
+      'json_mode',
+      'local_execution'
+    ]),
+    provenance: z.enum([
+      'evaluation_verified',
+      'deployment_configured',
+      'model_card_declared',
+      'provider_declared',
+      'inferred',
+      'unknown'
+    ])
+  })
+  .strict()
+
+const RoleQualityScoreSchema = z
+  .object({
+    role: ModelRoleSchema,
+    score: z.number().finite().min(0).max(1),
+    fixtureVersion: z.string().min(1).max(128),
+    verifiedAt: z.string().datetime({ offset: true })
+  })
+  .strict()
+
+const RoleModelCandidateSchema: ZodType<RoleModelCandidate> = z
+  .object({
+    providerId: z.string().trim().min(1).max(128),
+    modelId: z.string().trim().min(1).max(256),
+    family: z.string().trim().min(1).max(128),
+    availability: z.enum([
+      'available',
+      'disabled',
+      'deprecated',
+      'unavailable'
+    ]),
+    locality: z.enum(['local', 'remote']),
+    reliability: z.enum(['unknown', 'experimental', 'standard', 'strong']),
+    maxContextTokens: z.number().int().positive().max(10_000_000),
+    estimatedLatencyMs: z.number().finite().nonnegative().max(600_000),
+    estimatedCostPerMillionTokensUsd: z
+      .number()
+      .finite()
+      .nonnegative()
+      .max(100_000),
+    capabilities: z.array(CapabilityAssertionSchema).max(64),
+    roleQuality: z.array(RoleQualityScoreSchema).max(64),
+    cooldownUntil: z.string().datetime({ offset: true }).nullable().optional()
+  })
+  .strict()
 
 const ProviderResponseSchema = z
   .object({
@@ -179,6 +234,13 @@ export class InvalidTrustedRoleExecutionScopeError extends Error {
   }
 }
 
+export class InvalidRoleRunnerConfigurationError extends Error {
+  constructor() {
+    super('Invalid role runner configuration.')
+    this.name = 'InvalidRoleRunnerConfigurationError'
+  }
+}
+
 export class TransientRoleProviderError extends Error {
   constructor() {
     super('Transient role provider failure.')
@@ -203,26 +265,25 @@ export function createTrustedRoleExecutionScope(
 ): TrustedRoleExecutionScope {
   let parsed: z.infer<typeof TrustedScopeInputSchema>
   try {
-    parsed = TrustedScopeInputSchema.parse(input)
+    parsed = parseArchitectureContract(TrustedScopeInputSchema, input)
   } catch {
     throw new InvalidTrustedRoleExecutionScopeError()
   }
 
-  const uniquePermissions = [...new Set(parsed.allowedPermissionClasses)]
   const scope = Object.freeze({
     ownerScopeId: parsed.ownerScopeId,
     executionId: parsed.executionId,
     invocationId: parsed.invocationId,
     deadlineAt: parsed.deadlineAt,
-    allowedPermissionClasses: Object.freeze(uniquePermissions)
+    allowedPermissionClasses: Object.freeze([
+      ...new Set(parsed.allowedPermissionClasses)
+    ])
   })
   trustedScopes.add(scope)
   return scope
 }
 
-function assertTrustedScope(
-  scope: TrustedRoleExecutionScope
-): asserts scope is TrustedRoleExecutionScope {
+function assertTrustedScope(scope: TrustedRoleExecutionScope): void {
   if (!trustedScopes.has(scope)) throw new InvalidTrustedRoleExecutionScopeError()
 }
 
@@ -240,12 +301,12 @@ function digest(value: string): string {
   return createHash('sha256').update(value).digest('hex')
 }
 
-function nowIso(now: () => Date): string {
+function readNow(now: () => Date): Date {
   const value = now()
   if (!(value instanceof Date) || !Number.isFinite(value.getTime())) {
-    throw new Error('Invalid role runner clock.')
+    throw new InvalidRoleRunnerConfigurationError()
   }
-  return value.toISOString()
+  return value
 }
 
 function selectedModelIdentity(candidate: RoleModelCandidate): string {
@@ -308,14 +369,14 @@ function cancellableDelay(
   if (signal.aborted) return Promise.reject(new RoleRunnerCancelledError())
 
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      signal.removeEventListener('abort', onAbort)
-      resolve()
-    }, milliseconds)
     const onAbort = () => {
       clearTimeout(timer)
       reject(new RoleRunnerCancelledError())
     }
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, milliseconds)
     signal.addEventListener('abort', onAbort, { once: true })
   })
 }
@@ -328,38 +389,38 @@ async function invokeWithDeadline<T>(options: {
 }): Promise<T> {
   if (options.callerSignal?.aborted) throw new RoleRunnerCancelledError()
 
-  const remainingMs = options.deadlineAt - options.now().getTime()
-  if (!Number.isFinite(remainingMs) || remainingMs <= 0) {
-    throw new RoleRunnerTimeoutError()
+  const remainingMs = options.deadlineAt - readNow(options.now).getTime()
+  if (remainingMs <= 0) throw new RoleRunnerTimeoutError()
+  if (remainingMs > MAX_ROLE_DEADLINE_MS) {
+    throw new InvalidRoleRunnerConfigurationError()
   }
 
   const controller = new AbortController()
   let timedOut = false
   const onCallerAbort = () => controller.abort()
-  options.callerSignal?.addEventListener('abort', onCallerAbort, { once: true })
+  const onCombinedAbort = () => {
+    rejectAbort?.(
+      timedOut ? new RoleRunnerTimeoutError() : new RoleRunnerCancelledError()
+    )
+  }
+  let rejectAbort: ((error: Error) => void) | undefined
 
+  options.callerSignal?.addEventListener('abort', onCallerAbort, { once: true })
+  controller.signal.addEventListener('abort', onCombinedAbort, { once: true })
   const timer = setTimeout(() => {
     timedOut = true
     controller.abort()
   }, remainingMs)
 
+  const abortPromise = new Promise<T>((_, reject) => {
+    rejectAbort = reject
+  })
+
   try {
-    return await Promise.race([
-      options.operation(controller.signal),
-      new Promise<T>((_, reject) => {
-        const onAbort = () => {
-          controller.signal.removeEventListener('abort', onAbort)
-          reject(
-            timedOut
-              ? new RoleRunnerTimeoutError()
-              : new RoleRunnerCancelledError()
-          )
-        }
-        controller.signal.addEventListener('abort', onAbort, { once: true })
-      })
-    ])
+    return await Promise.race([options.operation(controller.signal), abortPromise])
   } finally {
     clearTimeout(timer)
+    controller.signal.removeEventListener('abort', onCombinedAbort)
     options.callerSignal?.removeEventListener('abort', onCallerAbort)
   }
 }
@@ -370,10 +431,26 @@ function validateConfiguration(input: {
   limits: RoleRunnerLimits
   retryPolicy: RoleRunnerRetryPolicy
 }): void {
-  ModelRoleSchema.parse(input.role)
-  PromptDefinitionSchema.parse(input.prompt)
-  RunnerLimitsSchema.parse(input.limits)
-  RetryPolicySchema.parse(input.retryPolicy)
+  try {
+    ModelRoleSchema.parse(input.role)
+    parseArchitectureContract(PromptDefinitionSchema, input.prompt)
+    parseArchitectureContract(RunnerLimitsSchema, input.limits)
+    parseArchitectureContract(RetryPolicySchema, input.retryPolicy)
+  } catch {
+    throw new InvalidRoleRunnerConfigurationError()
+  }
+}
+
+function normalizeCandidates(candidates: readonly unknown[]): readonly unknown[] {
+  return Object.freeze(
+    candidates.map(candidate => {
+      try {
+        return parseArchitectureContract(RoleModelCandidateSchema, candidate)
+      } catch {
+        return null
+      }
+    })
+  )
 }
 
 function canRetry(
@@ -421,26 +498,41 @@ export async function runRole<TInput, TOutput>(options: Readonly<{
   })
 
   const now = options.now ?? (() => new Date())
-  const startedAt = nowIso(now)
+  const startedAt = readNow(now).toISOString()
   const profile = getRoleSelectionProfileV2(options.role)
   const permissionClass = RoleToolPermissionClassSchema.parse(
     profile.requiredToolPermissionClass
   )
 
-  const inputResult = options.inputSchema.safeParse(options.input)
-  const inputJson = inputResult.success ? canonicalJson(inputResult.data) : ''
+  let parsedInput: TInput | null = null
+  try {
+    parsedInput = parseArchitectureContract(options.inputSchema, options.input)
+  } catch {
+    parsedInput = null
+  }
+
+  const inputJson = parsedInput === null ? '' : canonicalJson(parsedInput)
   const contextJson = canonicalJson({
     promptVersion: options.prompt.version,
     instruction: options.prompt.instruction,
-    input: inputResult.success ? inputResult.data : null
+    input: parsedInput
   })
-  const selection = selectModelForRoleV2(options.candidates, profile, {
-    now: now(),
-    deterministicFallbackAvailable: options.deterministicFallback !== undefined
-  })
-  const selectedModelId =
+  const selection = selectModelForRoleV2(
+    normalizeCandidates(options.candidates),
+    profile,
+    {
+      now: readNow(now),
+      deterministicFallbackAvailable:
+        options.deterministicFallback !== undefined
+    }
+  )
+  const candidateIdentity =
     selection.status === 'selected'
       ? selectedModelIdentity(selection.candidate)
+      : null
+  const selectedModelId =
+    candidateIdentity !== null && candidateIdentity.length <= 256
+      ? candidateIdentity
       : null
 
   const request = RoleExecutionRequestSchema.parse({
@@ -463,31 +555,34 @@ export async function runRole<TInput, TOutput>(options: Readonly<{
   const fail = (
     failureClass: RoleFailureClass,
     reasonCodes: readonly string[]
-  ): RoleRunnerOutcome<TOutput> => {
-    const status = failureClass === 'cancelled' ? 'cancelled' : 'failed'
-    return Object.freeze({
+  ): RoleRunnerOutcome<TOutput> =>
+    Object.freeze({
       request,
       result: buildResult({
         request,
-        status,
+        status: failureClass === 'cancelled' ? 'cancelled' : 'failed',
         startedAt,
-        completedAt: nowIso(now),
+        completedAt: readNow(now).toISOString(),
         outputDigest: null,
         failureClass,
         reasonCodes
       }),
       output: null
     })
-  }
 
-  if (!inputResult.success) return fail('invalid_input', ['invalid_role_input'])
-  if (byteLength(inputJson) + byteLength(options.prompt.instruction) > options.limits.maxInputBytes) {
+  if (parsedInput === null) {
+    return fail('invalid_input', ['invalid_role_input'])
+  }
+  if (
+    byteLength(inputJson) + byteLength(options.prompt.instruction) >
+    options.limits.maxInputBytes
+  ) {
     return fail('invalid_input', ['role_input_limit_exceeded'])
   }
   if (!options.scope.allowedPermissionClasses.includes(permissionClass)) {
     return fail('policy_violation', ['tool_permission_not_granted'])
   }
-  if (selectedModelId !== null && selectedModelId.length > 256) {
+  if (candidateIdentity !== null && selectedModelId === null) {
     return fail('invalid_input', ['selected_model_identity_too_long'])
   }
   if (selection.status === 'no_eligible_model') {
@@ -496,8 +591,12 @@ export async function runRole<TInput, TOutput>(options: Readonly<{
   if (options.signal?.aborted) return fail('cancelled', ['caller_cancelled'])
 
   const deadlineAt = Date.parse(options.scope.deadlineAt)
-  if (!Number.isFinite(deadlineAt) || deadlineAt <= now().getTime()) {
+  const remainingMs = deadlineAt - readNow(now).getTime()
+  if (!Number.isFinite(deadlineAt) || remainingMs <= 0) {
     return fail('timeout', ['deadline_elapsed'])
+  }
+  if (remainingMs > MAX_ROLE_DEADLINE_MS) {
+    return fail('invalid_input', ['deadline_too_far'])
   }
 
   try {
@@ -513,7 +612,7 @@ export async function runRole<TInput, TOutput>(options: Readonly<{
         now,
         operation: signal =>
           Promise.resolve(
-            options.deterministicFallback?.(inputResult.data, {
+            options.deterministicFallback?.(parsedInput, {
               ownerScopeId: options.scope.ownerScopeId,
               executionId: options.scope.executionId,
               invocationId: options.scope.invocationId,
@@ -540,7 +639,7 @@ export async function runRole<TInput, TOutput>(options: Readonly<{
                 modelId: selection.candidate.modelId,
                 promptVersion: options.prompt.version,
                 instruction: options.prompt.instruction,
-                input: inputResult.data,
+                input: parsedInput,
                 outputSchemaVersion: options.prompt.outputSchemaVersion,
                 maxOutputBytes: options.limits.maxOutputBytes,
                 maxOutputTokens: options.limits.maxOutputTokens,
@@ -549,14 +648,19 @@ export async function runRole<TInput, TOutput>(options: Readonly<{
                 signal
               })
           })
-          const parsedResponse = ProviderResponseSchema.safeParse(response)
-          if (!parsedResponse.success) {
+          let parsedResponse: z.infer<typeof ProviderResponseSchema>
+          try {
+            parsedResponse = parseArchitectureContract(
+              ProviderResponseSchema,
+              response
+            )
+          } catch {
             throw new MalformedRoleProviderResponseError()
           }
-          if (parsedResponse.data.outputTokens > options.limits.maxOutputTokens) {
+          if (parsedResponse.outputTokens > options.limits.maxOutputTokens) {
             throw new RoleOutputLimitError()
           }
-          rawOutput = parsedResponse.data.output
+          rawOutput = parsedResponse.output
           break
         } catch (error) {
           if (!canRetry(error, permissionClass, retryPolicy, attempt)) throw error
@@ -575,11 +679,13 @@ export async function runRole<TInput, TOutput>(options: Readonly<{
       }
     }
 
-    const outputResult = options.outputSchema.safeParse(rawOutput)
-    if (!outputResult.success) {
+    let output: TOutput
+    try {
+      output = parseArchitectureContract(options.outputSchema, rawOutput)
+    } catch {
       throw new MalformedRoleProviderResponseError()
     }
-    const outputJson = canonicalJson(outputResult.data)
+    const outputJson = canonicalJson(output)
     if (byteLength(outputJson) > options.limits.maxOutputBytes) {
       throw new RoleOutputLimitError()
     }
@@ -590,7 +696,7 @@ export async function runRole<TInput, TOutput>(options: Readonly<{
         request,
         status: 'succeeded',
         startedAt,
-        completedAt: nowIso(now),
+        completedAt: readNow(now).toISOString(),
         outputDigest: digest(outputJson),
         failureClass: null,
         reasonCodes: [
@@ -600,7 +706,7 @@ export async function runRole<TInput, TOutput>(options: Readonly<{
             : 'role_output_validated'
         ]
       }),
-      output: outputResult.data
+      output
     })
   } catch (error) {
     const failureClass = classifyFailure(error)
