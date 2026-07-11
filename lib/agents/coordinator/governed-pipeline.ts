@@ -100,6 +100,8 @@ export function assertCoordinatorCompositionApproval(
   evidenceGraph: EvidenceGraph
 ): void {
   if (
+    !approval ||
+    typeof approval !== 'object' ||
     !compositionApprovals.has(approval) ||
     approval.routeDigest !== routeContext.routeDigest ||
     approval.evidenceGraph !== evidenceGraph
