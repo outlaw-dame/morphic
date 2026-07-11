@@ -1,5 +1,6 @@
 import { UIMessage } from '@ai-sdk/react'
 
+import type { RouteExecutionContext } from '../ai/router/execution-context'
 import type { PersonalizationSettings } from '../agents/personalization'
 import { Model } from '../types/models'
 import { SearchMode } from '../types/search'
@@ -15,4 +16,5 @@ export interface BaseStreamConfig {
   isNewChat?: boolean
   searchMode?: SearchMode
   personalization?: PersonalizationSettings
+  routeContext: RouteExecutionContext
 }
