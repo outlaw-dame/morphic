@@ -11,9 +11,11 @@ export type GovernedProductionRolloutDecision = Readonly<{
 }>
 
 function parseEnabled(value: string | undefined): boolean | null {
-  if (value === undefined || value === '') return false
-  if (value === 'true') return true
-  if (value === 'false') return false
+  if (value === undefined) return false
+  const trimmed = value.trim()
+  if (trimmed === '') return false
+  if (trimmed === 'true') return true
+  if (trimmed === 'false') return false
   return null
 }
 
@@ -23,7 +25,11 @@ export function decideGovernedProductionRollout(
     configuredValue?: string
   }>
 ): GovernedProductionRolloutDecision {
-  if (!input || typeof input !== 'object' || !input.routeContext) {
+  if (
+    !input ||
+    typeof input !== 'object' ||
+    !input.routeContext?.routePlan
+  ) {
     return Object.freeze({
       enabled: false,
       useGovernedChain: false,
