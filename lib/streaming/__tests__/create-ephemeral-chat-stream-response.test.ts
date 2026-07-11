@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildDeterministicRouteFloor } from '@/lib/ai/router/router-admission'
 import {
   createRouteExecutionContext,
   digestRoutePlan
 } from '@/lib/ai/router/execution-context'
+import { buildDeterministicRouteFloor } from '@/lib/ai/router/router-admission'
 import { createEphemeralChatStreamResponse } from '@/lib/streaming/create-ephemeral-chat-stream-response'
 
 function routeContext() {
