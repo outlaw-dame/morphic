@@ -1,0 +1,85 @@
+name: AI-I1 Registry Update V2
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  update-registry:
+    if: github.head_ref == 'agent/ai-i1-model-role-selection-v2'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/ai-i1-model-role-selection-v2
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.12
+      - run: bun install --frozen-lockfile
+      - name: Update canonical AI phase registry
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          path = Path('lib/ai/architecture/phase-registry.ts')
+          text = path.read_text()
+          pattern = re.compile(
+              r"    phase\(\{\n      id: 'AI-I1',.*?\n    \}\),\n(?=    phase\(\{\n      id: 'AI-I2',)",
+              re.DOTALL,
+          )
+          replacement = """    phase({
+              id: 'AI-I1',
+              title: 'Model registry and role-selection policy V2',
+              status: 'implemented_in_isolation',
+              dependencies: ['AI-I0'],
+              requiredRoles: [],
+              historicalRequirements: [
+                carried(
+                  'Original AI-2A model capability registry',
+                  'Legacy inference remains available, while V2 adds provenance-aware normalization and canonical role policies.',
+                  'completed_and_retained'
+                )
+              ],
+              evidence: [
+                {
+                  kind: 'document',
+                  reference: 'docs/AI_PHASE_I1_MODEL_REGISTRY_ROLE_SELECTION_V2.md'
+                },
+                { kind: 'code', reference: 'lib/models/model-registry-v2.ts' },
+                { kind: 'code', reference: 'lib/models/role-selection-v2.ts' },
+                { kind: 'code', reference: 'lib/models/role-profiles-v2.ts' },
+                { kind: 'test', reference: 'lib/models/model-registry-v2.test.ts' },
+                { kind: 'test', reference: 'lib/models/role-selection-v2.test.ts' },
+                { kind: 'test', reference: 'lib/models/role-profiles-v2.test.ts' },
+                { kind: 'pull_request', reference: 'PR #80' }
+              ]
+            }),
+"""
+          updated, count = pattern.subn(replacement, text)
+          if count != 1:
+              raise SystemExit(f'AI-I1 registry block matched {count} times')
+          path.write_text(updated)
+          PY
+      - name: Format implementation
+        run: |
+          bunx prettier --write \
+            lib/ai/architecture/phase-registry.ts \
+            lib/models/model-registry-v2.ts \
+            lib/models/model-registry-v2.test.ts \
+            lib/models/role-selection-v2.ts \
+            lib/models/role-selection-v2.test.ts \
+            lib/models/role-profiles-v2.ts \
+            lib/models/role-profiles-v2.test.ts \
+            docs/AI_PHASE_I1_MODEL_REGISTRY_ROLE_SELECTION_V2.md
+      - name: Commit registry and formatting
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add lib/ai/architecture/phase-registry.ts lib/models docs/AI_PHASE_I1_MODEL_REGISTRY_ROLE_SELECTION_V2.md
+          git diff --cached --quiet || git commit -m "complete AI-I1 registry and formatting"
+          git push origin HEAD:agent/ai-i1-model-role-selection-v2
