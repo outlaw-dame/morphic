@@ -38,13 +38,12 @@ describe('production governed-chain facade', () => {
   })
 
   it('requires Advisor capability before retrieval for Advisor-mandated routes', async () => {
+    const query = 'Provide medical treatment guidance for a concussion'
     const retrieval = { retrieve: vi.fn() }
     await expect(
       runProductionGovernedChain({
-        query: 'Provide current medical guidance for concussion treatment',
-        routeContext: context(
-          'Provide current medical guidance for concussion treatment'
-        ),
+        query,
+        routeContext: context(query),
         retrieval,
         composition: { compose: vi.fn() },
         citationVerifier: { verify: vi.fn() }
