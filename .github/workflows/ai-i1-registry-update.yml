@@ -1,17 +1,16 @@
 name: AI-I1 Registry Update
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/ai-i1-model-role-selection-v2
-    paths:
-      - .github/workflows/ai-i1-registry-update.yml
+      - main
 
 permissions:
   contents: write
 
 jobs:
   update-registry:
+    if: github.head_ref == 'agent/ai-i1-model-role-selection-v2'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
