@@ -1,0 +1,45 @@
+name: AI-I1 Format Artifact
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  format-artifact:
+    if: github.head_ref == 'agent/ai-i1-model-role-selection-v2'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.12
+      - run: bun install --frozen-lockfile
+      - name: Format AI-I1 files
+        run: |
+          bunx prettier --write \
+            lib/ai/architecture/phase-registry.ts \
+            lib/models/model-registry-v2.ts \
+            lib/models/model-registry-v2.test.ts \
+            lib/models/role-selection-v2.ts \
+            lib/models/role-selection-v2.test.ts \
+            lib/models/role-profiles-v2.ts \
+            lib/models/role-profiles-v2.test.ts \
+            docs/AI_PHASE_I1_MODEL_REGISTRY_ROLE_SELECTION_V2.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-i1-format-output
+          path: |
+            lib/ai/architecture/phase-registry.ts
+            lib/models/model-registry-v2.ts
+            lib/models/model-registry-v2.test.ts
+            lib/models/role-selection-v2.ts
+            lib/models/role-selection-v2.test.ts
+            lib/models/role-profiles-v2.ts
+            lib/models/role-profiles-v2.test.ts
+            docs/AI_PHASE_I1_MODEL_REGISTRY_ROLE_SELECTION_V2.md
+          if-no-files-found: error
+          retention-days: 1
