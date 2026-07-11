@@ -66,7 +66,7 @@ describe('AI-I3E governed two-stage pipeline', () => {
     const retrieve = vi
       .fn()
       .mockResolvedValueOnce({
-        searchResults: [result('https://example.edu/report')],
+        searchResults: [],
         completedRoles: ['router', 'retriever'] as const,
         retrievedAt: now
       })
@@ -91,7 +91,7 @@ describe('AI-I3E governed two-stage pipeline', () => {
     expect(response.attempts).toBe(2)
     expect(retrieve).toHaveBeenCalledTimes(2)
     expect(retrieve.mock.calls[1]?.[0].repairActions).toContain(
-      'retrieve_independent_sources'
+      'retrieve_more_sources'
     )
   })
 
