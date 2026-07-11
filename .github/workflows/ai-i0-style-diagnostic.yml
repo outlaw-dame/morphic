@@ -1,0 +1,57 @@
+name: AI-I0 Style Diagnostic
+
+on:
+  push:
+    branches:
+      - agent/ai-i0-canonical-contracts
+
+permissions:
+  contents: read
+
+jobs:
+  style-artifact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.12
+      - run: bun install --frozen-lockfile
+      - name: Format AI-I0 files
+        run: |
+          bunx prettier --write \
+            lib/ai/architecture \
+            lib/ai/schemas/core.ts \
+            lib/ai/prompts/role-prompts.ts \
+            lib/ai/prompts/role-output-parsers.ts \
+            lib/models/capabilities.ts \
+            docs/AI_PHASE_I0_CANONICAL_CONTRACTS.md
+      - name: Apply safe lint fixes
+        run: |
+          bunx eslint --fix \
+            lib/ai/architecture \
+            lib/ai/schemas/core.ts \
+            lib/ai/prompts/role-prompts.ts \
+            lib/ai/prompts/role-output-parsers.ts \
+            lib/models/capabilities.ts || true
+      - name: Capture lint report
+        run: |
+          bunx eslint -f json \
+            lib/ai/architecture \
+            lib/ai/schemas/core.ts \
+            lib/ai/prompts/role-prompts.ts \
+            lib/ai/prompts/role-output-parsers.ts \
+            lib/models/capabilities.ts > ai-i0-lint-report.json || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-i0-style-output
+          path: |
+            lib/ai/architecture
+            lib/ai/schemas/core.ts
+            lib/ai/prompts/role-prompts.ts
+            lib/ai/prompts/role-output-parsers.ts
+            lib/models/capabilities.ts
+            docs/AI_PHASE_I0_CANONICAL_CONTRACTS.md
+            ai-i0-lint-report.json
+          if-no-files-found: error
+          retention-days: 1
