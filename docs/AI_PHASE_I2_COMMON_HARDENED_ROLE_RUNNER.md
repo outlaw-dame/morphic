@@ -65,6 +65,8 @@ Every invocation has a trusted absolute deadline. The runner:
 - rejects elapsed deadlines before provider access;
 - rejects deadlines more than ten minutes in the future;
 - creates a bounded abort signal for each provider attempt;
+- installs the abort rejection path before listeners become active;
+- rechecks caller cancellation after listener registration to close the registration race;
 - races the provider promise against cancellation and timeout;
 - returns even when a provider ignores abort signals;
 - removes listeners and timers after each attempt.
@@ -96,6 +98,8 @@ The runner enforces:
 - schema versions;
 - strict role input/output schemas.
 
+Input parse success is represented separately from the parsed value, so schema-valid `null` inputs are accepted rather than being confused with validation failure.
+
 Malformed, accessor-backed, oversized, over-token, or schema-incompatible output is rejected and never returned as a successful role result.
 
 ## Execution records
@@ -124,9 +128,14 @@ The AI-I2 test suite covers:
 - bounded exponential retry for tool-free idempotent calls;
 - prohibition on automatic retries for tool-bearing roles;
 - cancellation and deadline races against uncooperative providers;
+- schema-valid nullable input;
 - deterministic fallback validation;
 - pre-invocation input-budget enforcement;
 - canonical request/result records and output digests.
+
+## Completion gates
+
+AI-I2 is complete only when the final permanent branch head passes the repository's normal test, type-check, lint, formatting, native-configuration, and production-build jobs. All review findings must be resolved, and no temporary diagnostic, formatting, or self-modifying workflow may remain in the pull-request diff.
 
 ## Non-goals and deployment boundary
 
