@@ -1,0 +1,32 @@
+name: AI-I1 Error Artifact
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    if: github.head_ref == 'agent/ai-i1-model-role-selection-v2'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.12
+      - run: bun install --frozen-lockfile
+      - name: Capture type diagnostics
+        run: bun run typecheck > ai-i1-type.txt 2>&1 || true
+      - name: Capture lint diagnostics
+        run: bun run lint > ai-i1-lint.txt 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-i1-errors
+          path: |
+            ai-i1-type.txt
+            ai-i1-lint.txt
+          if-no-files-found: error
+          retention-days: 1
