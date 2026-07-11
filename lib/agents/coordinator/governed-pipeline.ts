@@ -158,7 +158,18 @@ export async function runGovernedResearchPipeline<TOutput>(
       now: input.now
     })
 
-    if (lastHandoff.evaluation.repairPlan.canProceedToComposition) {
+    const proposedRepairs = lastHandoff.evaluation.repairPlan.actions
+    const canProceed =
+      lastHandoff.evaluation.repairPlan.canProceedToComposition
+
+    if (proposedRepairs.length > 0 && attempt < maxRetrievalAttempts) {
+      repairActions = sanitizeRepairActions(proposedRepairs)
+      if (repairActions.length > 0) {
+        continue
+      }
+    }
+
+    if (canProceed) {
       throwIfAborted(input.signal)
       const output = await input.composition.compose({
         query,
@@ -172,12 +183,7 @@ export async function runGovernedResearchPipeline<TOutput>(
       return Object.freeze({ output, handoff: lastHandoff, attempts: attempt })
     }
 
-    repairActions = sanitizeRepairActions(
-      lastHandoff.evaluation.repairPlan.actions
-    )
-    if (repairActions.length === 0 || attempt === maxRetrievalAttempts) {
-      break
-    }
+    break
   }
 
   const actions = lastHandoff?.evaluation.repairPlan.actions ?? []
