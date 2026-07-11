@@ -92,9 +92,8 @@ describe('model registry v2 normalization', () => {
     expect(inputs.map(value => `${value.providerId}/${value.modelId}`)).toEqual(
       before
     )
-    expect(registry.map(value => `${value.providerId}/${value.modelId}`)).toEqual([
-      'provider-a/model-a',
-      'provider-z/model-z'
-    ])
+    expect(
+      registry.map(value => `${value.providerId}/${value.modelId}`)
+    ).toEqual(['provider-a/model-a', 'provider-z/model-z'])
   })
 })
