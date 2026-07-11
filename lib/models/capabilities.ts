@@ -12,6 +12,7 @@ export type ModelCapabilityProfile = {
 const ROLE_REQUIREMENTS: Record<ModelRole, ModelCapability[]> = {
   router: ['structured_output'],
   coordinator: ['structured_output'],
+  fusion_planner: ['structured_output'],
   retriever: ['tool_calling', 'streaming'],
   source_quality: ['structured_output'],
   entity_grounding: ['structured_output'],
