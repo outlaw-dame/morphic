@@ -1,3 +1,4 @@
+import type { EvidenceGraph } from '@/lib/ai-architecture/evidence'
 import {
   createRouteExecutionContext,
   type RouteExecutionContext
@@ -6,6 +7,7 @@ import {
 import {
   runGovernedResearchPipeline,
   type CoordinatorCompositionApproval,
+  type GovernedCompositionAdapter,
   type GovernedRetrievalAdapter
 } from './governed-pipeline'
 import type {
@@ -16,10 +18,7 @@ import type {
   PendingCitationVerification,
   ProductionCitationVerificationInput
 } from './production-citation-verifier-adapter'
-import type {
-  PendingCompositionDraft,
-  ProductionCompositionInput
-} from './production-composition-adapter'
+import type { PendingCompositionDraft } from './production-composition-adapter'
 import {
   authorizeProductionRelease,
   consumeProductionReleaseAuthorization,
@@ -28,9 +27,7 @@ import {
 
 const MAX_QUERY_LENGTH = 16_000
 
-export type ProductionCompositionPort = Readonly<{
-  compose(input: ProductionCompositionInput): Promise<PendingCompositionDraft>
-}>
+export type ProductionCompositionPort = GovernedCompositionAdapter<PendingCompositionDraft>
 
 export type ProductionAdvisorPort = Readonly<{
   review(input: ProductionAdvisorReviewInput): Promise<PendingAdvisorReview>
@@ -91,7 +88,10 @@ export async function runProductionGovernedChain(
   if (!routeContext.routePlan.requiresResearch) {
     throw new Error('Governed production chain requires a research route.')
   }
-  if (routeContext.routePlan.needsAdvisorReview && typeof input.advisor?.review !== 'function') {
+  if (
+    routeContext.routePlan.needsAdvisorReview &&
+    typeof input.advisor?.review !== 'function'
+  ) {
     throw new Error('Governed production chain is missing the required Advisor port.')
   }
 
@@ -99,7 +99,7 @@ export async function runProductionGovernedChain(
 
   let approval: CoordinatorCompositionApproval | undefined
   let approvedRouteContext: RouteExecutionContext | undefined
-  let evidenceGraph: ProductionCompositionInput['evidenceGraph'] | undefined
+  let evidenceGraph: EvidenceGraph | undefined
 
   const pipeline = await runGovernedResearchPipeline({
     query,
