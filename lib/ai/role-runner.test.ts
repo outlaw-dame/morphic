@@ -398,6 +398,31 @@ describe('common hardened role runner', () => {
     expect(adapter.invoke).not.toHaveBeenCalled()
   })
 
+  it('accepts a schema-valid null input without confusing it with parse failure', async () => {
+    const NullInputSchema = z.null()
+    const adapter: RoleProviderAdapter<null> = {
+      invoke: vi.fn(async invocation => ({
+        output: { answer: invocation.input === null ? 'null-ok' : 'wrong' },
+        outputTokens: 2
+      }))
+    }
+
+    const outcome = await runRole({
+      scope: scope(),
+      role: 'advisor',
+      candidates: [candidate()],
+      prompt,
+      inputSchema: NullInputSchema,
+      outputSchema: OutputSchema,
+      input: null,
+      adapter,
+      limits
+    })
+
+    expect(outcome.result.status).toBe('succeeded')
+    expect(outcome.output).toEqual({ answer: 'null-ok' })
+  })
+
   it('fails before invocation when total prompt and input bytes exceed budget', async () => {
     const adapter = successfulAdapter()
 

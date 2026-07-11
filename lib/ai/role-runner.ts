@@ -10,7 +10,11 @@ import {
   RoleExecutionResultSchema,
   type RoleFailureClass
 } from '@/lib/ai/architecture'
-import { type ModelRole, ModelRoleSchema } from '@/lib/ai/schemas'
+import {
+  ModelCapabilitySchema,
+  type ModelRole,
+  ModelRoleSchema
+} from '@/lib/ai/schemas'
 import { getRoleSelectionProfileV2 } from '@/lib/models/role-profiles-v2'
 import {
   type RoleModelCandidate,
@@ -91,16 +95,7 @@ const RetryPolicySchema = z
 
 const CapabilityAssertionSchema = z
   .object({
-    capability: z.enum([
-      'tool_calling',
-      'structured_output',
-      'streaming',
-      'reasoning',
-      'vision',
-      'pdf_input',
-      'json_mode',
-      'local_execution'
-    ]),
+    capability: ModelCapabilitySchema,
     provenance: z.enum([
       'evaluation_verified',
       'deployment_configured',
@@ -397,24 +392,24 @@ async function invokeWithDeadline<T>(options: {
 
   const controller = new AbortController()
   let timedOut = false
-  let rejectAbort: ((error: Error) => void) | undefined
+  let rejectAbort!: (error: Error) => void
+  const abortPromise = new Promise<T>((_, reject) => {
+    rejectAbort = reject
+  })
   const onCallerAbort = () => controller.abort()
   const onCombinedAbort = () => {
-    rejectAbort?.(
+    rejectAbort(
       timedOut ? new RoleRunnerTimeoutError() : new RoleRunnerCancelledError()
     )
   }
 
   options.callerSignal?.addEventListener('abort', onCallerAbort, { once: true })
   controller.signal.addEventListener('abort', onCombinedAbort, { once: true })
+  if (options.callerSignal?.aborted) controller.abort()
   const timer = setTimeout(() => {
     timedOut = true
     controller.abort()
   }, remainingMs)
-
-  const abortPromise = new Promise<T>((_, reject) => {
-    rejectAbort = reject
-  })
 
   try {
     return await Promise.race([
@@ -511,18 +506,23 @@ export async function runRole<TInput, TOutput>(
     profile.requiredToolPermissionClass
   )
 
-  let parsedInput: TInput | null = null
+  let inputResult:
+    | Readonly<{ success: true; value: TInput }>
+    | Readonly<{ success: false }>
   try {
-    parsedInput = parseArchitectureContract(options.inputSchema, options.input)
+    inputResult = Object.freeze({
+      success: true,
+      value: parseArchitectureContract(options.inputSchema, options.input)
+    })
   } catch {
-    parsedInput = null
+    inputResult = Object.freeze({ success: false })
   }
 
-  const inputJson = parsedInput === null ? '' : canonicalJson(parsedInput)
+  const inputJson = inputResult.success ? canonicalJson(inputResult.value) : ''
   const contextJson = canonicalJson({
     promptVersion: options.prompt.version,
     instruction: options.prompt.instruction,
-    input: parsedInput
+    input: inputResult.success ? inputResult.value : null
   })
   const selection = selectModelForRoleV2(
     normalizeCandidates(options.candidates),
@@ -577,10 +577,10 @@ export async function runRole<TInput, TOutput>(
       output: null
     })
 
-  if (parsedInput === null) {
+  if (!inputResult.success) {
     return fail('invalid_input', ['invalid_role_input'])
   }
-  const trustedInput = parsedInput
+  const trustedInput = inputResult.value
   if (
     byteLength(inputJson) + byteLength(options.prompt.instruction) >
     options.limits.maxInputBytes
