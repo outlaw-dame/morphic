@@ -6,13 +6,13 @@ import {
   parsePersonalizationCookie,
   PERSONALIZATION_COOKIE_NAME
 } from '@/lib/agents/personalization'
-import { calculateConversationTurn, trackChatEvent } from '@/lib/analytics'
 import {
   admitChatRequest,
   ChatAdmissionInputError,
   executionSearchMode,
   extractAdmissionQuery
 } from '@/lib/ai/router/chat-admission'
+import { calculateConversationTurn, trackChatEvent } from '@/lib/analytics'
 import { getCurrentUserId } from '@/lib/auth/get-current-user'
 import { checkAndEnforceAdaptiveLimit } from '@/lib/rate-limit/adaptive-limit'
 import { checkAndEnforceOverallChatLimit } from '@/lib/rate-limit/chat-limits'

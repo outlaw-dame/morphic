@@ -54,9 +54,12 @@ describe('AI-I3B chat admission boundary', () => {
     ['adaptive', 'adaptive'],
     ['deep', 'adaptive'],
     ['critical', 'adaptive']
-  ] as const)('maps canonical mode %s to execution mode %s', (mode, expected) => {
-    expect(executionSearchMode(mode)).toBe(expected)
-  })
+  ] as const)(
+    'maps canonical mode %s to execution mode %s',
+    (mode, expected) => {
+      expect(executionSearchMode(mode)).toBe(expected)
+    }
+  )
 
   it('promotes a quick preference when the deterministic Router requires adaptive execution', async () => {
     const result = await admitChatRequest({

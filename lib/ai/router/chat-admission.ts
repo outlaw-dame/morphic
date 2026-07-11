@@ -1,10 +1,13 @@
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto'
 import { z } from 'zod'
 
-import { admitResearchRoute, type RouterAdmissionResult } from './router-admission'
-
 import type { ResearchMode } from '@/lib/ai/schemas'
 import type { SearchMode } from '@/lib/types/search'
+
+import {
+  admitResearchRoute,
+  type RouterAdmissionResult
+} from './router-admission'
 
 const MAX_CHAT_QUERY_LENGTH = 16_000
 const PROCESS_SCOPE_KEY = randomBytes(32)
@@ -57,11 +60,13 @@ function textFromMessage(input: unknown): string | null {
   return text || null
 }
 
-export function extractAdmissionQuery(input: Readonly<{
-  trigger?: unknown
-  message?: unknown
-  messages?: unknown
-}>): string {
+export function extractAdmissionQuery(
+  input: Readonly<{
+    trigger?: unknown
+    message?: unknown
+    messages?: unknown
+  }>
+): string {
   if (input.trigger === 'submit-message') {
     const submitted = textFromMessage(input.message)
     if (submitted) return boundedQuery(submitted)
@@ -98,7 +103,9 @@ function scopeBindingKey(): Buffer {
     process.env.AUTH_SECRET ??
     process.env.NEXTAUTH_SECRET
 
-  return configured ? createHash('sha256').update(configured).digest() : PROCESS_SCOPE_KEY
+  return configured
+    ? createHash('sha256').update(configured).digest()
+    : PROCESS_SCOPE_KEY
 }
 
 function ownerScopeId(userId: string | null): string {
@@ -110,12 +117,14 @@ function ownerScopeId(userId: string | null): string {
   return `user_${digest}`
 }
 
-export async function admitChatRequest(options: Readonly<{
-  query: string
-  requestedSearchMode: SearchMode
-  userId: string | null
-  signal?: AbortSignal
-}>): Promise<RouterAdmissionResult> {
+export async function admitChatRequest(
+  options: Readonly<{
+    query: string
+    requestedSearchMode: SearchMode
+    userId: string | null
+    signal?: AbortSignal
+  }>
+): Promise<RouterAdmissionResult> {
   return admitResearchRoute({
     input: {
       query: boundedQuery(options.query),
