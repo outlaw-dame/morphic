@@ -1,9 +1,9 @@
 name: AI-I0 Style Diagnostic
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/ai-i0-canonical-contracts
+      - main
 
 permissions:
   contents: read
