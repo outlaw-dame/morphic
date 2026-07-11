@@ -127,6 +127,10 @@ Tests cover:
 - accessor rejection without invocation;
 - explicit deterministic-fallback and no-model outcomes.
 
+## Completion criteria
+
+AI-I1 is complete only when repository tests, type checking, lint, formatting, native configuration verification, and production build all pass on the final non-diagnostic branch head. Temporary formatter, diagnostic, error-capture, and fix-artifact workflows must not remain in the pull-request diff.
+
 ## Next phase
 
 AI-I2 will implement the common hardened role runner. It must consume canonical V2 profiles and normalized registry candidates, enforce permission classes outside model control, bind trusted execution scope, apply timeout and cancellation policy, validate role outputs, and produce AI-I0 role-execution records.
