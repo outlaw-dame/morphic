@@ -1,0 +1,47 @@
+name: AI-I3 Router Finalize
+
+on:
+  push:
+    branches:
+      - agent/ai-i3-live-router-admission
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.event.head_commit.message != 'chore(ai): finalize Router admission core'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/ai-i3-live-router-admission
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - run: bun install --frozen-lockfile
+      - name: Apply exact lint and formatting fixes
+        run: |
+          bunx eslint --fix \
+            lib/ai/router/router-admission.ts \
+            lib/ai/router/router-admission.test.ts \
+            lib/ai/router/router.ts \
+            lib/ai/schemas/route.ts
+          bunx prettier --write \
+            docs/AI_PHASE_I3A_ROUTER_ADMISSION_CORE.md \
+            lib/ai/router/router-admission.ts \
+            lib/ai/router/router-admission.test.ts \
+            lib/ai/router/router.ts \
+            lib/ai/schemas/route.ts
+      - name: Remove temporary diagnostics
+        run: |
+          rm -rf .ai-i3-diagnostics
+          rm -f .github/workflows/ai-i3-router-diagnostic.yml
+          rm -f .github/workflows/ai-i3-router-finalize.yml
+      - name: Commit permanent Router files only
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'chore(ai): finalize Router admission core'
+          git push origin HEAD:agent/ai-i3-live-router-admission
