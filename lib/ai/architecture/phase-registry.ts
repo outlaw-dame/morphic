@@ -148,14 +148,24 @@ export const AI_PHASE_REGISTRY: readonly AIPhaseRegistryEntry[] = Object.freeze(
     phase({
       id: 'AI-I2',
       title: 'Common hardened role runner',
+      status: 'implemented_in_isolation',
       dependencies: ['AI-I0', 'AI-I1'],
       requiredRoles: [...ModelRoleSchema.options],
       historicalRequirements: [
         carried(
           'Original AI-3 prompt governance',
-          'Versioned prompts and parsers remain inputs to one bounded role invocation boundary.',
-          'completed_but_not_integrated'
+          'Versioned prompts and parsers are enforced through one bounded role invocation boundary.',
+          'completed_and_retained'
         )
+      ],
+      evidence: [
+        {
+          kind: 'document',
+          reference: 'docs/AI_PHASE_I2_COMMON_HARDENED_ROLE_RUNNER.md'
+        },
+        { kind: 'code', reference: 'lib/ai/role-runner.ts' },
+        { kind: 'test', reference: 'lib/ai/role-runner.test.ts' },
+        { kind: 'pull_request', reference: 'PR #81' }
       ]
     }),
     phase({

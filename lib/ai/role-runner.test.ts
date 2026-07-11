@@ -1,13 +1,13 @@
-import { z } from 'zod'
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import {
   createTrustedRoleExecutionScope,
   InvalidTrustedRoleExecutionScopeError,
-  runRole,
-  TransientRoleProviderError,
   type RoleProviderAdapter,
   type RoleRunnerLimits,
+  runRole,
+  TransientRoleProviderError,
   type TrustedRoleExecutionScope
 } from './role-runner'
 

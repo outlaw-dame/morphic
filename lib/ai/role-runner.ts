@@ -1,14 +1,13 @@
 import { createHash } from 'node:crypto'
-
 import { z, type ZodType } from 'zod'
 
 import {
   AI_ARCHITECTURE_CONTRACT_VERSION,
   parseArchitectureContract,
-  RoleExecutionRequestSchema,
-  RoleExecutionResultSchema,
   type RoleExecutionRequest,
+  RoleExecutionRequestSchema,
   type RoleExecutionResult,
+  RoleExecutionResultSchema,
   type RoleFailureClass
 } from '@/lib/ai/architecture'
 import { type ModelRole, ModelRoleSchema } from '@/lib/ai/schemas'
@@ -122,7 +121,7 @@ const RoleQualityScoreSchema = z
   })
   .strict()
 
-const RoleModelCandidateSchema: ZodType<RoleModelCandidate> = z
+const RoleModelCandidateSchema = z
   .object({
     providerId: z.string().trim().min(1).max(128),
     modelId: z.string().trim().min(1).max(256),
@@ -284,7 +283,8 @@ export function createTrustedRoleExecutionScope(
 }
 
 function assertTrustedScope(scope: TrustedRoleExecutionScope): void {
-  if (!trustedScopes.has(scope)) throw new InvalidTrustedRoleExecutionScopeError()
+  if (!trustedScopes.has(scope))
+    throw new InvalidTrustedRoleExecutionScopeError()
 }
 
 function canonicalJson(value: unknown): string {
@@ -397,13 +397,13 @@ async function invokeWithDeadline<T>(options: {
 
   const controller = new AbortController()
   let timedOut = false
+  let rejectAbort: ((error: Error) => void) | undefined
   const onCallerAbort = () => controller.abort()
   const onCombinedAbort = () => {
     rejectAbort?.(
       timedOut ? new RoleRunnerTimeoutError() : new RoleRunnerCancelledError()
     )
   }
-  let rejectAbort: ((error: Error) => void) | undefined
 
   options.callerSignal?.addEventListener('abort', onCallerAbort, { once: true })
   controller.signal.addEventListener('abort', onCombinedAbort, { once: true })
@@ -417,7 +417,10 @@ async function invokeWithDeadline<T>(options: {
   })
 
   try {
-    return await Promise.race([options.operation(controller.signal), abortPromise])
+    return await Promise.race([
+      options.operation(controller.signal),
+      abortPromise
+    ])
   } finally {
     clearTimeout(timer)
     controller.signal.removeEventListener('abort', onCombinedAbort)
@@ -441,7 +444,9 @@ function validateConfiguration(input: {
   }
 }
 
-function normalizeCandidates(candidates: readonly unknown[]): readonly unknown[] {
+function normalizeCandidates(
+  candidates: readonly unknown[]
+): readonly unknown[] {
   return Object.freeze(
     candidates.map(candidate => {
       try {
@@ -467,21 +472,23 @@ function canRetry(
   )
 }
 
-export async function runRole<TInput, TOutput>(options: Readonly<{
-  scope: TrustedRoleExecutionScope
-  role: ModelRole
-  candidates: readonly unknown[]
-  prompt: RolePromptDefinition
-  inputSchema: ZodType<TInput>
-  outputSchema: ZodType<TOutput>
-  input: unknown
-  adapter: RoleProviderAdapter<TInput>
-  limits: RoleRunnerLimits
-  retryPolicy?: RoleRunnerRetryPolicy
-  deterministicFallback?: DeterministicRoleFallback<TInput>
-  signal?: AbortSignal
-  now?: () => Date
-}>): Promise<RoleRunnerOutcome<TOutput>> {
+export async function runRole<TInput, TOutput>(
+  options: Readonly<{
+    scope: TrustedRoleExecutionScope
+    role: ModelRole
+    candidates: readonly unknown[]
+    prompt: RolePromptDefinition
+    inputSchema: ZodType<TInput>
+    outputSchema: ZodType<TOutput>
+    input: unknown
+    adapter: RoleProviderAdapter<TInput>
+    limits: RoleRunnerLimits
+    retryPolicy?: RoleRunnerRetryPolicy
+    deterministicFallback?: DeterministicRoleFallback<TInput>
+    signal?: AbortSignal
+    now?: () => Date
+  }>
+): Promise<RoleRunnerOutcome<TOutput>> {
   assertTrustedScope(options.scope)
 
   const retryPolicy = options.retryPolicy ?? {
@@ -573,6 +580,7 @@ export async function runRole<TInput, TOutput>(options: Readonly<{
   if (parsedInput === null) {
     return fail('invalid_input', ['invalid_role_input'])
   }
+  const trustedInput = parsedInput
   if (
     byteLength(inputJson) + byteLength(options.prompt.instruction) >
     options.limits.maxInputBytes
@@ -603,7 +611,8 @@ export async function runRole<TInput, TOutput>(options: Readonly<{
     let rawOutput: unknown
 
     if (selection.status === 'deterministic_fallback') {
-      if (!options.deterministicFallback) {
+      const deterministicFallback = options.deterministicFallback
+      if (!deterministicFallback) {
         return fail('no_eligible_model', ['deterministic_fallback_unavailable'])
       }
       rawOutput = await invokeWithDeadline({
@@ -612,7 +621,7 @@ export async function runRole<TInput, TOutput>(options: Readonly<{
         now,
         operation: signal =>
           Promise.resolve(
-            options.deterministicFallback?.(parsedInput, {
+            deterministicFallback(trustedInput, {
               ownerScopeId: options.scope.ownerScopeId,
               executionId: options.scope.executionId,
               invocationId: options.scope.invocationId,
@@ -639,7 +648,7 @@ export async function runRole<TInput, TOutput>(options: Readonly<{
                 modelId: selection.candidate.modelId,
                 promptVersion: options.prompt.version,
                 instruction: options.prompt.instruction,
-                input: parsedInput,
+                input: trustedInput,
                 outputSchemaVersion: options.prompt.outputSchemaVersion,
                 maxOutputBytes: options.limits.maxOutputBytes,
                 maxOutputTokens: options.limits.maxOutputTokens,
@@ -663,7 +672,8 @@ export async function runRole<TInput, TOutput>(options: Readonly<{
           rawOutput = parsedResponse.output
           break
         } catch (error) {
-          if (!canRetry(error, permissionClass, retryPolicy, attempt)) throw error
+          if (!canRetry(error, permissionClass, retryPolicy, attempt))
+            throw error
           const delay = Math.min(
             retryPolicy.initialDelayMs * 2 ** (attempt - 1),
             retryPolicy.maximumDelayMs
