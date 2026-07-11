@@ -34,7 +34,9 @@ export function serializeRoutePlan(routePlan: CanonicalRoutePlan): string {
 }
 
 export function digestRoutePlan(routePlan: CanonicalRoutePlan): string {
-  return createHash('sha256').update(serializeRoutePlan(routePlan)).digest('hex')
+  return createHash('sha256')
+    .update(serializeRoutePlan(routePlan))
+    .digest('hex')
 }
 
 function deepFreeze<T>(value: T): T {

@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { z } from 'zod'
 
 import { getRolePrompt } from '@/lib/ai/prompts'
@@ -21,6 +20,8 @@ import {
   type SourceClass,
   SourceClassSchema
 } from '@/lib/ai/schemas'
+
+import { digestRoutePlan } from './execution-context'
 
 const MAX_QUERY_LENGTH = 16_000
 const ROUTER_DEADLINE_MS = 8_000
@@ -340,10 +341,6 @@ export function mergeRouterProposal(
   )
 }
 
-function digestRoute(route: CanonicalRoutePlan): string {
-  return createHash('sha256').update(JSON.stringify(route)).digest('hex')
-}
-
 export async function admitResearchRoute(
   options: Readonly<{
     input: RouterAdmissionInput
@@ -373,7 +370,7 @@ export async function admitResearchRoute(
   if (!options.model) {
     return Object.freeze({
       routePlan: floor,
-      routeDigest: digestRoute(floor),
+      routeDigest: digestRoutePlan(floor),
       scope,
       deterministicFloor: floor,
       modelExecution: null,
@@ -426,7 +423,7 @@ export async function admitResearchRoute(
 
   return Object.freeze({
     routePlan,
-    routeDigest: digestRoute(routePlan),
+    routeDigest: digestRoutePlan(routePlan),
     scope,
     deterministicFloor: floor,
     modelExecution: execution,
