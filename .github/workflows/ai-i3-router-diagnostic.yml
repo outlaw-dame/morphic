@@ -1,0 +1,47 @@
+name: AI-I3 Router Diagnostic
+
+on:
+  push:
+    branches:
+      - agent/ai-i3-live-router-admission
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - run: bun install --frozen-lockfile
+      - name: Capture compiler and lint diagnostics
+        shell: bash
+        run: |
+          set +e
+          bun run typecheck > typecheck.txt 2>&1
+          echo $? > typecheck-exit.txt
+          bun run lint > lint.txt 2>&1
+          echo $? > lint-exit.txt
+          bunx prettier --write \
+            docs/AI_PHASE_I3A_ROUTER_ADMISSION_CORE.md \
+            lib/ai/router/router-admission.ts \
+            lib/ai/router/router-admission.test.ts \
+            lib/ai/router/router.ts \
+            lib/ai/schemas/route.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-i3-router-diagnostics
+          path: |
+            typecheck.txt
+            typecheck-exit.txt
+            lint.txt
+            lint-exit.txt
+            docs/AI_PHASE_I3A_ROUTER_ADMISSION_CORE.md
+            lib/ai/router/router-admission.ts
+            lib/ai/router/router-admission.test.ts
+            lib/ai/router/router.ts
+            lib/ai/schemas/route.ts
+          retention-days: 1
