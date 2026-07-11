@@ -1,4 +1,4 @@
-name: AI-I1 Fix Artifact
+name: AI-I1 Final Autofix
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   fixes:
@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: agent/ai-i1-model-role-selection-v2
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.2.12
@@ -27,12 +29,11 @@ jobs:
             lib/models/model-registry-v2.ts \
             lib/models/role-selection-v2.ts \
             lib/models/role-profiles-v2.ts
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ai-i1-fixes
-          path: |
-            lib/models/model-registry-v2.ts
-            lib/models/role-selection-v2.ts
-            lib/models/role-profiles-v2.ts
-          if-no-files-found: error
-          retention-days: 1
+      - name: Remove temporary workflow and commit
+        run: |
+          rm .github/workflows/ai-i1-error-artifact.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add lib/models/model-registry-v2.ts lib/models/role-selection-v2.ts lib/models/role-profiles-v2.ts .github/workflows/ai-i1-error-artifact.yml
+          git commit -m "apply final AI-I1 lint and type fixes"
+          git push origin HEAD:agent/ai-i1-model-role-selection-v2
