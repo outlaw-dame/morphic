@@ -14,7 +14,6 @@ import {
 import type { SearchResultItem } from '@/lib/types'
 
 import {
-  type AdvisorModelInput,
   createProductionAdvisorAdapter,
   type PendingAdvisorReview
 } from './production-advisor-adapter'
@@ -24,7 +23,6 @@ import {
   type PendingCitationVerification
 } from './production-citation-verifier-adapter'
 import {
-  type ComposerModelInput,
   createProductionCompositionAdapter,
   type PendingCompositionDraft
 } from './production-composition-adapter'
@@ -38,7 +36,7 @@ import {
   type ProductionReleaseAuthorization
 } from './production-release-gate'
 
-const now = new Date('2026-07-11T12:00:00.000Z')
+const retrievalNow = new Date('2026-07-11T12:00:00.000Z')
 const query = 'Provide medical treatment guidance for a concussion'
 
 type Prepared = Readonly<{
@@ -165,7 +163,7 @@ async function prepare(options?: Readonly<{
           'fusion_planner',
           'source_quality'
         ] as const,
-        retrievedAt: now
+        retrievedAt: retrievalNow
       })
     },
     composition: {
@@ -177,7 +175,7 @@ async function prepare(options?: Readonly<{
       }
     },
     maxRetrievalAttempts: 1,
-    now
+    now: retrievalNow
   })
 
   if (!approval || !evidenceGraph || !context) {
@@ -251,7 +249,7 @@ async function prepare(options?: Readonly<{
   }
 }
 
-function releaseInput(prepared: Prepared) {
+function releaseInput(prepared: Prepared, releaseNow = new Date()) {
   return {
     routeContext: prepared.routeContext,
     evidenceGraph: prepared.evidenceGraph,
@@ -259,7 +257,7 @@ function releaseInput(prepared: Prepared) {
     composition: prepared.composition,
     advisorReview: prepared.advisorReview,
     citationVerification: prepared.citationVerification,
-    now,
+    now: releaseNow,
     authorizationTtlMs: 60_000
   }
 }
@@ -267,7 +265,10 @@ function releaseInput(prepared: Prepared) {
 describe('AI-I3J deterministic final release capability', () => {
   it('authorizes and consumes an exact verified chain once', async () => {
     const prepared = await prepare()
-    const authorization = authorizeProductionRelease(releaseInput(prepared))
+    const releaseNow = new Date()
+    const authorization = authorizeProductionRelease(
+      releaseInput(prepared, releaseNow)
+    )
 
     expect(Object.isFrozen(authorization)).toBe(true)
     expect(Object.isFrozen(authorization.citedEvidenceIds)).toBe(true)
@@ -276,7 +277,7 @@ describe('AI-I3J deterministic final release capability', () => {
 
     const released = consumeProductionReleaseAuthorization(authorization, {
       routeContext: prepared.routeContext,
-      now
+      now: releaseNow
     })
     expect(released.status).toBe('released')
     expect(released.draft).toBe(prepared.composition.draft)
@@ -287,31 +288,35 @@ describe('AI-I3J deterministic final release capability', () => {
     expect(() =>
       consumeProductionReleaseAuthorization(authorization, {
         routeContext: prepared.routeContext,
-        now
+        now: releaseNow
       })
     ).toThrow('Invalid or already consumed production release authorization.')
   })
 
   it('rejects a structurally forged release authorization', async () => {
     const prepared = await prepare()
-    const authorization = authorizeProductionRelease(releaseInput(prepared))
+    const releaseNow = new Date()
+    const authorization = authorizeProductionRelease(
+      releaseInput(prepared, releaseNow)
+    )
     const forged = { ...authorization } as ProductionReleaseAuthorization
 
     expect(() =>
       consumeProductionReleaseAuthorization(forged, {
         routeContext: prepared.routeContext,
-        now
+        now: releaseNow
       })
     ).toThrow('Invalid or already consumed production release authorization.')
   })
 
   it('rejects expired release authorization and consumes it fail closed', async () => {
     const prepared = await prepare()
+    const issuedAt = new Date()
     const authorization = authorizeProductionRelease({
-      ...releaseInput(prepared),
+      ...releaseInput(prepared, issuedAt),
       authorizationTtlMs: 1_000
     })
-    const afterExpiry = new Date(now.getTime() + 1_001)
+    const afterExpiry = new Date(issuedAt.getTime() + 1_001)
 
     expect(() =>
       consumeProductionReleaseAuthorization(authorization, {
@@ -322,7 +327,7 @@ describe('AI-I3J deterministic final release capability', () => {
     expect(() =>
       consumeProductionReleaseAuthorization(authorization, {
         routeContext: prepared.routeContext,
-        now
+        now: issuedAt
       })
     ).toThrow('Invalid or already consumed production release authorization.')
   })
@@ -369,7 +374,10 @@ describe('AI-I3J deterministic final release capability', () => {
 
   it('rejects a route mismatch at consumption', async () => {
     const prepared = await prepare()
-    const authorization = authorizeProductionRelease(releaseInput(prepared))
+    const releaseNow = new Date()
+    const authorization = authorizeProductionRelease(
+      releaseInput(prepared, releaseNow)
+    )
     const otherPlan = buildDeterministicRouteFloor({
       query: 'Explain photosynthesis'
     })
@@ -381,7 +389,7 @@ describe('AI-I3J deterministic final release capability', () => {
     expect(() =>
       consumeProductionReleaseAuthorization(authorization, {
         routeContext: otherContext,
-        now
+        now: releaseNow
       })
     ).toThrow('Production release route mismatch.')
   })
