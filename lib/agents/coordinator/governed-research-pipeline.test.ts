@@ -241,4 +241,51 @@ describe('governed two-stage research pipeline', () => {
     expect(retrieve).toHaveBeenCalledTimes(3)
     expect(compose).not.toHaveBeenCalled()
   })
+
+  it('rejects malformed retrieval payloads before Coordinator evaluation', async () => {
+    const context = routeContext('Explain photosynthesis')
+    const hostile = Object.create(null)
+    Object.defineProperty(hostile, 'searchResults', {
+      get() {
+        throw new Error('getter executed')
+      }
+    })
+    Object.defineProperty(hostile, 'completedRoles', {
+      value: retrievalRoles(context),
+      enumerable: true
+    })
+
+    await expect(
+      runGovernedResearchPipeline({
+        query: 'Explain photosynthesis',
+        routeContext: context,
+        retrieve: async () => hostile,
+        compose: vi.fn()
+      } as unknown as Parameters<typeof runGovernedResearchPipeline>[0])
+    ).rejects.toThrow('Invalid governed pipeline adapter output.')
+  })
+
+  it('rejects malformed composition role payloads before spreading', async () => {
+    const context = routeContext('Explain photosynthesis')
+
+    await expect(
+      runGovernedResearchPipeline({
+        query: 'Explain photosynthesis',
+        routeContext: context,
+        now,
+        retrieve: async () => ({
+          searchResults: [
+            evidence('https://example.edu/report'),
+            evidence('https://science.example.org/report')
+          ],
+          completedRoles: retrievalRoles(context),
+          retrievedAt: now
+        }),
+        compose: async () => ({
+          output: 'candidate',
+          completedRoles: null
+        })
+      } as unknown as Parameters<typeof runGovernedResearchPipeline>[0])
+    ).rejects.toThrow('Invalid governed composition adapter output.')
+  })
 })
