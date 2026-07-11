@@ -43,7 +43,7 @@ describe('governed production rollout policy', () => {
 
     expect(
       decideGovernedProductionRollout({
-        routeContext: context('Hello there'),
+        routeContext: context('Hello'),
         configuredValue: 'true'
       })
     ).toEqual({
