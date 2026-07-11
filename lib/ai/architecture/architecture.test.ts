@@ -10,14 +10,14 @@ import {
   CoordinatorTransitionSchema,
   EntityProviderResultSchema,
   FinalReleaseDecisionSchema,
-  InvalidArchitectureContractError,
-  RoleExecutionRequestSchema,
-  RoleExecutionResultSchema,
-  ToolBudgetLedgerSchema,
   getLegalCoordinatorTransitions,
+  InvalidArchitectureContractError,
   isLegalCoordinatorTransition,
   isTerminalCoordinatorState,
   parseArchitectureContract,
+  RoleExecutionRequestSchema,
+  RoleExecutionResultSchema,
+  ToolBudgetLedgerSchema,
   validateAIPhaseRegistry
 } from './index'
 
@@ -225,7 +225,9 @@ describe('AI architecture drift controls', () => {
     )
 
     const missingProviders = AI_PHASE_REGISTRY.map(entry => ({ ...entry }))
-    const entityIndex = missingProviders.findIndex(entry => entry.id === 'AI-I7')
+    const entityIndex = missingProviders.findIndex(
+      entry => entry.id === 'AI-I7'
+    )
     missingProviders[entityIndex] = {
       ...missingProviders[entityIndex],
       historicalRequirements: [
