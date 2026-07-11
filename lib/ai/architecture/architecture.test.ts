@@ -150,6 +150,24 @@ describe('canonical AI architecture contracts', () => {
     ).toThrow()
 
     expect(() =>
+      RoleExecutionResultSchema.parse({
+        version: 1,
+        executionId,
+        invocationId,
+        role: 'router',
+        status: 'succeeded',
+        outputSchemaVersion: 1,
+        promptVersion: 'router-v1',
+        selectedModelId: null,
+        startedAt: now,
+        completedAt: now,
+        outputDigest: null,
+        failureClass: null,
+        reasonCodes: ['validated_output']
+      })
+    ).toThrow()
+
+    expect(() =>
       ToolBudgetLedgerSchema.parse({
         version: 1,
         executionId,
@@ -178,7 +196,7 @@ describe('canonical AI architecture contracts', () => {
     ).toThrow()
   })
 
-  it('requires explicit Wikidata or DBpedia provenance', () => {
+  it('requires consistent Wikidata and DBpedia result provenance', () => {
     for (const provider of ['wikidata', 'dbpedia'] as const) {
       const parsed = EntityProviderResultSchema.parse({
         version: 1,
@@ -194,6 +212,36 @@ describe('canonical AI architecture contracts', () => {
       })
       expect(parsed.provider).toBe(provider)
     }
+
+    expect(() =>
+      EntityProviderResultSchema.parse({
+        version: 1,
+        executionId,
+        provider: 'wikidata',
+        mentionId: 'mention_scope_1234567',
+        status: 'succeeded',
+        canonicalIds: [],
+        resultDigest: 'sha256:0123456789abcdef',
+        retrievedAt: now,
+        failureClass: null,
+        reasonCodes: ['resolved']
+      })
+    ).toThrow()
+
+    expect(() =>
+      EntityProviderResultSchema.parse({
+        version: 1,
+        executionId,
+        provider: 'dbpedia',
+        mentionId: 'mention_scope_1234567',
+        status: 'not_found',
+        canonicalIds: ['https://dbpedia.org/resource/Unexpected'],
+        resultDigest: null,
+        retrievedAt: now,
+        failureClass: null,
+        reasonCodes: ['no_candidate']
+      })
+    ).toThrow()
   })
 })
 
