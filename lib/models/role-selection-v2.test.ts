@@ -7,6 +7,8 @@ import {
   selectModelForRoleV2
 } from './role-selection-v2'
 
+const now = new Date('2026-07-11T00:00:00.000Z')
+
 const profile: RoleSelectionProfile = {
   role: 'advisor',
   hardCapabilities: ['structured_output'],
@@ -18,6 +20,7 @@ const profile: RoleSelectionProfile = {
   allowedLocalities: ['remote'],
   minimumCapabilityProvenance: 'deployment_configured',
   minimumRoleQualityScore: 0.8,
+  maximumQualityAgeDays: 90,
   requiredToolPermissionClass: 'none',
   structuredOutputStrategy: 'native',
   fallbackModelIds: [],
@@ -65,7 +68,7 @@ describe('model role selection policy v2', () => {
       ]
     })
 
-    expect(getRoleSelectionRejectionReasons(weak, profile)).toContain(
+    expect(getRoleSelectionRejectionReasons(weak, profile, now)).toContain(
       'capability_provenance_too_weak:structured_output'
     )
   })
@@ -74,12 +77,17 @@ describe('model role selection policy v2', () => {
     expect(
       getRoleSelectionRejectionReasons(
         candidate({ availability: 'deprecated' }),
-        profile
+        profile,
+        now
       )
     ).toContain('availability_deprecated')
 
     expect(
-      getRoleSelectionRejectionReasons(candidate({ locality: 'local' }), profile)
+      getRoleSelectionRejectionReasons(
+        candidate({ locality: 'local' }),
+        profile,
+        now
+      )
     ).toContain('locality_not_allowed')
 
     expect(
@@ -94,7 +102,8 @@ describe('model role selection policy v2', () => {
             }
           ]
         }),
-        profile
+        profile,
+        now
       )
     ).toContain('role_quality_below_minimum')
 
@@ -102,18 +111,86 @@ describe('model role selection policy v2', () => {
       getRoleSelectionRejectionReasons(
         candidate({ cooldownUntil: '2026-07-12T00:00:00.000Z' }),
         profile,
-        new Date('2026-07-11T00:00:00.000Z')
+        now
       )
     ).toContain('cooldown_active')
   })
 
-  it('uses explicit fallback order before quality scoring', () => {
+  it('rejects stale role-quality evidence', () => {
+    const stale = candidate({
+      roleQuality: [
+        {
+          role: 'advisor',
+          score: 0.99,
+          fixtureVersion: 'advisor-eval-v1',
+          verifiedAt: '2025-01-01T00:00:00.000Z'
+        }
+      ]
+    })
+
+    expect(getRoleSelectionRejectionReasons(stale, profile, now)).toContain(
+      'missing_verified_role_quality'
+    )
+  })
+
+  it('fails closed for malformed external candidates without throwing', () => {
+    const malformedCandidates: unknown[] = [
+      null,
+      undefined,
+      {},
+      { providerId: 'provider-a' },
+      { ...candidate(), capabilities: undefined },
+      { ...candidate(), roleQuality: undefined },
+      { ...candidate(), capabilities: [{ capability: 'structured_output' }] },
+      { ...candidate(), roleQuality: [{ role: 'advisor', score: 1 }] }
+    ]
+
+    for (const malformed of malformedCandidates) {
+      expect(getRoleSelectionRejectionReasons(malformed, profile, now)).toEqual([
+        'invalid_candidate'
+      ])
+    }
+
+    expect(
+      selectModelForRoleV2(malformedCandidates, profile, {
+        now,
+        deterministicFallbackAvailable: true
+      }).status
+    ).toBe('deterministic_fallback')
+  })
+
+  it('uses explicit provider-qualified fallback order before quality scoring', () => {
     const decision = selectModelForRoleV2(
       [
-        candidate({ modelId: 'quality-winner', roleQuality: [{ role: 'advisor', score: 0.99, fixtureVersion: 'v1', verifiedAt: '2026-07-11T00:00:00.000Z' }] }),
-        candidate({ modelId: 'configured-first', roleQuality: [{ role: 'advisor', score: 0.81, fixtureVersion: 'v1', verifiedAt: '2026-07-11T00:00:00.000Z' }] })
+        candidate({
+          modelId: 'quality-winner',
+          roleQuality: [
+            {
+              role: 'advisor',
+              score: 0.99,
+              fixtureVersion: 'v1',
+              verifiedAt: '2026-07-11T00:00:00.000Z'
+            }
+          ]
+        }),
+        candidate({
+          providerId: 'provider-b',
+          modelId: 'configured-first',
+          roleQuality: [
+            {
+              role: 'advisor',
+              score: 0.81,
+              fixtureVersion: 'v1',
+              verifiedAt: '2026-07-11T00:00:00.000Z'
+            }
+          ]
+        })
       ],
-      { ...profile, fallbackModelIds: ['configured-first'] }
+      {
+        ...profile,
+        fallbackModelIds: ['provider-b/configured-first']
+      },
+      { now }
     )
 
     expect(decision.status).toBe('selected')
@@ -128,7 +205,8 @@ describe('model role selection policy v2', () => {
         candidate({ modelId: 'same-family', family: 'composer-family' }),
         candidate({ modelId: 'diverse-family', family: 'advisor-family' })
       ],
-      profile
+      profile,
+      { now }
     )
 
     expect(decision.status).toBe('selected')
@@ -144,14 +222,16 @@ describe('model role selection policy v2', () => {
     ]
     const before = candidates.map(value => value.modelId)
 
-    const first = selectModelForRoleV2(candidates, {
-      ...profile,
-      preferFamilyDiversityFrom: null
-    })
-    const second = selectModelForRoleV2([...candidates].reverse(), {
-      ...profile,
-      preferFamilyDiversityFrom: null
-    })
+    const first = selectModelForRoleV2(
+      candidates,
+      { ...profile, preferFamilyDiversityFrom: null },
+      { now }
+    )
+    const second = selectModelForRoleV2(
+      [...candidates].reverse(),
+      { ...profile, preferFamilyDiversityFrom: null },
+      { now }
+    )
 
     expect(candidates.map(value => value.modelId)).toEqual(before)
     expect(first.status).toBe('selected')
@@ -165,13 +245,14 @@ describe('model role selection policy v2', () => {
   it('returns an explicit deterministic fallback or no-model outcome', () => {
     const unavailable = candidate({ availability: 'disabled' })
 
-    expect(
-      selectModelForRoleV2([unavailable], profile, {
-        deterministicFallbackAvailable: true
-      }).status
-    ).toBe('deterministic_fallback')
+    const fallback = selectModelForRoleV2([unavailable], profile, {
+      now,
+      deterministicFallbackAvailable: true
+    })
+    expect(fallback.status).toBe('deterministic_fallback')
+    expect(fallback.reasonCodes).toEqual(['deterministic_fallback_selected'])
 
-    expect(selectModelForRoleV2([unavailable], profile).status).toBe(
+    expect(selectModelForRoleV2([unavailable], profile, { now }).status).toBe(
       'no_eligible_model'
     )
   })
