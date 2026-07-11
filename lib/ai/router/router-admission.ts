@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 
+import { getRolePrompt } from '@/lib/ai/prompts'
 import {
   createTrustedRoleExecutionScope,
   runRole,
@@ -20,13 +21,13 @@ import {
   type RoutePlan,
   type SourceClass
 } from '@/lib/ai/schemas'
-import { getRolePrompt } from '@/lib/ai/prompts'
 
 const MAX_QUERY_LENGTH = 16_000
 const ROUTER_DEADLINE_MS = 8_000
 const ROUTER_MAX_INPUT_BYTES = 24_000
 const ROUTER_MAX_OUTPUT_BYTES = 12_000
 const ROUTER_MAX_OUTPUT_TOKENS = 1_500
+const MAX_RATIONALE_LENGTH = 2_048
 
 const MODE_RANK: Record<ResearchMode, number> = {
   quick: 0,
@@ -71,12 +72,13 @@ const RouterModelProposalSchema = z
   .strict()
 
 export type RouterModelProposal = z.infer<typeof RouterModelProposalSchema>
-
 export type RouterAdmissionInput = z.input<typeof RouterInputSchema>
 
 export type RouterModelConfiguration = Readonly<{
   candidates: readonly unknown[]
-  adapter: RoleProviderAdapter<Readonly<{ query: string; requestedMode: ResearchMode | null }>>
+  adapter: RoleProviderAdapter<
+    Readonly<{ query: string; requestedMode: ResearchMode | null }>
+  >
 }>
 
 export type RouterAdmissionResult = Readonly<{
@@ -169,7 +171,9 @@ function inferRequiredSourceClasses(query: string): SourceClass[] {
   return [...uniqueSorted(classes)]
 }
 
-function inferRequiredRoles(route: Omit<RoutePlan, 'requiredModelRoles'>): ModelRole[] {
+function inferRequiredRoles(
+  route: Omit<RoutePlan, 'requiredModelRoles'>
+): ModelRole[] {
   if (!route.requiresResearch) return ['router']
 
   const roles: ModelRole[] = ['router', 'retriever', 'answer_composer']
@@ -185,10 +189,20 @@ function inferRequiredRoles(route: Omit<RoutePlan, 'requiredModelRoles'>): Model
 }
 
 function routeRationale(reasonCodes: readonly string[]): string {
-  return `Router admission reasons: ${reasonCodes.join(', ') || 'default_research_route'}.`
+  const prefix = 'Router admission reasons: '
+  const suffix = '.'
+  const joined = reasonCodes.join(', ') || 'default_research_route'
+  const maximumJoinedLength = MAX_RATIONALE_LENGTH - prefix.length - suffix.length
+
+  if (joined.length > maximumJoinedLength) {
+    return `${prefix}${joined.slice(0, maximumJoinedLength - 3)}...${suffix}`
+  }
+  return `${prefix}${joined}${suffix}`
 }
 
-export function buildDeterministicRouteFloor(input: RouterAdmissionInput): RoutePlan {
+export function buildDeterministicRouteFloor(
+  input: RouterAdmissionInput
+): RoutePlan {
   const parsed = RouterInputSchema.parse(input)
   const query = parsed.query
   const criticalRisk = includesAny(query, CRITICAL_RISK_PATTERNS)
@@ -199,7 +213,7 @@ export function buildDeterministicRouteFloor(input: RouterAdmissionInput): Route
     includesAny(query, ENTITY_RELATION_PATTERNS) ||
     includesAny(query, ENTITY_IDENTIFIER_PATTERNS)
   const explicitNonResearch = includesAny(query, NON_RESEARCH_PATTERNS)
-  const requiresResearch =
+  const initialRequiresResearch =
     !explicitNonResearch || highRisk || needsFreshness || needsEntityGrounding
 
   const riskLevel: RiskLevel = criticalRisk
@@ -208,11 +222,12 @@ export function buildDeterministicRouteFloor(input: RouterAdmissionInput): Route
       ? 'high'
       : 'low'
 
-  let mode: ResearchMode = requiresResearch ? 'adaptive' : 'quick'
+  let mode: ResearchMode = initialRequiresResearch ? 'adaptive' : 'quick'
   if (needsFreshness || needsEntityGrounding) mode = 'adaptive'
   if (highRisk) mode = 'critical'
   if (parsed.requestedMode) mode = strongerMode(mode, parsed.requestedMode)
 
+  const requiresResearch = initialRequiresResearch || mode !== 'quick'
   const needsSourceQuality = requiresResearch && (highRisk || needsFreshness)
   const needsFusionPlanning =
     requiresResearch && (highRisk || needsFreshness || needsEntityGrounding)
@@ -228,12 +243,16 @@ export function buildDeterministicRouteFloor(input: RouterAdmissionInput): Route
   if (highRisk) reasonCodes.push('high_risk_domain')
   if (criticalRisk) reasonCodes.push('critical_risk_domain')
 
+  const normalizedReasonCodes = uniqueSorted(reasonCodes)
   const base = {
     mode,
     riskLevel,
     requiresResearch,
     requiredSourceClasses: inferRequiredSourceClasses(query),
-    disallowedSourceClasses: ['content_farm', 'scraper_or_aggregator'] as SourceClass[],
+    disallowedSourceClasses: [
+      'content_farm',
+      'scraper_or_aggregator'
+    ] as SourceClass[],
     needsFreshness,
     needsEntityGrounding,
     needsSourceQuality,
@@ -242,10 +261,16 @@ export function buildDeterministicRouteFloor(input: RouterAdmissionInput): Route
     needsCitationVerification,
     maxToolCalls: Math.min(
       parsed.deploymentMaxToolCalls,
-      mode === 'critical' ? 50 : mode === 'deep' ? 40 : mode === 'adaptive' ? 30 : 10
+      mode === 'critical'
+        ? 50
+        : mode === 'deep'
+          ? 40
+          : mode === 'adaptive'
+            ? 30
+            : 10
     ),
-    reasonCodes: [...uniqueSorted(reasonCodes)],
-    rationale: routeRationale(uniqueSorted(reasonCodes))
+    reasonCodes: [...normalizedReasonCodes],
+    rationale: routeRationale(normalizedReasonCodes)
   } satisfies Omit<RoutePlan, 'requiredModelRoles'>
 
   return Object.freeze(
@@ -276,11 +301,20 @@ export function mergeRouterProposal(
     ...parsedProposal.reasonCodes,
     'model_proposal_merged'
   ])
+  const mode = strongerMode(floor.mode, parsedProposal.mode)
+  const requiresResearch =
+    floor.requiresResearch ||
+    parsedProposal.requiresResearch ||
+    mode !== 'quick'
+  const needsCitationVerification =
+    floor.needsCitationVerification ||
+    parsedProposal.needsCitationVerification ||
+    requiresResearch
 
   const mergedWithoutRoles = {
-    mode: strongerMode(floor.mode, parsedProposal.mode),
+    mode,
     riskLevel: strongerRisk(floor.riskLevel, parsedProposal.riskLevel),
-    requiresResearch: floor.requiresResearch || parsedProposal.requiresResearch,
+    requiresResearch,
     requiredSourceClasses: required,
     disallowedSourceClasses: [...disallowed],
     needsFreshness: floor.needsFreshness || parsedProposal.needsFreshness,
@@ -292,9 +326,7 @@ export function mergeRouterProposal(
       floor.needsFusionPlanning || parsedProposal.needsFusionPlanning,
     needsAdvisorReview:
       floor.needsAdvisorReview || parsedProposal.needsAdvisorReview,
-    needsCitationVerification:
-      floor.needsCitationVerification ||
-      parsedProposal.needsCitationVerification,
+    needsCitationVerification,
     maxToolCalls: Math.min(floor.maxToolCalls, parsedProposal.maxToolCalls),
     reasonCodes: [...reasonCodes],
     rationale: routeRationale(reasonCodes)
@@ -312,15 +344,17 @@ function digestRoute(route: RoutePlan): string {
   return createHash('sha256').update(JSON.stringify(route)).digest('hex')
 }
 
-export async function admitResearchRoute(options: Readonly<{
-  input: RouterAdmissionInput
-  ownerScopeId: string
-  executionId: string
-  invocationId: string
-  model?: RouterModelConfiguration
-  signal?: AbortSignal
-  now?: () => Date
-}>): Promise<RouterAdmissionResult> {
+export async function admitResearchRoute(
+  options: Readonly<{
+    input: RouterAdmissionInput
+    ownerScopeId: string
+    executionId: string
+    invocationId: string
+    model?: RouterModelConfiguration
+    signal?: AbortSignal
+    now?: () => Date
+  }>
+): Promise<RouterAdmissionResult> {
   const now = options.now ?? (() => new Date())
   const current = now()
   if (!(current instanceof Date) || !Number.isFinite(current.getTime())) {
