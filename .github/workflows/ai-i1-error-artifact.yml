@@ -1,4 +1,4 @@
-name: AI-I1 Error Artifact
+name: AI-I1 Fix Artifact
 
 on:
   pull_request:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  diagnostics:
+  fixes:
     if: github.head_ref == 'agent/ai-i1-model-role-selection-v2'
     runs-on: ubuntu-latest
     steps:
@@ -18,15 +18,21 @@ jobs:
         with:
           bun-version: 1.2.12
       - run: bun install --frozen-lockfile
-      - name: Capture type diagnostics
-        run: bun run typecheck > ai-i1-type.txt 2>&1 || true
-      - name: Capture lint diagnostics
-        run: bun run lint > ai-i1-lint.txt 2>&1 || true
+      - name: Apply exact lint and formatting fixes
+        run: |
+          bunx eslint --fix \
+            lib/models/model-registry-v2.ts \
+            lib/models/role-selection-v2.ts
+          bunx prettier --write \
+            lib/models/model-registry-v2.ts \
+            lib/models/role-selection-v2.ts \
+            lib/models/role-profiles-v2.ts
       - uses: actions/upload-artifact@v4
         with:
-          name: ai-i1-errors
+          name: ai-i1-fixes
           path: |
-            ai-i1-type.txt
-            ai-i1-lint.txt
+            lib/models/model-registry-v2.ts
+            lib/models/role-selection-v2.ts
+            lib/models/role-profiles-v2.ts
           if-no-files-found: error
           retention-days: 1
