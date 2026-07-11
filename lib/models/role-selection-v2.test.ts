@@ -142,7 +142,24 @@ describe('model role selection policy v2', () => {
       { ...candidate(), capabilities: undefined },
       { ...candidate(), roleQuality: undefined },
       { ...candidate(), capabilities: [{ capability: 'structured_output' }] },
-      { ...candidate(), roleQuality: [{ role: 'advisor', score: 1 }] }
+      { ...candidate(), roleQuality: [{ role: 'advisor', score: 1 }] },
+      {
+        ...candidate(),
+        capabilities: [
+          { capability: 'unknown_capability', provenance: 'deployment_configured' }
+        ]
+      },
+      {
+        ...candidate(),
+        roleQuality: [
+          {
+            role: 'unknown_role',
+            score: 1,
+            fixtureVersion: 'v1',
+            verifiedAt: '2026-07-11T00:00:00.000Z'
+          }
+        ]
+      }
     ]
 
     for (const malformed of malformedCandidates) {
@@ -157,6 +174,34 @@ describe('model role selection policy v2', () => {
         deterministicFallbackAvailable: true
       }).status
     ).toBe('deterministic_fallback')
+  })
+
+  it('fails closed for invalid profiles and selection time', () => {
+    const invalidProfiles: unknown[] = [
+      { ...profile, role: 'unknown_role' },
+      { ...profile, hardCapabilities: ['unknown_capability'] },
+      { ...profile, preferredCapabilities: [null] },
+      { ...profile, structuredOutputStrategy: 'unsafe' },
+      { ...profile, fallbackModelIds: [''] }
+    ]
+
+    for (const invalid of invalidProfiles) {
+      expect(
+        getRoleSelectionRejectionReasons(
+          candidate(),
+          invalid as RoleSelectionProfile,
+          now
+        )
+      ).toEqual(['invalid_selection_profile'])
+    }
+
+    expect(
+      getRoleSelectionRejectionReasons(
+        candidate(),
+        profile,
+        new Date(Number.NaN)
+      )
+    ).toEqual(['invalid_selection_time'])
   })
 
   it('uses explicit provider-qualified fallback order before quality scoring', () => {
