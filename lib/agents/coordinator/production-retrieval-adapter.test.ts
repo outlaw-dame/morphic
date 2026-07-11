@@ -30,6 +30,15 @@ function validResult() {
   }
 }
 
+function retrieveInput(query = 'Explain photosynthesis') {
+  return {
+    query,
+    routeContext: context(query),
+    attempt: 1,
+    repairActions: [] as readonly string[]
+  }
+}
+
 describe('AI-I3F production retrieval adapter', () => {
   it('passes an immutable verified route to the retrieval executor', async () => {
     const execute = vi.fn(async input => {
@@ -87,14 +96,68 @@ describe('AI-I3F production retrieval adapter', () => {
       })
     })
 
-    await expect(
-      adapter.retrieve({
-        query: 'Explain photosynthesis',
-        routeContext: context('Explain photosynthesis'),
-        attempt: 1,
-        repairActions: []
+    await expect(adapter.retrieve(retrieveInput())).rejects.toThrow(
+      'Invalid production retrieval search result.'
+    )
+  })
+
+  it('rejects search results without non-empty evidence content', async () => {
+    const adapter = createProductionRetrievalAdapter({
+      execute: async () => ({
+        searchResults: [
+          {
+            title: 'Source',
+            url: 'https://example.org/source',
+            content: '   '
+          }
+        ],
+        completedRoles: ['retriever'],
+        retrievedAt: '2026-07-11T12:00:00.000Z'
       })
-    ).rejects.toThrow('Invalid production retrieval search result.')
+    })
+
+    await expect(adapter.retrieve(retrieveInput())).rejects.toThrow(
+      'Invalid production retrieval search result.'
+    )
+  })
+
+  it('rejects arbitrary completed-role strings', async () => {
+    const adapter = createProductionRetrievalAdapter({
+      execute: async () => ({
+        ...validResult(),
+        completedRoles: ['retriever', 'untrusted_role']
+      })
+    })
+
+    await expect(adapter.retrieve(retrieveInput())).rejects.toThrow(
+      'Invalid production retrieval completed role.'
+    )
+  })
+
+  it('accepts numeric retrieval timestamps without string coercion', async () => {
+    const timestamp = Date.parse('2026-07-11T12:00:00.000Z')
+    const adapter = createProductionRetrievalAdapter({
+      execute: async () => ({
+        ...validResult(),
+        retrievedAt: timestamp
+      })
+    })
+
+    const result = await adapter.retrieve(retrieveInput())
+    expect(result.retrievedAt).toEqual(new Date(timestamp))
+  })
+
+  it('rejects unsupported timestamp objects', async () => {
+    const adapter = createProductionRetrievalAdapter({
+      execute: async () => ({
+        ...validResult(),
+        retrievedAt: { toString: () => '2026-07-11T12:00:00.000Z' }
+      })
+    })
+
+    await expect(adapter.retrieve(retrieveInput())).rejects.toThrow(
+      'Invalid production retrieval timestamp.'
+    )
   })
 
   it('propagates cancellation before invoking retrieval', async () => {
@@ -105,10 +168,7 @@ describe('AI-I3F production retrieval adapter', () => {
 
     await expect(
       adapter.retrieve({
-        query: 'Explain photosynthesis',
-        routeContext: context('Explain photosynthesis'),
-        attempt: 1,
-        repairActions: [],
+        ...retrieveInput(),
         signal: controller.signal
       })
     ).rejects.toThrow('cancelled')
@@ -121,20 +181,16 @@ describe('AI-I3F production retrieval adapter', () => {
       execute: async () => ({
         searchResults: Array.from({ length: 501 }, (_, index) => ({
           title: `Source ${index}`,
-          url: `https://example.org/${index}`
+          url: `https://example.org/${index}`,
+          content: `Content ${index}`
         })),
         completedRoles: ['retriever'],
         retrievedAt: '2026-07-11T12:00:00.000Z'
       })
     })
 
-    await expect(
-      adapter.retrieve({
-        query: 'Explain photosynthesis',
-        routeContext: context('Explain photosynthesis'),
-        attempt: 1,
-        repairActions: []
-      })
-    ).rejects.toThrow('Invalid production retrieval search results.')
+    await expect(adapter.retrieve(retrieveInput())).rejects.toThrow(
+      'Invalid production retrieval search results.'
+    )
   })
 })
