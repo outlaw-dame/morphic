@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import type { EvidenceGraph } from '@/lib/ai-architecture/evidence'
 import {
   createRouteExecutionContext,
-  digestRoutePlan
+  digestRoutePlan,
+  type RouteExecutionContext
 } from '@/lib/ai/router/execution-context'
 import { buildDeterministicRouteFloor } from '@/lib/ai/router/router-admission'
 import {
@@ -13,7 +15,8 @@ import type { SearchResultItem } from '@/lib/types'
 
 import {
   type AdvisorModelInput,
-  createProductionAdvisorAdapter
+  createProductionAdvisorAdapter,
+  type ProductionAdvisorReviewInput
 } from './production-advisor-adapter'
 import {
   type ComposerModelInput,
@@ -28,7 +31,14 @@ import {
 const now = new Date('2026-07-11T12:00:00.000Z')
 const query = 'Provide medical treatment guidance for a concussion'
 
-function context() {
+type PreparedReview = Readonly<{
+  approval: CoordinatorCompositionApproval
+  evidenceGraph: EvidenceGraph
+  routeContext: RouteExecutionContext
+  composition: PendingCompositionDraft
+}>
+
+function context(): RouteExecutionContext {
   const routePlan = buildDeterministicRouteFloor({ query })
   return createRouteExecutionContext({
     routePlan,
@@ -101,16 +111,10 @@ function result(url: string): SearchResultItem {
   }
 }
 
-type PreparedReview = Awaited<ReturnType<typeof prepareReview>>
-
-async function prepareReview() {
+async function prepareReview(): Promise<PreparedReview> {
   let approval: CoordinatorCompositionApproval | undefined
-  let evidenceGraph:
-    | Parameters<ReturnType<typeof createProductionAdvisorAdapter>['review']>[0]['evidenceGraph']
-    | undefined
-  let routeContext:
-    | Parameters<ReturnType<typeof createProductionAdvisorAdapter>['review']>[0]['routeContext']
-    | undefined
+  let evidenceGraph: EvidenceGraph | undefined
+  let routeContext: RouteExecutionContext | undefined
 
   const composerProvider: RoleProviderAdapter<ComposerModelInput> = {
     invoke: async invocation => ({
@@ -170,9 +174,7 @@ async function prepareReview() {
   }
 }
 
-function advisor(
-  provider: RoleProviderAdapter<AdvisorModelInput>
-): ReturnType<typeof createProductionAdvisorAdapter> {
+function advisor(provider: RoleProviderAdapter<AdvisorModelInput>) {
   return createProductionAdvisorAdapter({
     scope: scope('advisor_invocation_00001'),
     candidates: [candidate('advisor')],
@@ -180,14 +182,17 @@ function advisor(
   })
 }
 
-function reviewInput(prepared: PreparedReview, signal?: AbortSignal) {
+function reviewInput(
+  prepared: PreparedReview,
+  signal?: AbortSignal
+): ProductionAdvisorReviewInput {
   return {
     query,
     routeContext: prepared.routeContext,
     evidenceGraph: prepared.evidenceGraph,
     approval: prepared.approval,
     composition: prepared.composition,
-    signal
+    ...(signal ? { signal } : {})
   }
 }
 
@@ -309,14 +314,16 @@ describe('AI-I3H evidence-and-draft-only Advisor adapter', () => {
     const provider: RoleProviderAdapter<AdvisorModelInput> = {
       invoke: vi.fn(
         invocation =>
-          new Promise((_, reject) => {
-            invocation.signal.addEventListener(
-              'abort',
-              () => reject(new Error('provider observed cancellation')),
-              { once: true }
-            )
-            controller.abort(new Error('user cancelled review'))
-          })
+          new Promise<Readonly<{ output: unknown; outputTokens: number }>>(
+            (_, reject) => {
+              invocation.signal.addEventListener(
+                'abort',
+                () => reject(new Error('provider observed cancellation')),
+                { once: true }
+              )
+              controller.abort(new Error('user cancelled review'))
+            }
+          )
       )
     }
 
