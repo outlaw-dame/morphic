@@ -88,6 +88,13 @@ export const RoleExecutionResultSchema = z
         path: ['failureClass']
       })
     }
+    if (value.status === 'succeeded' && value.outputDigest === null) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Output digest must be present when execution succeeded.',
+        path: ['outputDigest']
+      })
+    }
   })
 export type RoleExecutionResult = z.infer<typeof RoleExecutionResultSchema>
 
@@ -202,6 +209,20 @@ export const EntityProviderResultSchema = z
         code: 'custom',
         message: 'Failure class must match provider result status.',
         path: ['failureClass']
+      })
+    }
+    if (value.status === 'succeeded' && value.canonicalIds.length === 0) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Canonical IDs must be present when provider status succeeded.',
+        path: ['canonicalIds']
+      })
+    }
+    if (value.status !== 'succeeded' && value.canonicalIds.length > 0) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Canonical IDs must be empty unless provider status succeeded.',
+        path: ['canonicalIds']
       })
     }
   })
