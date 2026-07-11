@@ -12,6 +12,7 @@ import {
   executionSearchMode,
   extractAdmissionQuery
 } from '@/lib/ai/router/chat-admission'
+import { createRouteExecutionContext } from '@/lib/ai/router/execution-context'
 import { calculateConversationTurn, trackChatEvent } from '@/lib/analytics'
 import { getCurrentUserId } from '@/lib/auth/get-current-user'
 import { checkAndEnforceAdaptiveLimit } from '@/lib/rate-limit/adaptive-limit'
@@ -38,7 +39,6 @@ export async function POST(req: Request) {
   const startTime = performance.now()
   const abortSignal = req.signal
 
-  // Reset counters for new request (development only)
   if (process.env.ENABLE_PERF_LOGGING === 'true') {
     resetAllCounters()
   }
@@ -51,7 +51,6 @@ export async function POST(req: Request) {
       `API Route - Start: chatId=${chatId}, trigger=${trigger}, isNewChat=${isNewChat}`
     )
 
-    // Handle different triggers using AI SDK standard values
     if (trigger === 'regenerate-message') {
       if (!messageId) {
         return new Response('messageId is required for regeneration', {
@@ -105,8 +104,6 @@ export async function POST(req: Request) {
       cookieStore.get(PERSONALIZATION_COOKIE_NAME)?.value
     )
 
-    // Treat the cookie as a user preference, not authorization to weaken the
-    // canonical Router decision.
     const searchModeCookie = cookieStore.get('searchMode')?.value
     const requestedSearchMode: SearchMode =
       searchModeCookie && ['quick', 'adaptive'].includes(searchModeCookie)
@@ -133,15 +130,16 @@ export async function POST(req: Request) {
       userId: userId ?? null,
       signal: abortSignal
     })
-    const searchMode = executionSearchMode(admission.routePlan.mode)
+    const routeContext = createRouteExecutionContext({
+      routePlan: admission.routePlan,
+      routeDigest: admission.routeDigest
+    })
+    const searchMode = executionSearchMode(routeContext.routePlan.mode)
     perfTime('Router admission completed', admissionStart)
     perfLog(
-      `Router admission: mode=${admission.routePlan.mode}, executionMode=${searchMode}, risk=${admission.routePlan.riskLevel}, digest=${admission.routeDigest.slice(0, 12)}`
+      `Router admission: mode=${routeContext.routePlan.mode}, executionMode=${searchMode}, risk=${routeContext.routePlan.riskLevel}, digest=${routeContext.routeDigest.slice(0, 12)}`
     )
 
-    // Adaptive execution is gated to authenticated users on cloud deployments.
-    // This check uses the Router-promoted execution mode so a guest cannot
-    // obtain governed adaptive execution by selecting a quick-mode cookie.
     if (
       isAdaptiveModeAuthBlocked({
         mode: searchMode,
@@ -162,8 +160,6 @@ export async function POST(req: Request) {
       )
     }
 
-    // No model selection, tools, research, or streaming may start before a
-    // schema-valid canonical Router admission result exists.
     const selectedModel = await selectModel({ searchMode, cookieStore })
 
     if (!selectedModel) {
@@ -205,7 +201,8 @@ export async function POST(req: Request) {
           abortSignal,
           searchMode,
           chatId,
-          personalization
+          personalization,
+          routeContext
         })
       : await createChatStreamResponse({
           message,
@@ -217,22 +214,19 @@ export async function POST(req: Request) {
           abortSignal,
           isNewChat,
           searchMode,
-          personalization
+          personalization,
+          routeContext
         })
 
     perfTime('createChatStreamResponse resolved', streamStart)
 
-    // Track analytics event (non-blocking)
-    // Calculate conversation turn by loading chat history
     ;(async () => {
       try {
-        let conversationTurn = 1 // Default for new chats
+        let conversationTurn = 1
 
-        // For existing chats, load history and calculate turn number
         if (!isNewChat && !isGuest) {
           const chat = await loadChat(chatId, userId)
           if (chat?.messages) {
-            // Add 1 to account for the current message being sent
             conversationTurn = calculateConversationTurn(chat.messages) + 1
           }
         }
@@ -252,13 +246,10 @@ export async function POST(req: Request) {
           })
         }
       } catch (error) {
-        // Log error but don't throw - analytics should never break the app
         console.error('Analytics tracking failed:', error)
       }
     })()
 
-    // Invalidate the cache for this specific chat after creating the response
-    // This ensures the next load will get fresh data
     if (chatId && !isGuest) {
       revalidateTag(`chat-${chatId}`, 'max')
     }
