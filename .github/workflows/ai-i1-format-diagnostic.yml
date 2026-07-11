@@ -1,0 +1,31 @@
+name: AI-I1 Format Diagnostic
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  format-artifact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.12
+      - run: bun install --frozen-lockfile
+      - run: |
+          bunx prettier --write \
+            lib/models/role-selection-v2.ts \
+            lib/models/role-selection-v2.test.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-i1-format-output
+          path: |
+            lib/models/role-selection-v2.ts
+            lib/models/role-selection-v2.test.ts
+          if-no-files-found: error
+          retention-days: 1
