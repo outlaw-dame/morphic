@@ -34,7 +34,7 @@ jobs:
             lib/ai/prompts/role-prompts.ts \
             lib/ai/prompts/role-output-parsers.ts \
             lib/models/capabilities.ts || true
-      - name: Capture lint report
+      - name: Capture style output
         run: |
           bunx eslint -f json \
             lib/ai/architecture \
@@ -42,6 +42,13 @@ jobs:
             lib/ai/prompts/role-prompts.ts \
             lib/ai/prompts/role-output-parsers.ts \
             lib/models/capabilities.ts > ai-i0-lint-report.json || true
+          git diff -- \
+            lib/ai/architecture \
+            lib/ai/schemas/core.ts \
+            lib/ai/prompts/role-prompts.ts \
+            lib/ai/prompts/role-output-parsers.ts \
+            lib/models/capabilities.ts \
+            docs/AI_PHASE_I0_CANONICAL_CONTRACTS.md > ai-i0-style.patch
       - uses: actions/upload-artifact@v4
         with:
           name: ai-i0-style-output
@@ -53,5 +60,6 @@ jobs:
             lib/models/capabilities.ts
             docs/AI_PHASE_I0_CANONICAL_CONTRACTS.md
             ai-i0-lint-report.json
+            ai-i0-style.patch
           if-no-files-found: error
           retention-days: 1
