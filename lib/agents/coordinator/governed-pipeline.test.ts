@@ -7,7 +7,10 @@ import {
 import { buildDeterministicRouteFloor } from '@/lib/ai/router/router-admission'
 import type { SearchResultItem } from '@/lib/types'
 
-import { runGovernedResearchPipeline } from './governed-pipeline'
+import {
+  type GovernedRetrievalAdapter,
+  runGovernedResearchPipeline
+} from './governed-pipeline'
 
 const now = new Date('2026-07-11T12:00:00.000Z')
 
@@ -148,14 +151,15 @@ describe('AI-I3E governed two-stage pipeline', () => {
   it('rejects null retrieval adapter results before property access', async () => {
     const query = 'Explain photosynthesis'
     const compose = vi.fn()
+    const retrieval = {
+      retrieve: async () => null
+    } as unknown as GovernedRetrievalAdapter
 
     await expect(
       runGovernedResearchPipeline({
         query,
         routeContext: context(query),
-        retrieval: {
-          retrieve: async () => null
-        } as unknown as Parameters<typeof runGovernedResearchPipeline>[0]['retrieval'],
+        retrieval,
         composition: { compose },
         now
       })
