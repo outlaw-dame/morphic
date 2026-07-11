@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createRouteExecutionContext,
-  digestRoutePlan
+  digestRoutePlan,
+  type RouteExecutionContext
 } from '@/lib/ai/router/execution-context'
 import { buildDeterministicRouteFloor } from '@/lib/ai/router/router-admission'
 
@@ -33,7 +34,7 @@ describe('governed production rollout policy', () => {
     expect(
       decideGovernedProductionRollout({
         routeContext: context('Research current treatments for concussion'),
-        configuredValue: 'true'
+        configuredValue: ' true\n'
       })
     ).toEqual({
       enabled: true,
@@ -53,11 +54,22 @@ describe('governed production rollout policy', () => {
     })
   })
 
-  it('fails closed for malformed configuration', () => {
+  it('fails closed for malformed configuration and context', () => {
     expect(
       decideGovernedProductionRollout({
         routeContext: context('Research current treatments for concussion'),
         configuredValue: 'TRUE'
+      })
+    ).toEqual({
+      enabled: false,
+      useGovernedChain: false,
+      reason: 'invalid_configuration'
+    })
+
+    expect(
+      decideGovernedProductionRollout({
+        routeContext: {} as RouteExecutionContext,
+        configuredValue: 'true'
       })
     ).toEqual({
       enabled: false,
