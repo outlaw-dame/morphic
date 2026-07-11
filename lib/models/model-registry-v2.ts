@@ -1,11 +1,11 @@
 import { z } from 'zod'
 
-import {
-  ModelCapabilitySchema,
-  ModelRoleSchema,
-  type ModelCapability
-} from '@/lib/ai/schemas'
 import { parseArchitectureContract } from '@/lib/ai/architecture'
+import {
+  type ModelCapability,
+  ModelCapabilitySchema,
+  ModelRoleSchema
+} from '@/lib/ai/schemas'
 
 import type {
   CapabilityAssertion,

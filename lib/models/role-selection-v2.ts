@@ -1,8 +1,8 @@
 import {
-  ModelCapabilitySchema,
-  ModelRoleSchema,
   type ModelCapability,
-  type ModelRole
+  ModelCapabilitySchema,
+  type ModelRole,
+  ModelRoleSchema
 } from '@/lib/ai/schemas'
 
 export type CapabilityProvenance =
