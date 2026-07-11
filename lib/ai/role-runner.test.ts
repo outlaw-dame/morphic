@@ -163,6 +163,43 @@ describe('common hardened role runner', () => {
     expect(adapter.invoke).not.toHaveBeenCalled()
   })
 
+  it('rejects malformed candidate collections and adapters as configuration errors', async () => {
+    const adapterGetter = vi.fn(() => successfulAdapter().invoke)
+    const hostileAdapter = Object.defineProperty({}, 'invoke', {
+      enumerable: true,
+      get: adapterGetter
+    })
+
+    await expect(
+      runRole({
+        scope: scope(),
+        role: 'advisor',
+        candidates: null as never,
+        prompt,
+        inputSchema: InputSchema,
+        outputSchema: OutputSchema,
+        input: { query: 'invalid candidates' },
+        adapter: successfulAdapter(),
+        limits
+      })
+    ).rejects.toThrow('Invalid role runner configuration.')
+
+    await expect(
+      runRole({
+        scope: scope(),
+        role: 'advisor',
+        candidates: [candidate()],
+        prompt,
+        inputSchema: InputSchema,
+        outputSchema: OutputSchema,
+        input: { query: 'invalid adapter' },
+        adapter: hostileAdapter as never,
+        limits
+      })
+    ).rejects.toThrow('Invalid role runner configuration.')
+    expect(adapterGetter).not.toHaveBeenCalled()
+  })
+
   it('does not execute hostile input or candidate accessors', async () => {
     const adapter = successfulAdapter()
     const inputGetter = vi.fn(() => 'stolen')

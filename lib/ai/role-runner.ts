@@ -439,11 +439,19 @@ function validateConfiguration(input: {
   }
 }
 
-function normalizeCandidates(
-  candidates: readonly unknown[]
-): readonly unknown[] {
+function normalizeCandidates(candidates: unknown): readonly unknown[] {
+  let candidateValues: readonly unknown[]
+  try {
+    if (!Array.isArray(candidates)) {
+      throw new InvalidRoleRunnerConfigurationError()
+    }
+    candidateValues = candidates
+  } catch {
+    throw new InvalidRoleRunnerConfigurationError()
+  }
+
   return Object.freeze(
-    candidates.map(candidate => {
+    candidateValues.map(candidate => {
       try {
         return parseArchitectureContract(RoleModelCandidateSchema, candidate)
       } catch {
@@ -451,6 +459,25 @@ function normalizeCandidates(
       }
     })
   )
+}
+
+function assertProviderAdapter(adapter: unknown): void {
+  if (adapter === null || typeof adapter !== 'object') {
+    throw new InvalidRoleRunnerConfigurationError()
+  }
+
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(adapter, 'invoke')
+    if (
+      !descriptor ||
+      !('value' in descriptor) ||
+      typeof descriptor.value !== 'function'
+    ) {
+      throw new InvalidRoleRunnerConfigurationError()
+    }
+  } catch {
+    throw new InvalidRoleRunnerConfigurationError()
+  }
 }
 
 function canRetry(
@@ -485,6 +512,7 @@ export async function runRole<TInput, TOutput>(
   }>
 ): Promise<RoleRunnerOutcome<TOutput>> {
   assertTrustedScope(options.scope)
+  assertProviderAdapter(options.adapter)
 
   const retryPolicy = options.retryPolicy ?? {
     maxAttempts: 1,
