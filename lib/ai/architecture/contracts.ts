@@ -83,7 +83,8 @@ export const RoleExecutionResultSchema = z
     if (failed !== (value.failureClass !== null)) {
       context.addIssue({
         code: 'custom',
-        message: 'Failure class must be present exactly when execution did not succeed.',
+        message:
+          'Failure class must be present exactly when execution did not succeed.',
         path: ['failureClass']
       })
     }
@@ -132,7 +133,11 @@ export const CoordinatorTransitionSchema = z
   .object({
     version: z.literal(AI_ARCHITECTURE_CONTRACT_VERSION),
     executionId: BoundedIdSchema,
-    expectedRevision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+    expectedRevision: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(Number.MAX_SAFE_INTEGER),
     from: CoordinatorLifecycleStateSchema,
     to: CoordinatorLifecycleStateSchema,
     eventId: BoundedIdSchema,
