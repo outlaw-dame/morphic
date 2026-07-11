@@ -214,14 +214,16 @@ export const EntityProviderResultSchema = z
     if (value.status === 'succeeded' && value.canonicalIds.length === 0) {
       context.addIssue({
         code: 'custom',
-        message: 'Canonical IDs must be present when provider status succeeded.',
+        message:
+          'Canonical IDs must be present when provider status succeeded.',
         path: ['canonicalIds']
       })
     }
     if (value.status !== 'succeeded' && value.canonicalIds.length > 0) {
       context.addIssue({
         code: 'custom',
-        message: 'Canonical IDs must be empty unless provider status succeeded.',
+        message:
+          'Canonical IDs must be empty unless provider status succeeded.',
         path: ['canonicalIds']
       })
     }
