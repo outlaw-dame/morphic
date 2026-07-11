@@ -69,6 +69,67 @@ export type GovernedResearchPipelineResult<T> =
   | GovernedResearchPipelineBlocked
   | GovernedResearchPipelineReleased<T>
 
+type DataRecord = Record<PropertyKey, unknown>
+
+function readOwnDataProperty(record: DataRecord, key: PropertyKey): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(record, key)
+  if (!descriptor || !('value' in descriptor)) {
+    throw new Error('Invalid governed pipeline adapter output.')
+  }
+  return descriptor.value
+}
+
+function requireAdapterRecord(value: unknown): DataRecord {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Invalid governed pipeline adapter output.')
+  }
+  const prototype = Object.getPrototypeOf(value)
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new Error('Invalid governed pipeline adapter output.')
+  }
+  return value as DataRecord
+}
+
+function validateRetrievalOutput(value: unknown): RetrievalStageOutput {
+  const record = requireAdapterRecord(value)
+  const searchResults = readOwnDataProperty(record, 'searchResults')
+  const completedRoles = readOwnDataProperty(record, 'completedRoles')
+  const retrievedAt = Object.hasOwn(record, 'retrievedAt')
+    ? readOwnDataProperty(record, 'retrievedAt')
+    : undefined
+
+  if (!Array.isArray(searchResults) || !Array.isArray(completedRoles)) {
+    throw new Error('Invalid governed retrieval adapter output.')
+  }
+  if (
+    retrievedAt !== undefined &&
+    retrievedAt !== null &&
+    !(retrievedAt instanceof Date) &&
+    typeof retrievedAt !== 'string'
+  ) {
+    throw new Error('Invalid governed retrieval adapter output.')
+  }
+
+  return {
+    searchResults: searchResults as SearchResultItem[],
+    completedRoles: completedRoles as ModelRole[],
+    retrievedAt
+  }
+}
+
+function validateCompositionOutput<T>(value: unknown): CompositionStageOutput<T> {
+  const record = requireAdapterRecord(value)
+  const output = readOwnDataProperty(record, 'output') as T
+  const completedRoles = readOwnDataProperty(record, 'completedRoles')
+  if (!Array.isArray(completedRoles)) {
+    throw new Error('Invalid governed composition adapter output.')
+  }
+  return {
+    output,
+    completedRoles: completedRoles as ModelRole[]
+  }
+}
+
 function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) {
     throw signal.reason instanceof Error
@@ -100,18 +161,21 @@ export async function runGovernedResearchPipeline<T>(
   input: GovernedResearchPipelineInput<T>
 ): Promise<GovernedResearchPipelineResult<T>> {
   const maxAttempts = normalizeAttemptLimit(input.maxRetrievalAttempts)
+  const now = input.now ?? new Date()
   let repairActions: readonly string[] = Object.freeze([])
   let approvedHandoff: LiveCoordinatorHandoffResult | undefined
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     throwIfAborted(input.signal)
-    const retrieval = await input.retrieve({
-      query: input.query,
-      routeContext: input.routeContext,
-      attempt,
-      repairActions,
-      signal: input.signal
-    })
+    const retrieval = validateRetrievalOutput(
+      await input.retrieve({
+        query: input.query,
+        routeContext: input.routeContext,
+        attempt,
+        repairActions,
+        signal: input.signal
+      })
+    )
     throwIfAborted(input.signal)
 
     const handoff = evaluateLiveCoordinatorHandoff({
@@ -122,7 +186,7 @@ export async function runGovernedResearchPipeline<T>(
       retrievalAttempts: attempt,
       maxRetrievalAttempts: maxAttempts,
       retrievedAt: retrieval.retrievedAt,
-      now: input.now
+      now
     })
 
     if (handoff.evaluation.repairPlan.canProceedToComposition) {
@@ -149,13 +213,15 @@ export async function runGovernedResearchPipeline<T>(
   }
 
   throwIfAborted(input.signal)
-  const composition = await input.compose({
-    query: input.query,
-    routeContext: approvedHandoff.routeContext,
-    evidenceGraph: approvedHandoff.state.evidenceGraph,
-    coordinatorEvaluation: approvedHandoff.evaluation,
-    signal: input.signal
-  })
+  const composition = validateCompositionOutput<T>(
+    await input.compose({
+      query: input.query,
+      routeContext: approvedHandoff.routeContext,
+      evidenceGraph: approvedHandoff.state.evidenceGraph,
+      coordinatorEvaluation: approvedHandoff.evaluation,
+      signal: input.signal
+    })
+  )
   throwIfAborted(input.signal)
 
   const completedRoles = [
@@ -172,7 +238,7 @@ export async function runGovernedResearchPipeline<T>(
     completedRoles,
     stage: 'post_composition_pre_release'
   })
-  const preRelease = coordinateExecution(releaseState, input.now ?? new Date())
+  const preRelease = coordinateExecution(releaseState, now)
 
   if (!preRelease.repairPlan.canProceedToComposition) {
     return Object.freeze({
