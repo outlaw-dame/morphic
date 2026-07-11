@@ -37,7 +37,7 @@ jobs:
           path = Path('lib/ai/router/router-admission.ts')
           text = path.read_text()
           old_risk = r"/\b(legal|lawyer|lawsuit|settlement|insurance|contract|court|regulation|compliance|liability)\b/i,"
-          new_risk = r"/\b(legal|lawyer|lawsuit|settlement|insurance|contract|regulation|compliance|liability)\b/i,\n  /\b(court of law|court ruling|court decision|legal case)\b/i,"
+          new_risk = r"/\b(legal|lawyer|lawsuit|settlement|insurance|contract|regulation|compliance|liability)\b/i," + "\n  " + r"/\b(court of law|court ruling|court decision|legal case)\b/i,"
           old_mode = "let mode: ResearchMode = initialRequiresResearch ? 'adaptive' : 'quick'"
           new_mode = "let mode: ResearchMode = 'quick'"
           if old_risk not in text or old_mode not in text:
