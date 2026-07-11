@@ -1,0 +1,83 @@
+name: AI-I2 Type Fix
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.head_ref == 'agent/ai-i2-hardened-role-runner'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/ai-i2-hardened-role-runner
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - run: bun install --frozen-lockfile
+      - name: Apply exact TypeScript fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          runner = Path('lib/ai/role-runner.ts')
+          text = runner.read_text()
+          old = """    } else {
+              let attempt = 1
+              for (;;) {
+          """
+          new = """    } else {
+              const selectedCandidate = selection.candidate
+              let attempt = 1
+              for (;;) {
+          """
+          if old not in text:
+              raise SystemExit('selected branch anchor not found')
+          text = text.replace(old, new)
+          text = text.replace(
+              '                providerId: selection.candidate.providerId,\n                modelId: selection.candidate.modelId,',
+              '                providerId: selectedCandidate.providerId,\n                modelId: selectedCandidate.modelId,'
+          )
+          runner.write_text(text)
+
+          tests = Path('lib/ai/role-runner.test.ts')
+          test_text = tests.read_text()
+          old_test = """    const never: RoleProviderAdapter<{ query: string }> = {
+              invoke: vi.fn(() => new Promise(() => undefined))
+            }
+          """
+          new_test = """    const never: RoleProviderAdapter<{ query: string }> = {
+              invoke: vi.fn(
+                () =>
+                  new Promise<Readonly<{ output: unknown; outputTokens: number }>>(
+                    () => undefined
+                  )
+              )
+            }
+          """
+          if old_test not in test_text:
+              raise SystemExit('never adapter block not found')
+          tests.write_text(test_text.replace(old_test, new_test))
+          PY
+      - name: Format and validate focused files
+        run: |
+          bunx prettier --write lib/ai/role-runner.ts lib/ai/role-runner.test.ts
+          bunx eslint lib/ai/role-runner.ts lib/ai/role-runner.test.ts
+          bun typecheck
+      - name: Remove temporary workflows
+        run: |
+          rm .github/workflows/ai-i2-type-fix.yml
+          rm -f .github/workflows/ai-i2-type-diagnostic.yml
+      - name: Commit fixes
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "fix(ai): satisfy AI-I2 strict type narrowing"
+          git push origin HEAD:agent/ai-i2-hardened-role-runner
