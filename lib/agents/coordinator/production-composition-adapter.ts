@@ -90,6 +90,7 @@ const ComposerModelOutputSchema = z
     citedEvidenceIds: z
       .array(z.string().min(1).max(256))
       .max(MAX_CITED_EVIDENCE)
+      .transform(values => [...new Set(values)])
   })
   .strict()
 
@@ -197,11 +198,10 @@ function validateCitations(
   input: ComposerModelInput
 ): readonly string[] {
   const admitted = new Set(input.evidence.map(item => item.id))
-  const citations = [...new Set(output.citedEvidenceIds)]
-  if (citations.some(id => !admitted.has(id))) {
+  if (output.citedEvidenceIds.some(id => !admitted.has(id))) {
     throw new Error('Composer cited evidence outside the approved graph.')
   }
-  return Object.freeze(citations)
+  return Object.freeze([...output.citedEvidenceIds])
 }
 
 export function createProductionCompositionAdapter(
