@@ -27,6 +27,10 @@ export type RouterResult = {
  * implies that a model was invoked.
  */
 export function routeResearchRequest(input: RouterInput): RouterResult {
+  if (!input.query.trim()) {
+    throw new Error('Query cannot be empty')
+  }
+
   const prompt = getRolePrompt('router')
   const routePlan = buildDeterministicRouteFloor({
     query: input.query,
