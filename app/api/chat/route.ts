@@ -130,7 +130,7 @@ export async function POST(req: Request) {
     const admission = await admitChatRequest({
       query: admissionQuery,
       requestedSearchMode,
-      userId,
+      userId: userId ?? null,
       signal: abortSignal
     })
     const searchMode = executionSearchMode(admission.routePlan.mode)
