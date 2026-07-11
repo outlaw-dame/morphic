@@ -68,11 +68,20 @@ export type GovernedPipelineInput<TOutput> = Readonly<{
 }>
 
 function throwIfAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) {
-    throw signal.reason instanceof Error
-      ? signal.reason
-      : new DOMException('The operation was aborted.', 'AbortError')
+  if (!signal?.aborted) return
+
+  if (signal.reason instanceof Error) {
+    throw signal.reason
   }
+
+  const message =
+    typeof signal.reason === 'string'
+      ? signal.reason
+      : 'The operation was aborted.'
+
+  throw typeof DOMException !== 'undefined'
+    ? new DOMException(message, 'AbortError')
+    : new Error(message)
 }
 
 function sanitizeRepairActions(actions: readonly string[]): readonly string[] {
@@ -133,6 +142,10 @@ export async function runGovernedResearchPipeline<TOutput>(
     })
 
     throwIfAborted(input.signal)
+
+    if (!retrievalResult || typeof retrievalResult !== 'object') {
+      throw new Error('Invalid retrieval result returned from adapter.')
+    }
 
     lastHandoff = evaluateLiveCoordinatorHandoff({
       routeContext: input.routeContext,
