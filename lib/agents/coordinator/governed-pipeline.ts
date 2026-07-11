@@ -32,6 +32,13 @@ const KNOWN_NON_RETRIEVAL_ACTIONS = new Set([
   'select_stronger_model'
 ])
 
+const compositionApprovals = new WeakSet<object>()
+
+export type CoordinatorCompositionApproval = Readonly<{
+  routeDigest: string
+  evidenceGraph: EvidenceGraph
+}>
+
 export type GovernedRetrievalResult = Readonly<{
   searchResults: readonly SearchResultItem[]
   completedRoles: readonly ModelRole[]
@@ -54,6 +61,7 @@ export type GovernedCompositionAdapter<TOutput> = Readonly<{
     routeContext: RouteExecutionContext
     evidenceGraph: EvidenceGraph
     completedRoles: readonly ModelRole[]
+    approval: CoordinatorCompositionApproval
     signal?: AbortSignal
   }>): Promise<TOutput>
 }>
@@ -73,6 +81,32 @@ export type GovernedPipelineInput<TOutput> = Readonly<{
   signal?: AbortSignal
   now?: Date
 }>
+
+function createCoordinatorCompositionApproval(
+  routeContext: RouteExecutionContext,
+  evidenceGraph: EvidenceGraph
+): CoordinatorCompositionApproval {
+  const approval = Object.freeze({
+    routeDigest: routeContext.routeDigest,
+    evidenceGraph
+  })
+  compositionApprovals.add(approval)
+  return approval
+}
+
+export function assertCoordinatorCompositionApproval(
+  approval: CoordinatorCompositionApproval,
+  routeContext: RouteExecutionContext,
+  evidenceGraph: EvidenceGraph
+): void {
+  if (
+    !compositionApprovals.has(approval) ||
+    approval.routeDigest !== routeContext.routeDigest ||
+    approval.evidenceGraph !== evidenceGraph
+  ) {
+    throw new Error('Invalid Coordinator composition approval.')
+  }
+}
 
 function throwIfAborted(signal?: AbortSignal): void {
   if (!signal?.aborted) return
@@ -188,11 +222,16 @@ export async function runGovernedResearchPipeline<TOutput>(
 
     if (canProceed) {
       throwIfAborted(input.signal)
+      const approval = createCoordinatorCompositionApproval(
+        lastHandoff.routeContext,
+        lastHandoff.state.evidenceGraph
+      )
       const output = await input.composition.compose({
         query,
         routeContext: lastHandoff.routeContext,
         evidenceGraph: lastHandoff.state.evidenceGraph,
         completedRoles: Object.freeze([...lastHandoff.state.completedRoles]),
+        approval,
         signal: input.signal
       })
       throwIfAborted(input.signal)
