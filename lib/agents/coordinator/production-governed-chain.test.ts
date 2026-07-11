@@ -16,25 +16,28 @@ function context(query: string) {
   })
 }
 
-const invalidPorts = {
-  retrieval: { retrieve: vi.fn() },
-  composition: { compose: vi.fn() },
-  citationVerifier: { verify: vi.fn() }
+function createMockPorts() {
+  return {
+    retrieval: { retrieve: vi.fn() },
+    composition: { compose: vi.fn() },
+    citationVerifier: { verify: vi.fn() }
+  }
 }
 
 describe('production governed-chain facade', () => {
   it('rejects non-research routes before invoking any adapter', async () => {
+    const ports = createMockPorts()
     await expect(
       runProductionGovernedChain({
         query: 'Hello',
         routeContext: context('Hello'),
-        ...invalidPorts
+        ...ports
       })
     ).rejects.toThrow('Governed production chain requires a research route.')
 
-    expect(invalidPorts.retrieval.retrieve).not.toHaveBeenCalled()
-    expect(invalidPorts.composition.compose).not.toHaveBeenCalled()
-    expect(invalidPorts.citationVerifier.verify).not.toHaveBeenCalled()
+    expect(ports.retrieval.retrieve).not.toHaveBeenCalled()
+    expect(ports.composition.compose).not.toHaveBeenCalled()
+    expect(ports.citationVerifier.verify).not.toHaveBeenCalled()
   })
 
   it('requires Advisor capability before retrieval for Advisor-mandated routes', async () => {
