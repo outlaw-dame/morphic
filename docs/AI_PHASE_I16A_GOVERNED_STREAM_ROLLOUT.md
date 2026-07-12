@@ -37,7 +37,7 @@ This first rollout slice implements the rollout authority and live request bound
 - `shadow` never changes the user-visible answer and cannot authorize release.
 - `enforce` may never invoke the legacy researcher for a selected cohort.
 - Invalid active configuration fails closed before model selection or streaming.
-- Disabled and zero-percent rollout do not depend on unused cohort inputs or salts.
+- Rollout with percentage `0` does not depend on unused cohort inputs or salts. `off` mode with a stale nonzero percentage remains an invalid active configuration and still requires a valid salt.
 - Rollout metadata contains no prompt, draft, evidence, email, IP address, or raw user identifier.
 - Authenticated and guest streaming entrypoints both require the canonical rollout decision and independently enforce it.
 - A selected `enforce` request returns a controlled service-unavailable response until a later AI-I16 slice supplies and consumes a valid AI-I3J release authorization.
