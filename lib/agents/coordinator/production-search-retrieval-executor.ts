@@ -11,6 +11,10 @@ const MAX_QUERY_LENGTH = 16_000
 const MAX_RESULTS = 100
 const MAX_ATTEMPTS = 5
 const DEFAULT_RESULTS = 20
+const COMPLETED_ROLES: readonly ModelRole[] = Object.freeze([
+  'router',
+  'retriever'
+])
 
 const SUPPORTED_REPAIR_ACTIONS = new Set([
   'retrieve_more_sources',
@@ -73,7 +77,7 @@ function completedRoles(): readonly ModelRole[] {
   // This executor performs only retrieval. Source-quality classification,
   // entity grounding, and Fusion planning are separate governed roles and must
   // never be reported as complete merely because search returned results.
-  return Object.freeze(['router', 'retriever'] as const)
+  return COMPLETED_ROLES
 }
 
 function normalizeResults(value: SearchResults): readonly SearchResultItem[] {
