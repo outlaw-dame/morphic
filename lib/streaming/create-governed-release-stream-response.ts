@@ -13,6 +13,7 @@ const DIGEST_PATTERN = /^[a-f0-9]{64}$/
 const MAX_DRAFT_LENGTH = 200_000
 const MAX_CITATIONS = 500
 const MAX_EVIDENCE_ID_LENGTH = 256
+const MAX_TRACE_ID_LENGTH = 256
 
 export type GovernedReleaseStreamInput = Readonly<{
   release: ReleasedProductionResponse
@@ -37,9 +38,12 @@ function normalizeRelease(
     typeof release.draft !== 'string' ||
     release.draft.trim().length === 0 ||
     release.draft.length > MAX_DRAFT_LENGTH ||
+    typeof release.composerOutputDigest !== 'string' ||
     !DIGEST_PATTERN.test(release.composerOutputDigest) ||
     (release.advisorOutputDigest !== null &&
-      !DIGEST_PATTERN.test(release.advisorOutputDigest)) ||
+      (typeof release.advisorOutputDigest !== 'string' ||
+        !DIGEST_PATTERN.test(release.advisorOutputDigest))) ||
+    typeof release.citationVerifierOutputDigest !== 'string' ||
     !DIGEST_PATTERN.test(release.citationVerifierOutputDigest) ||
     typeof release.releasedAt !== 'string' ||
     !Number.isFinite(Date.parse(release.releasedAt)) ||
@@ -81,6 +85,19 @@ function assertEnforcedRollout(
   }
 }
 
+function normalizeTraceId(value: unknown): string | undefined {
+  if (value === undefined) return undefined
+  if (
+    typeof value !== 'string' ||
+    value.length === 0 ||
+    value.length > MAX_TRACE_ID_LENGTH ||
+    /[\r\n]/.test(value)
+  ) {
+    throw new Error('Invalid governed release stream trace ID.')
+  }
+  return value
+}
+
 export function createGovernedReleaseStreamResponse(
   input: GovernedReleaseStreamInput
 ): Response {
@@ -91,6 +108,7 @@ export function createGovernedReleaseStreamResponse(
   const routeContext = createRouteExecutionContext(input.routeContext)
   assertEnforcedRollout(input.rolloutDecision)
   const release = normalizeRelease(input.release, routeContext)
+  const traceId = normalizeTraceId(input.traceId)
   const messageId = randomUUID()
   const textPartId = randomUUID()
 
@@ -120,7 +138,7 @@ export function createGovernedReleaseStreamResponse(
       'X-Governed-Route-Digest': release.routeDigest,
       'X-Governed-Composer-Digest': release.composerOutputDigest,
       'X-Governed-Citation-Digest': release.citationVerifierOutputDigest,
-      ...(input.traceId ? { 'X-Trace-Id': input.traceId } : {})
+      ...(traceId ? { 'X-Trace-Id': traceId } : {})
     }
   })
 }
