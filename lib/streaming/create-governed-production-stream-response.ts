@@ -4,7 +4,10 @@ import {
   type UIMessage
 } from 'ai'
 
-import type { RouteExecutionContext } from '@/lib/ai/router/execution-context'
+import {
+  createRouteExecutionContext,
+  type RouteExecutionContext
+} from '@/lib/ai/router/execution-context'
 
 import type { ProductionGovernedChainInput } from '../agents/coordinator/production-governed-chain'
 import { runProductionGovernedChain } from '../agents/coordinator/production-governed-chain'
@@ -51,7 +54,10 @@ export function createGovernedProductionStreamResponse(
   if (!input || typeof input !== 'object') {
     throw new Error('Invalid governed production stream input.')
   }
-  if (input.chain.routeContext !== input.routeContext) {
+
+  const routeContext = createRouteExecutionContext(input.routeContext)
+  const chainRouteContext = createRouteExecutionContext(input.chain?.routeContext)
+  if (chainRouteContext.routeDigest !== routeContext.routeDigest) {
     throw new Error('Governed production stream route context mismatch.')
   }
 
@@ -61,7 +67,7 @@ export function createGovernedProductionStreamResponse(
       : {}),
     async execute({ writer }) {
       const released = await runProductionGovernedChain(input.chain)
-      const draft = validateReleasedDraft(released, input.routeContext)
+      const draft = validateReleasedDraft(released, routeContext)
 
       writer.write({ type: 'text-start', id: TEXT_PART_ID })
       writer.write({ type: 'text-delta', id: TEXT_PART_ID, delta: draft })
