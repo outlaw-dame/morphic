@@ -16,10 +16,12 @@ export type GovernedProductionStreamInput = Readonly<{
   chain: ProductionGovernedChainInput
   routeContext: RouteExecutionContext
   originalMessages?: readonly UIMessage[]
-  onFinish?: (input: Readonly<{
-    responseMessage: UIMessage
-    isAborted: boolean
-  }>) => Promise<void> | void
+  onFinish?: (
+    input: Readonly<{
+      responseMessage: UIMessage
+      isAborted: boolean
+    }>
+  ) => Promise<void> | void
 }>
 
 function validateReleasedDraft(
