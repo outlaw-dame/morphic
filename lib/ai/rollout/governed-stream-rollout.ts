@@ -32,12 +32,8 @@ function readMode(environment: Environment): GovernedStreamRolloutMode {
   throw new Error('Invalid governed stream rollout mode.')
 }
 
-function readPercentage(
-  environment: Environment,
-  mode: GovernedStreamRolloutMode
-): number {
+function readPercentage(environment: Environment): number {
   const raw = environment.AI_GOVERNED_STREAM_PERCENT?.trim()
-  if (mode === 'off' && !raw) return 0
   if (!raw || !/^\d{1,3}$/.test(raw)) {
     throw new Error('Invalid governed stream rollout percentage.')
   }
@@ -87,11 +83,15 @@ export function decideGovernedStreamRollout(
 
   const environment = input.environment ?? process.env
   const mode = readMode(environment)
-  const percentage = readPercentage(environment, mode)
 
-  if (mode === 'off' && percentage === 0) {
+  // Off is an unconditional operational kill switch. Stale percentages, salts,
+  // or malformed request-derived cohort inputs are intentionally ignored while
+  // no governed execution can be selected.
+  if (mode === 'off') {
     return GOVERNED_STREAM_ROLLOUT_DISABLED
   }
+
+  const percentage = readPercentage(environment)
   if (percentage === 0) {
     return Object.freeze({
       mode,
