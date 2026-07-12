@@ -133,10 +133,12 @@ function hasUnsupportedProvider(
   )
 }
 
-export function resolveProductionRoleRuntimeConfig(input: Readonly<{
-  rawConfig: string | undefined
-  now?: Date
-}>): ProductionRoleRuntimeResolution {
+export function resolveProductionRoleRuntimeConfig(
+  input: Readonly<{
+    rawConfig: string | undefined
+    now?: Date
+  }>
+): ProductionRoleRuntimeResolution {
   if (!input || typeof input !== 'object') {
     return unavailable('invalid_runtime_config_input')
   }
@@ -196,7 +198,9 @@ export function resolveProductionRoleRuntimeConfig(input: Readonly<{
   return Object.freeze({
     status: 'ready' as const,
     version: 1 as const,
-    selectedByRole: Object.freeze(Object.fromEntries(selectedEntries)) as Readonly<
+    selectedByRole: Object.freeze(
+      Object.fromEntries(selectedEntries)
+    ) as Readonly<
       Record<(typeof SUPPORTED_RUNTIME_ROLES)[number], RoleModelCandidate>
     >
   })
