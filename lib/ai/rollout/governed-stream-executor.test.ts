@@ -26,6 +26,11 @@ function decision(mode: 'off' | 'shadow' | 'enforce', selected: boolean) {
   })
 }
 
+async function flushMicrotasks(): Promise<void> {
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
 describe('governed stream executor', () => {
   it('keeps explicit non-research chat on the quick legacy path', async () => {
     const legacy = vi.fn(async () => 'quick-response')
@@ -59,27 +64,53 @@ describe('governed stream executor', () => {
     expect(legacy).not.toHaveBeenCalled()
   })
 
-  it('never exposes shadow output and isolates observer failure', async () => {
-    const order: string[] = []
+  it('returns the legacy response without waiting for shadow completion', async () => {
+    let resolveGoverned: ((value: string) => void) | undefined
+    const governed = new Promise<string>(resolve => {
+      resolveGoverned = resolve
+    })
+    const observer = vi.fn()
+
+    const result = await executeGovernedStream({
+      routeContext: context('Research the current CEO of Apple'),
+      rolloutDecision: decision('shadow', true),
+      executeGoverned: () => governed,
+      executeLegacy: async () => 'legacy-response',
+      onShadowOutcome: observer
+    })
+
+    expect(result).toEqual({ path: 'shadow', value: 'legacy-response' })
+    expect(observer).not.toHaveBeenCalled()
+
+    resolveGoverned?.('secret-governed-draft')
+    await flushMicrotasks()
+
+    expect(observer).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'succeeded', errorClass: null })
+    )
+    expect(JSON.stringify(result)).not.toContain('secret-governed-draft')
+  })
+
+  it('isolates shadow and observer failures from the legacy response', async () => {
+    const observer = vi.fn(async () => {
+      throw new Error('telemetry unavailable')
+    })
+
     const result = await executeGovernedStream({
       routeContext: context('Research the current CEO of Apple'),
       rolloutDecision: decision('shadow', true),
       executeGoverned: async () => {
-        order.push('governed')
-        return 'secret-governed-draft'
+        throw new Error('shadow failed')
       },
-      executeLegacy: async () => {
-        order.push('legacy')
-        return 'legacy-response'
-      },
-      onShadowOutcome: async () => {
-        throw new Error('telemetry unavailable')
-      }
+      executeLegacy: async () => 'legacy-response',
+      onShadowOutcome: observer
     })
 
-    expect(order).toEqual(['governed', 'legacy'])
     expect(result).toEqual({ path: 'shadow', value: 'legacy-response' })
-    expect(JSON.stringify(result)).not.toContain('secret-governed-draft')
+    await flushMicrotasks()
+    expect(observer).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'failed', errorClass: 'Error' })
+    )
   })
 
   it('contains hostile Error names inside shadow telemetry', async () => {
@@ -105,6 +136,7 @@ describe('governed stream executor', () => {
     })
 
     expect(result).toEqual({ path: 'shadow', value: 'legacy-response' })
+    await flushMicrotasks()
     expect(observer).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'failed',
@@ -113,23 +145,23 @@ describe('governed stream executor', () => {
     )
   })
 
-  it('propagates cancellation and prevents legacy fallback', async () => {
+  it('propagates caller cancellation without substituting a fallback', async () => {
     const controller = new AbortController()
-    const legacy = vi.fn(async () => 'legacy-response')
+    const legacy = vi.fn(async () => {
+      controller.abort(new Error('request cancelled'))
+      return 'legacy-response'
+    })
 
     await expect(
       executeGovernedStream({
         routeContext: context('Research the current CEO of Apple'),
         rolloutDecision: decision('shadow', true),
         signal: controller.signal,
-        executeGoverned: async () => {
-          controller.abort(new Error('request cancelled'))
-          throw new Error('provider cancelled')
-        },
+        executeGoverned: async () => 'shadow-response',
         executeLegacy: legacy
       })
     ).rejects.toThrow('request cancelled')
 
-    expect(legacy).not.toHaveBeenCalled()
+    expect(legacy).toHaveBeenCalledTimes(1)
   })
 })
