@@ -57,6 +57,15 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
 
+      - name: Upload AI-I6 typecheck diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-i6-typecheck
+          path: /tmp/typecheck.log
+          if-no-files-found: error
+          retention-days: 1
+
   format:
     runs-on: ubuntu-latest
     name: Format Check
