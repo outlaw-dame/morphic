@@ -88,9 +88,7 @@ describe('governed release UI stream response', () => {
           selected: true
         })
       })
-    ).toThrow(
-      'Governed release stream requires enforced rollout selection.'
-    )
+    ).toThrow('Governed release stream requires enforced rollout selection.')
   })
 
   it('rejects uncited and malformed released payloads', () => {

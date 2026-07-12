@@ -70,9 +70,7 @@ function normalizeRelease(
   return Object.freeze({ ...release, citedEvidenceIds })
 }
 
-function assertEnforcedRollout(
-  decision: GovernedStreamRolloutDecision
-): void {
+function assertEnforcedRollout(decision: GovernedStreamRolloutDecision): void {
   if (
     !decision ||
     typeof decision !== 'object' ||
