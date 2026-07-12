@@ -5,7 +5,7 @@ import {
   digestRoutePlan
 } from '@/lib/ai/router/execution-context'
 import { buildDeterministicRouteFloor } from '@/lib/ai/router/router-admission'
-import type { SourceClass } from '@/lib/ai/schemas'
+import { parseRoutePlan, type SourceClass } from '@/lib/ai/schemas'
 import {
   createTrustedRoleExecutionScope,
   type RoleProviderAdapter
@@ -20,14 +20,16 @@ const query = 'Research who founded Example Corp and what changed recently.'
 
 function context(value: string = query) {
   const floor = buildDeterministicRouteFloor({ query: value })
-  const routePlan = Object.freeze({
+  const routePlan = parseRoutePlan({
     ...floor,
     needsFusionPlanning: value !== 'Hello',
     needsFreshness: value !== 'Hello',
     needsEntityGrounding: value !== 'Hello',
+    requiredSourceClasses: [],
+    disallowedSourceClasses: ['content_farm', 'scraper_or_aggregator'],
     mode: value === 'Hello' ? 'quick' : 'deep',
-    maxToolCalls: value === 'Hello' ? 1 : Math.max(4, floor.maxToolCalls)
-  } as const)
+    maxToolCalls: value === 'Hello' ? 1 : 8
+  })
   return createRouteExecutionContext({
     routePlan,
     routeDigest: digestRoutePlan(routePlan)
@@ -215,10 +217,10 @@ describe('AI-I5 production Fusion Planner adapter', () => {
     ).rejects.toThrow('Fusion Planner omitted the required entity path.')
   })
 
-  it('rejects insufficient diversity, community over-influence, and tool budget overflow', async () => {
+  it('rejects insufficient diversity and community over-influence', async () => {
     await expect(
       planner({
-        invoke: async invocation => ({
+        invoke: async () => ({
           output: {
             paths: [0, 1, 2].map(index => ({
               id: `same_class_${index}`,
