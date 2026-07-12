@@ -101,13 +101,24 @@ function candidate(role: 'answer_composer' | 'advisor') {
   }
 }
 
-function result(url: string): SearchResultItem {
+function result(
+  routeContext: RouteExecutionContext,
+  url: string,
+  pathId: string
+): SearchResultItem {
   return {
     title: 'Authoritative medical source',
     url,
     content:
       'Concussion treatment guidance should be based on clinical evaluation and current medical evidence.',
-    publishedAt: '2026-07-10T12:00:00.000Z'
+    publishedAt: '2026-07-10T12:00:00.000Z',
+    retrievalProvenance: {
+      routeDigest: routeContext.routeDigest,
+      pathId,
+      pathPurpose: 'primary_evidence',
+      sourceClass: 'government_or_regulator',
+      retrievedAt: now.toISOString()
+    }
   }
 }
 
@@ -131,15 +142,24 @@ async function prepareReview(): Promise<PreparedReview> {
     candidates: [candidate('answer_composer')],
     provider: composerProvider
   })
+  const signedRoute = context()
 
   const response = await runGovernedResearchPipeline({
     query,
-    routeContext: context(),
+    routeContext: signedRoute,
     retrieval: {
       retrieve: async () => ({
         searchResults: [
-          result('https://www.cdc.gov/traumatic-brain-injury/'),
-          result('https://www.nih.gov/health-information/concussion')
+          result(
+            signedRoute,
+            'https://www.cdc.gov/traumatic-brain-injury/',
+            'cdc_primary'
+          ),
+          result(
+            signedRoute,
+            'https://www.nih.gov/health-information/concussion',
+            'nih_corroboration'
+          )
         ],
         completedRoles: [
           'router',
