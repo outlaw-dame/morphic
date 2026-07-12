@@ -57,7 +57,8 @@ describe('production role runtime configuration', () => {
     })
 
     expect(result.status).toBe('ready')
-    if (result.status !== 'ready') throw new Error('Expected ready runtime plan.')
+    if (result.status !== 'ready')
+      throw new Error('Expected ready runtime plan.')
     expect(Object.keys(result.selectedByRole).sort()).toEqual([
       'advisor',
       'answer_composer',
@@ -75,14 +76,17 @@ describe('production role runtime configuration', () => {
       status: 'unavailable',
       reasonCodes: ['runtime_config_missing']
     })
+    expect(resolveProductionRoleRuntimeConfig({ rawConfig: '{', now })).toEqual(
+      {
+        status: 'unavailable',
+        reasonCodes: ['runtime_config_invalid_json']
+      }
+    )
     expect(
-      resolveProductionRoleRuntimeConfig({ rawConfig: '{', now })
-    ).toEqual({
-      status: 'unavailable',
-      reasonCodes: ['runtime_config_invalid_json']
-    })
-    expect(
-      resolveProductionRoleRuntimeConfig({ rawConfig: 'x'.repeat(256_001), now })
+      resolveProductionRoleRuntimeConfig({
+        rawConfig: 'x'.repeat(256_001),
+        now
+      })
     ).toEqual({
       status: 'unavailable',
       reasonCodes: ['runtime_config_too_large']
@@ -146,7 +150,9 @@ describe('production role runtime configuration', () => {
   })
 
   it('rejects stale or incomplete role evaluations', () => {
-    const stale = new Date(now.getTime() - 91 * 24 * 60 * 60 * 1000).toISOString()
+    const stale = new Date(
+      now.getTime() - 91 * 24 * 60 * 60 * 1000
+    ).toISOString()
     const staleQuality = candidate().roleQuality.map(item => ({
       ...item,
       verifiedAt: stale
