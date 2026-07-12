@@ -16,9 +16,7 @@ vi.mock('../agents/coordinator/production-governed-chain', () => ({
 
 import { createGovernedProductionStreamResponse } from './create-governed-production-stream-response'
 
-function context(
-  query = 'Research current concussion treatment guidance'
-) {
+function context(query = 'Research current concussion treatment guidance') {
   const routePlan = buildDeterministicRouteFloor({ query })
   return createRouteExecutionContext({
     routePlan,
