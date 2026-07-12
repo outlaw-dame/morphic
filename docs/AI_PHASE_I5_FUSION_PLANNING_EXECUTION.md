@@ -82,7 +82,7 @@ AI-I5 never claims `source_quality` or `entity_grounding` completed. Those remai
 - Disallowed source classes cannot be re-enabled by model output.
 - No path can exceed its own result cap or the route-wide call/result budget.
 - Retry cannot exceed the route budget.
-- Duplicate lanes, stale/forged route contexts, malformed output, invalid URLs, unsupported source classes, and missing mandatory lanes fail closed.
+- Duplicate lanes, stale or forged route contexts, malformed output, invalid URLs, unsupported source classes, and missing mandatory lanes fail closed.
 - Planner and retrieval output do not authorize composition or release.
 - No rollout flag or production traffic is enabled by this phase.
 
@@ -94,11 +94,11 @@ Planner tests cover:
 - route authorization;
 - duplicate semantic queries;
 - disallowed classes;
-- required freshness/entity lanes;
+- required freshness and entity lanes;
 - source diversity;
 - community influence caps;
 - cancellation without planner retry;
-- provider-agnostic structured normalization.
+- provider-agnostic and OpenRouter-like provider equivalence.
 
 Executor tests cover:
 
@@ -114,12 +114,14 @@ Executor tests cover:
 - cancellation preventing later work;
 - real per-path timeout termination.
 
-Runtime and adapter tests cover:
+Runtime, adapter, and drift-control tests cover:
 
 - Fusion-required route fail-closed behavior;
 - malformed Fusion configuration rejection;
 - completion-report validation;
-- hostile/malformed result rejection;
-- ordinary-search completion accuracy.
+- hostile or malformed result rejection;
+- ordinary-search completion accuracy;
+- AI-I0 through AI-I5 integrated status with evidence;
+- prevention of accidental `enforced` or `production_enabled` status.
 
-Final completion requires the clean PR head, after removal of temporary diagnostic workflow steps, to pass type checking, format checking, lint, tests, native configuration verification, and the production build.
+Final validation on merge-candidate commit `e1d3b7222b99f85ddcef0f2aba41da5668987d28` passed GitHub Actions CI run 782: type checking, format checking, lint, tests, native configuration verification, and the production build.
