@@ -68,7 +68,7 @@ function readRetrievalProvenance(
   issue: EvidenceIngestionIssueCode | null
 }> {
   const raw = result.retrievalProvenance
-  if (raw === undefined) {
+  if (raw === undefined || raw === null) {
     return {
       value: null,
       issue: options.requireRetrievalProvenance
@@ -76,7 +76,7 @@ function readRetrievalProvenance(
         : null
     }
   }
-  if (!raw || typeof raw !== 'object') {
+  if (typeof raw !== 'object') {
     return { value: null, issue: 'invalid_retrieval_provenance' }
   }
   if (
@@ -116,6 +116,9 @@ export function normalizeSearchResultToEvidenceDetailed(
   index: number,
   options: SearchEvidenceNormalizationOptions = {}
 ): SearchEvidenceNormalizationResult {
+  if (!result || typeof result !== 'object') {
+    return { item: null, issue: 'schema_validation_failed' }
+  }
   const canonical = canonicalizeEvidenceUrl(result.url)
   if (!canonical) {
     return { item: null, issue: 'invalid_or_unsupported_url' }
