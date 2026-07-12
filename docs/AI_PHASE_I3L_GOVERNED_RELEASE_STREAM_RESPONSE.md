@@ -2,7 +2,7 @@
 
 ## Status
 
-Validation pending on the final permanent head.
+Final validation pending after automated normalization.
 
 ## Purpose
 
