@@ -4,7 +4,8 @@ import type { SearchResultItem } from '@/lib/types'
 
 import { buildEvidenceGraph } from './evidence-graph'
 
-const routeDigest = 'sha256:0123456789abcdef'
+const routeDigest = '0'.repeat(64)
+const otherRouteDigest = 'f'.repeat(64)
 const retrievedAt = '2026-07-12T18:00:00.000Z'
 
 function result(
@@ -117,7 +118,7 @@ describe('AI-I6 route-bound evidence ingestion', () => {
         results: [
           result('https://example.com/ownership', {
             retrievalProvenance: provenance({
-              routeDigest: 'sha256:fedcba9876543210'
+              routeDigest: otherRouteDigest
             })
           })
         ]

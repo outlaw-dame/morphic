@@ -1,3 +1,4 @@
+import { isCanonicalRouteDigest } from '@/lib/ai/router/execution-context'
 import {
   EvidenceItemSchema,
   SourceClassSchema
@@ -80,8 +81,7 @@ function readRetrievalProvenance(
     return { value: null, issue: 'invalid_retrieval_provenance' }
   }
   if (
-    typeof raw.routeDigest !== 'string' ||
-    raw.routeDigest.length < 16 ||
+    !isCanonicalRouteDigest(raw.routeDigest) ||
     typeof raw.pathId !== 'string' ||
     raw.pathId.length < 1 ||
     raw.pathId.length > 128 ||
