@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto'
 import { Langfuse } from 'langfuse'
 
 import { researcher } from '@/lib/agents/researcher'
+import { assertLegacyResearchStreamAllowed } from '@/lib/ai/rollout/governed-stream-rollout'
 import {
   createPublicErrorResponse,
   serializePublicError
@@ -47,8 +48,11 @@ export async function createChatStreamResponse(
     isNewChat,
     searchMode,
     personalization,
-    routeContext
+    routeContext,
+    rolloutDecision
   } = config
+
+  assertLegacyResearchStreamAllowed(rolloutDecision)
 
   if (!chatId) {
     return new Response('Chat ID is required', {
@@ -90,7 +94,11 @@ export async function createChatStreamResponse(
         trigger,
         routeDigest: routeContext.routeDigest,
         routeMode: routeContext.routePlan.mode,
-        routeRisk: routeContext.routePlan.riskLevel
+        routeRisk: routeContext.routePlan.riskLevel,
+        governedStreamMode: rolloutDecision.mode,
+        governedStreamSelected: rolloutDecision.selected,
+        governedStreamPercentage: rolloutDecision.percentage,
+        governedStreamCohortId: rolloutDecision.cohortId
       }
     })
   }
@@ -185,7 +193,10 @@ export async function createChatStreamResponse(
             searchMode,
             modelId: context.modelId,
             routeDigest: routeContext.routeDigest,
-            routeMode: routeContext.routePlan.mode
+            routeMode: routeContext.routePlan.mode,
+            governedStreamMode: rolloutDecision.mode,
+            governedStreamSelected: rolloutDecision.selected,
+            governedStreamCohortId: rolloutDecision.cohortId
           }
         }
       },
