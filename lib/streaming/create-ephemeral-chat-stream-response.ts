@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto'
 import { Langfuse } from 'langfuse'
 
 import { researcher } from '@/lib/agents/researcher'
+import { assertLegacyResearchStreamAllowed } from '@/lib/ai/rollout/governed-stream-rollout'
 import {
   createPublicErrorResponse,
   serializePublicError
@@ -27,7 +28,12 @@ import { BaseStreamConfig } from './types'
 
 type EphemeralStreamConfig = Pick<
   BaseStreamConfig,
-  'model' | 'abortSignal' | 'searchMode' | 'personalization' | 'routeContext'
+  | 'model'
+  | 'abortSignal'
+  | 'searchMode'
+  | 'personalization'
+  | 'routeContext'
+  | 'rolloutDecision'
 > & {
   messages: UIMessage[]
   chatId?: string
@@ -43,8 +49,11 @@ export async function createEphemeralChatStreamResponse(
     searchMode,
     chatId,
     personalization,
-    routeContext
+    routeContext,
+    rolloutDecision
   } = config
+
+  assertLegacyResearchStreamAllowed(rolloutDecision)
 
   if (!messages || messages.length === 0) {
     return new Response('messages are required', {
@@ -70,7 +79,11 @@ export async function createEphemeralChatStreamResponse(
         trigger: 'submit-message',
         routeDigest: routeContext.routeDigest,
         routeMode: routeContext.routePlan.mode,
-        routeRisk: routeContext.routePlan.riskLevel
+        routeRisk: routeContext.routePlan.riskLevel,
+        governedStreamMode: rolloutDecision.mode,
+        governedStreamSelected: rolloutDecision.selected,
+        governedStreamPercentage: rolloutDecision.percentage,
+        governedStreamCohortId: rolloutDecision.cohortId
       }
     })
   }
@@ -120,7 +133,10 @@ export async function createEphemeralChatStreamResponse(
             searchMode,
             modelId: `${model.providerId}:${model.id}`,
             routeDigest: routeContext.routeDigest,
-            routeMode: routeContext.routePlan.mode
+            routeMode: routeContext.routePlan.mode,
+            governedStreamMode: rolloutDecision.mode,
+            governedStreamSelected: rolloutDecision.selected,
+            governedStreamCohortId: rolloutDecision.cohortId
           }
         }
       },

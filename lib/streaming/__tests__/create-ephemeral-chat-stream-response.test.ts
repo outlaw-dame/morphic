@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { GOVERNED_STREAM_ROLLOUT_DISABLED } from '@/lib/ai/rollout/governed-stream-rollout'
 import {
   createRouteExecutionContext,
   digestRoutePlan
@@ -22,7 +23,8 @@ describe('createEphemeralChatStreamResponse', () => {
       model: { providerId: 'openai', id: 'gpt-4o-mini' } as any,
       abortSignal: new AbortController().signal,
       searchMode: 'quick',
-      routeContext: routeContext()
+      routeContext: routeContext(),
+      rolloutDecision: GOVERNED_STREAM_ROLLOUT_DISABLED
     })
 
     expect(response.status).toBe(400)
