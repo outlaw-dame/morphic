@@ -57,15 +57,6 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
 
-      - name: Upload typecheck diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ai-i5-typecheck-diagnostics
-          path: /tmp/typecheck.log
-          if-no-files-found: error
-          retention-days: 1
-
   format:
     runs-on: ubuntu-latest
     name: Format Check
@@ -121,15 +112,6 @@ jobs:
           cat /tmp/test.log >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
-
-      - name: Upload test diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ai-i5-test-diagnostics
-          path: /tmp/test.log
-          if-no-files-found: error
-          retention-days: 1
 
   native-verify:
     runs-on: ubuntu-latest
