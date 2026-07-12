@@ -5,7 +5,11 @@ import {
   digestRoutePlan
 } from '@/lib/ai/router/execution-context'
 import { buildDeterministicRouteFloor } from '@/lib/ai/router/router-admission'
-import type { SourceClass } from '@/lib/ai/schemas'
+import {
+  parseRoutePlan,
+  type CanonicalRoutePlan,
+  type SourceClass
+} from '@/lib/ai/schemas'
 
 import { createProductionRetrievalAdapter } from './production-retrieval-adapter'
 import {
@@ -20,19 +24,21 @@ import type {
 
 const query = 'Research current Example Corp ownership and recent changes.'
 
-function context(overrides: Record<string, unknown> = {}) {
+type RouteOverrides = Partial<CanonicalRoutePlan>
+type ExecutorOverrides = Partial<
+  Omit<ProductionFusionRetrievalExecutorOptions, 'planner' | 'searchPort'>
+>
+
+function context(overrides: RouteOverrides = {}) {
   const floor = buildDeterministicRouteFloor({ query })
-  const routePlan = Object.freeze({
+  const routePlan = parseRoutePlan({
     ...floor,
     mode: 'adaptive',
     needsFusionPlanning: true,
     needsFreshness: false,
     needsEntityGrounding: false,
-    requiredSourceClasses: Object.freeze([]),
-    disallowedSourceClasses: Object.freeze([
-      'content_farm',
-      'scraper_or_aggregator'
-    ]),
+    requiredSourceClasses: [],
+    disallowedSourceClasses: ['content_farm', 'scraper_or_aggregator'],
     maxToolCalls: 6,
     ...overrides
   })
@@ -81,7 +87,7 @@ function searchResult(url: string, title = 'Authoritative source') {
 function executor(
   paths: readonly ProductionFusionPath[],
   search: ProductionFusionRetrievalExecutorOptions['searchPort']['search'],
-  options: Partial<ProductionFusionRetrievalExecutorOptions> = {}
+  options: ExecutorOverrides = {}
 ) {
   return createProductionRetrievalAdapter(
     createProductionFusionRetrievalExecutor({
@@ -97,6 +103,7 @@ function executor(
 
 describe('AI-I5 production Fusion retrieval executor', () => {
   it('executes approved lanes, canonicalizes and deduplicates results, and preserves provenance', async () => {
+    const routeContext = context()
     const paths = [
       path('official', 'official_source'),
       path('news', 'established_news', 'independent_corroboration')
@@ -116,7 +123,7 @@ describe('AI-I5 production Fusion retrieval executor', () => {
 
     const output = await executor(paths, search).retrieve({
       query,
-      routeContext: context(),
+      routeContext,
       attempt: 1,
       repairActions: []
     })
@@ -127,7 +134,7 @@ describe('AI-I5 production Fusion retrieval executor', () => {
       'https://example.com/source?a=1&b=2'
     )
     expect(output.searchResults[0]?.retrievalProvenance).toMatchObject({
-      routeDigest: context().routeDigest,
+      routeDigest: routeContext.routeDigest,
       pathId: 'official',
       sourceClass: 'official_source'
     })
@@ -229,7 +236,9 @@ describe('AI-I5 production Fusion retrieval executor', () => {
   it('prevents new calls and retries after the route tool budget is consumed', async () => {
     const search = vi
       .fn()
-      .mockRejectedValueOnce(Object.assign(new Error('reset'), { code: 'ECONNRESET' }))
+      .mockRejectedValueOnce(
+        Object.assign(new Error('reset'), { code: 'ECONNRESET' })
+      )
       .mockResolvedValueOnce({
         results: [searchResult('https://example.com/retry-success')],
         images: [],
@@ -366,9 +375,12 @@ describe('AI-I5 production Fusion retrieval executor', () => {
         attempt: 1,
         repairActions: []
       })
+      const rejection = expect(promise).rejects.toThrow(
+        'All Fusion retrieval paths failed'
+      )
 
       await vi.advanceTimersByTimeAsync(1_000)
-      await expect(promise).rejects.toThrow('All Fusion retrieval paths failed')
+      await rejection
       expect(search).toHaveBeenCalledTimes(2)
     } finally {
       vi.useRealTimers()
