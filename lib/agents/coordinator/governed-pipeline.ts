@@ -1,6 +1,6 @@
 import type { EvidenceGraph } from '@/lib/ai-architecture/evidence'
 import type { RouteExecutionContext } from '@/lib/ai/router/execution-context'
-import type { ModelRole } from '@/lib/ai/schemas'
+import type { ModelRole, SourceClass } from '@/lib/ai/schemas'
 import type { SearchResultItem } from '@/lib/types'
 
 import {
@@ -39,10 +39,42 @@ export type CoordinatorCompositionApproval = Readonly<{
   evidenceGraph: EvidenceGraph
 }>
 
+export type FusionRetrievalPathPurpose =
+  | 'primary_evidence'
+  | 'independent_corroboration'
+  | 'freshness_check'
+  | 'entity_disambiguation'
+  | 'contradiction_check'
+  | 'background_context'
+  | 'community_experience'
+
+export type FusionRetrievalPathOutcome = Readonly<{
+  pathId: string
+  sourceClass: SourceClass
+  purpose: FusionRetrievalPathPurpose
+  status: 'succeeded' | 'empty' | 'failed' | 'cancelled'
+  attempts: number
+  resultCount: number
+  errorClass: string | null
+}>
+
+export type FusionRetrievalExecutionReport = Readonly<{
+  routeDigest: string
+  reasonCodes: readonly string[]
+  outcomes: readonly FusionRetrievalPathOutcome[]
+  budget: Readonly<{
+    toolCallsUsed: number
+    toolCallsAllowed: number
+    resultsReturned: number
+    resultsAllowed: number
+  }>
+}>
+
 export type GovernedRetrievalResult = Readonly<{
   searchResults: readonly SearchResultItem[]
   completedRoles: readonly ModelRole[]
   retrievedAt: string | Date
+  fusion?: FusionRetrievalExecutionReport
 }>
 
 export type GovernedRetrievalAdapter = Readonly<{
@@ -179,75 +211,50 @@ export async function runGovernedResearchPipeline<TOutput>(
     throw new Error('Invalid governed composition adapter.')
   }
 
-  const maxRetrievalAttempts = normalizeAttemptLimit(input.maxRetrievalAttempts)
+  const routeContext = input.routeContext
+  const maxAttempts = normalizeAttemptLimit(input.maxRetrievalAttempts)
   let repairActions: readonly string[] = Object.freeze([])
-  let lastHandoff: LiveCoordinatorHandoffResult | undefined
 
-  for (let attempt = 1; attempt <= maxRetrievalAttempts; attempt += 1) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     throwIfAborted(input.signal)
-
     const retrievalResult = await input.retrieval.retrieve({
       query,
-      routeContext: input.routeContext,
+      routeContext,
       attempt,
       repairActions,
-      signal: input.signal
+      ...(input.signal ? { signal: input.signal } : {})
     })
-
     throwIfAborted(input.signal)
 
-    if (!retrievalResult || typeof retrievalResult !== 'object') {
-      throw new Error('Invalid retrieval result returned from adapter.')
-    }
-
-    lastHandoff = evaluateLiveCoordinatorHandoff({
-      routeContext: input.routeContext,
-      query,
+    const handoff = evaluateLiveCoordinatorHandoff({
+      routeContext,
       searchResults: retrievalResult.searchResults,
       completedRoles: retrievalResult.completedRoles,
-      retrievalAttempts: attempt,
-      maxRetrievalAttempts,
       retrievedAt: retrievalResult.retrievedAt,
-      now: input.now
+      ...(input.now ? { now: input.now } : {})
     })
 
-    const proposedRepairs = lastHandoff.evaluation.repairPlan.actions
-    const canProceed =
-      lastHandoff.evaluation.repairPlan.canProceedToComposition
-
-    if (proposedRepairs.length > 0 && attempt < maxRetrievalAttempts) {
-      repairActions = selectRetrievalRepairActions(proposedRepairs)
-      if (repairActions.length > 0) {
-        continue
-      }
-    }
-
-    if (canProceed) {
-      throwIfAborted(input.signal)
+    if (handoff.decision === 'allow_composition') {
       const approval = createCoordinatorCompositionApproval(
-        lastHandoff.routeContext,
-        lastHandoff.state.evidenceGraph
+        routeContext,
+        handoff.evidenceGraph
       )
       const output = await input.composition.compose({
         query,
-        routeContext: lastHandoff.routeContext,
-        evidenceGraph: lastHandoff.state.evidenceGraph,
-        completedRoles: Object.freeze([...lastHandoff.state.completedRoles]),
+        routeContext,
+        evidenceGraph: handoff.evidenceGraph,
+        completedRoles: retrievalResult.completedRoles,
         approval,
-        signal: input.signal
+        ...(input.signal ? { signal: input.signal } : {})
       })
-      throwIfAborted(input.signal)
-
-      return Object.freeze({ output, handoff: lastHandoff, attempts: attempt })
+      return Object.freeze({ output, handoff, attempts: attempt })
     }
 
-    break
+    if (attempt === maxAttempts) {
+      throw new Error('Coordinator blocked composition after bounded retrieval.')
+    }
+    repairActions = selectRetrievalRepairActions(handoff.repairActions)
   }
 
-  const actions = lastHandoff?.evaluation.repairPlan.actions ?? []
-  throw new Error(
-    actions.length > 0
-      ? `Coordinator blocked composition; required repairs: ${actions.join(', ')}.`
-      : 'Coordinator blocked composition.'
-  )
+  throw new Error('Coordinator retrieval loop terminated unexpectedly.')
 }
