@@ -15,6 +15,15 @@ export type GovernedStreamRolloutDecision = Readonly<{
   cohortId: string
 }>
 
+export const GOVERNED_STREAM_ROLLOUT_DISABLED: GovernedStreamRolloutDecision =
+  Object.freeze({
+    mode: 'off',
+    selected: false,
+    percentage: 0,
+    bucket: 0,
+    cohortId: 'disabled'
+  })
+
 type Environment = Readonly<Record<string, string | undefined>>
 
 function readMode(environment: Environment): GovernedStreamRolloutMode {
@@ -82,7 +91,10 @@ export function decideGovernedStreamRollout(input: Readonly<{
   const routeDigest = readRouteDigest(input.routeDigest)
   const salt = readSalt(environment, percentage)
 
-  if (mode === 'off' || percentage === 0) {
+  if (mode === 'off' && percentage === 0) {
+    return GOVERNED_STREAM_ROLLOUT_DISABLED
+  }
+  if (percentage === 0) {
     return Object.freeze({
       mode,
       selected: false,
