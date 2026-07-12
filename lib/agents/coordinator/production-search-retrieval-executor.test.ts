@@ -31,6 +31,13 @@ function adapter(search: ReturnType<typeof vi.fn>) {
   )
 }
 
+function executeHostile(
+  executor: ReturnType<typeof createProductionSearchRetrievalExecutor>,
+  input: unknown
+): Promise<unknown> {
+  return Reflect.apply(executor.execute, executor, [input])
+}
+
 describe('production governed search retrieval executor', () => {
   it('reports only roles actually completed by the search stack', async () => {
     const search = vi.fn(async () => ({
@@ -92,6 +99,36 @@ describe('production governed search retrieval executor', () => {
         repairActions: ['select_stronger_model']
       })
     ).rejects.toThrow('Unsupported governed search repair action.')
+    expect(search).not.toHaveBeenCalled()
+  })
+
+  it('rejects invalid attempt values before search', async () => {
+    const search = vi.fn()
+    const executor = createProductionSearchRetrievalExecutor({ search })
+
+    await expect(
+      executeHostile(executor, {
+        query: 'Research TypeScript',
+        routeContext: context('Research TypeScript'),
+        attempt: 0,
+        repairActions: []
+      })
+    ).rejects.toThrow('Invalid governed search retrieval attempt.')
+    expect(search).not.toHaveBeenCalled()
+  })
+
+  it('rejects missing route context before search', async () => {
+    const search = vi.fn()
+    const executor = createProductionSearchRetrievalExecutor({ search })
+
+    await expect(
+      executeHostile(executor, {
+        query: 'Research TypeScript',
+        routeContext: null,
+        attempt: 1,
+        repairActions: []
+      })
+    ).rejects.toThrow('Invalid governed search retrieval route context.')
     expect(search).not.toHaveBeenCalled()
   })
 
