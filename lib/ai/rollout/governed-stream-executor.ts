@@ -57,7 +57,13 @@ function throwIfAborted(signal?: AbortSignal): void {
 }
 
 function readErrorClass(error: unknown): string {
-  if (error instanceof Error && error.name) return error.name.slice(0, 128)
+  if (
+    error instanceof Error &&
+    typeof error.name === 'string' &&
+    error.name.length > 0
+  ) {
+    return error.name.slice(0, 128)
+  }
   return 'UnknownError'
 }
 
