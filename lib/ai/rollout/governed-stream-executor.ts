@@ -24,6 +24,7 @@ export type GovernedStreamExecutorInput<T> = Readonly<{
   executeLegacy: () => Promise<T>
   executeGoverned: () => Promise<T>
   onShadowOutcome?: (outcome: GovernedShadowOutcome) => void | Promise<void>
+  waitUntil?: (promise: Promise<void>) => void
   now?: () => number
 }>
 
@@ -91,6 +92,9 @@ function assertExecutorInput<T>(
   ) {
     throw new Error('Invalid governed shadow observer.')
   }
+  if (input.waitUntil !== undefined && typeof input.waitUntil !== 'function') {
+    throw new Error('Invalid governed shadow waitUntil hook.')
+  }
 }
 
 async function observeShadow(
@@ -121,6 +125,7 @@ async function runShadowExecution<T>(
   let errorClass: string | null = null
 
   try {
+    throwIfAborted(input.signal)
     await input.executeGoverned()
   } catch (error) {
     status = input.signal?.aborted ? 'cancelled' : 'failed'
@@ -145,6 +150,22 @@ async function runShadowExecution<T>(
       errorClass
     })
   )
+}
+
+function retainShadowExecution(
+  promise: Promise<void>,
+  waitUntil?: (promise: Promise<void>) => void
+): void {
+  if (!waitUntil) {
+    void promise
+    return
+  }
+  try {
+    waitUntil(promise)
+  } catch {
+    // A platform retention hook must never affect the user-visible response.
+    void promise
+  }
 }
 
 export async function executeGovernedStream<T>(
@@ -180,7 +201,10 @@ export async function executeGovernedStream<T>(
   // Shadow execution is deliberately detached from the user-visible legacy
   // response. The terminal catch prevents any shadow or telemetry failure from
   // becoming an unhandled rejection or changing legacy latency/availability.
-  void runShadowExecution(input, decision, now).catch(() => undefined)
+  const shadowPromise = runShadowExecution(input, decision, now).catch(
+    () => undefined
+  )
+  retainShadowExecution(shadowPromise, input.waitUntil)
 
   const value = await input.executeLegacy()
   throwIfAborted(input.signal)
