@@ -34,6 +34,39 @@ describe('AI-I3K governed stream rollout authority', () => {
     })
   })
 
+  it('ignores unused dynamic inputs while rollout is disabled', () => {
+    expect(
+      decideGovernedStreamRollout({
+        cohortKey: null,
+        routeDigest: 'malformed',
+        environment: {}
+      })
+    ).toEqual({
+      mode: 'off',
+      selected: false,
+      percentage: 0,
+      bucket: 0,
+      cohortId: 'disabled'
+    })
+
+    expect(
+      decideGovernedStreamRollout({
+        cohortKey: undefined,
+        routeDigest: undefined,
+        environment: {
+          AI_GOVERNED_STREAM_MODE: 'shadow',
+          AI_GOVERNED_STREAM_PERCENT: '0'
+        }
+      })
+    ).toEqual({
+      mode: 'shadow',
+      selected: false,
+      percentage: 0,
+      bucket: 0,
+      cohortId: 'disabled'
+    })
+  })
+
   it('selects the same cohort deterministically', () => {
     const first = decideGovernedStreamRollout({
       cohortKey: 'owner_scope_1',
@@ -90,7 +123,7 @@ describe('AI-I3K governed stream rollout authority', () => {
     ).toThrow('Invalid governed stream rollout salt.')
   })
 
-  it('rejects malformed cohort keys and route digests', () => {
+  it('rejects malformed cohort keys and route digests when rollout is active', () => {
     expect(() =>
       decideGovernedStreamRollout({
         cohortKey: '',
