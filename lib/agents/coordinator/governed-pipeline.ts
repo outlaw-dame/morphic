@@ -211,50 +211,75 @@ export async function runGovernedResearchPipeline<TOutput>(
     throw new Error('Invalid governed composition adapter.')
   }
 
-  const routeContext = input.routeContext
-  const maxAttempts = normalizeAttemptLimit(input.maxRetrievalAttempts)
+  const maxRetrievalAttempts = normalizeAttemptLimit(input.maxRetrievalAttempts)
   let repairActions: readonly string[] = Object.freeze([])
+  let lastHandoff: LiveCoordinatorHandoffResult | undefined
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+  for (let attempt = 1; attempt <= maxRetrievalAttempts; attempt += 1) {
     throwIfAborted(input.signal)
+
     const retrievalResult = await input.retrieval.retrieve({
       query,
-      routeContext,
+      routeContext: input.routeContext,
       attempt,
       repairActions,
       ...(input.signal ? { signal: input.signal } : {})
     })
+
     throwIfAborted(input.signal)
 
-    const handoff = evaluateLiveCoordinatorHandoff({
-      routeContext,
+    if (!retrievalResult || typeof retrievalResult !== 'object') {
+      throw new Error('Invalid retrieval result returned from adapter.')
+    }
+
+    lastHandoff = evaluateLiveCoordinatorHandoff({
+      routeContext: input.routeContext,
+      query,
       searchResults: retrievalResult.searchResults,
       completedRoles: retrievalResult.completedRoles,
+      retrievalAttempts: attempt,
+      maxRetrievalAttempts,
       retrievedAt: retrievalResult.retrievedAt,
       ...(input.now ? { now: input.now } : {})
     })
 
-    if (handoff.decision === 'allow_composition') {
+    const proposedRepairs = lastHandoff.evaluation.repairPlan.actions
+    const canProceed =
+      lastHandoff.evaluation.repairPlan.canProceedToComposition
+
+    if (proposedRepairs.length > 0 && attempt < maxRetrievalAttempts) {
+      repairActions = selectRetrievalRepairActions(proposedRepairs)
+      if (repairActions.length > 0) {
+        continue
+      }
+    }
+
+    if (canProceed) {
+      throwIfAborted(input.signal)
       const approval = createCoordinatorCompositionApproval(
-        routeContext,
-        handoff.evidenceGraph
+        lastHandoff.routeContext,
+        lastHandoff.state.evidenceGraph
       )
       const output = await input.composition.compose({
         query,
-        routeContext,
-        evidenceGraph: handoff.evidenceGraph,
-        completedRoles: retrievalResult.completedRoles,
+        routeContext: lastHandoff.routeContext,
+        evidenceGraph: lastHandoff.state.evidenceGraph,
+        completedRoles: Object.freeze([...lastHandoff.state.completedRoles]),
         approval,
         ...(input.signal ? { signal: input.signal } : {})
       })
-      return Object.freeze({ output, handoff, attempts: attempt })
+      throwIfAborted(input.signal)
+
+      return Object.freeze({ output, handoff: lastHandoff, attempts: attempt })
     }
 
-    if (attempt === maxAttempts) {
-      throw new Error('Coordinator blocked composition after bounded retrieval.')
-    }
-    repairActions = selectRetrievalRepairActions(handoff.repairActions)
+    break
   }
 
-  throw new Error('Coordinator retrieval loop terminated unexpectedly.')
+  const actions = lastHandoff?.evaluation.repairPlan.actions ?? []
+  throw new Error(
+    actions.length > 0
+      ? `Coordinator blocked composition; required repairs: ${actions.join(', ')}.`
+      : 'Coordinator blocked composition.'
+  )
 }
