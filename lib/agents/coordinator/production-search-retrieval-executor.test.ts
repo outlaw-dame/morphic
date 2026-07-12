@@ -55,9 +55,6 @@ describe('production governed search retrieval executor', () => {
     })
 
     expect(output.completedRoles).toEqual(['router', 'retriever'])
-    expect(output.completedRoles).not.toContain('fusion_planner')
-    expect(output.completedRoles).not.toContain('source_quality')
-    expect(output.completedRoles).not.toContain('entity_grounding')
     expect(output.searchResults).toHaveLength(1)
     expect(Object.isFrozen(output.searchResults)).toBe(true)
   })
