@@ -2,52 +2,124 @@
 
 ## Status
 
-In progress on a clean branch created from `main` after PR #105.
+Implementation complete and integrated into the governed production runtime boundary in PR #106. Production rollout remains disabled and is governed by later rollout phases.
 
 ## Purpose
 
-Implement one authoritative plan-to-execution boundary for governed research. The Fusion Planner creates immutable, bounded retrieval lanes. The production retrieval executor consumes only those approved lanes and reports only roles and work that actually completed.
+AI-I5 provides one authoritative plan-to-execution boundary for governed research. The Fusion Planner creates immutable, bounded retrieval lanes. The production Fusion retrieval executor consumes only those validated lanes and returns normalized results plus a bounded execution report to the Coordinator.
 
-## Preserved work
+## Preserved and reconciled work
 
-The hardened Fusion Planner design from closed PR #99 remains useful and will be re-evaluated against current contracts. The stale branch and its temporary CI diagnostic change are not being reused.
+The useful planner concepts from closed PR #99 were re-evaluated against the canonical V2 contracts and recreated from current `main`. The stale branch, reused AI-I3 label, and temporary workflow modifications from that branch were not carried forward.
 
-## Required implementation
+The pre-existing ordinary search executor remains available only for routes that do not require Fusion. Its inaccurate completion metadata was corrected: ordinary search reports only `router` and `retriever`, never `fusion_planner`, `source_quality`, or `entity_grounding` unless those stages actually execute.
 
-1. Run the Fusion Planner through the common hardened role runner with `retrieval_plan_only` permission and no executable tools.
-2. Bind every plan to the immutable Router route digest and one execution identity.
-3. Validate bounded path IDs, queries, source classes, evidence roles, result counts, freshness requirements, and mandatory entity-disambiguation lanes.
-4. Make the production search executor consume the validated paths rather than synthesizing one broad search from the user query.
-5. Enforce bounded concurrency and a total result/tool-call budget across all paths.
-6. Preserve cancellation and deadlines across planning and every retrieval lane.
-7. Allow retry only for explicitly transient, idempotent retrieval failures and never for planner execution or unsafe failures.
-8. Normalize and deduplicate all retrieved results before returning them to the Coordinator.
-9. Preserve path-level provenance and partial-failure information for later evidence ingestion and observability phases.
-10. Report `fusion_planner`, `retriever`, `source_quality`, and `entity_grounding` as completed only when the corresponding role or deterministic governed boundary actually ran successfully.
+## Implemented planner boundary
 
-## Existing defect to remove
+- Runs `fusion_planner` through the common hardened role runner.
+- Uses `retrieval_plan_only` permission with no executable tools or raw search results.
+- Binds the plan to the immutable Router route digest and one execution identity.
+- Uses canonical source classes and structured path purposes.
+- Validates bounded path IDs, path queries, source classes, result counts, reason codes, and schema versions.
+- Rejects duplicate path IDs and normalized duplicate queries.
+- Rejects disallowed source classes and omitted required source classes.
+- Requires explicit freshness and entity-disambiguation paths when the Router requires them.
+- Enforces route-specific minimum source diversity.
+- Caps community-source influence to one bounded lane with at most five results.
+- Enforces aggregate result and route tool-call budgets before execution.
+- Does not retry model planning.
+- Treats OpenRouter or any other eligible model provider through the same structured role-provider contract; no provider-specific Fusion server tool can bypass canonical validation.
 
-The current `production-search-retrieval-executor.ts` performs one broad search and currently reports `source_quality` plus conditional `entity_grounding` as completed even though it does not execute those roles. AI-I5 must remove that overclaim. Until later phases supply those roles, the executor may report only the Router, Fusion Planner, and Retriever work that verifiably completed.
+## Implemented execution boundary
+
+- Consumes only the validated Fusion plan.
+- Runs approved lanes with bounded concurrency.
+- Applies a per-path timeout and route-wide pre-call tool-budget tokens.
+- Prevents new calls or retries after the route budget is exhausted.
+- Retries only idempotent transient reads.
+- Uses capped exponential backoff with jitter and bounded `Retry-After` support.
+- Treats HTTP 408, 429, 5xx, `TimeoutError`, `ETIMEDOUT`, `ECONNRESET`, and `EAI_AGAIN` as transient when caller cancellation is not active.
+- Does not retry deterministic 4xx, malformed responses, policy failures, invalid requests, or planner failures.
+- Propagates caller cancellation and prevents later lanes from starting.
+- Keeps retrieval behind the existing production safe-search port and its SSRF, redirect, DNS, domain, response-size, and network controls.
+- Canonicalizes HTTP(S) URLs, strips credentials and fragments, normalizes default ports, and sorts query parameters.
+- Bounds, freezes, and deduplicates returned results.
+- Attaches route digest, path ID, path purpose, source class, and retrieval time to every returned result.
+- Returns immutable path outcomes and budget consumption metadata.
+- Allows bounded optional-path failure but fails closed for required source, freshness, or entity lanes.
+- Rejects all-empty Fusion retrieval.
+
+## Runtime integration
+
+`createProductionGovernedRuntime` accepts either:
+
+- a prebuilt ordinary retrieval executor; or
+- a Fusion configuration containing the planner model configuration, safe search port, concurrency, timeout, retry timing, clock, and randomness controls.
+
+A signed route with `needsFusionPlanning=true` cannot use an ordinary retrieval executor. Runtime construction rejects malformed planner, provider, candidate, search-port, timeout, concurrency, sleep, clock, or randomness configuration before execution.
+
+The governed pipeline preserves the canonical Coordinator lifecycle, retrieval-attempt accounting, repair-action filtering, composition approval, and cancellation behavior while carrying the optional Fusion execution report through the retrieval adapter.
+
+## Truthful completion accounting
+
+Ordinary retrieval reports:
+
+- `router`
+- `retriever`
+
+Successful Fusion retrieval reports:
+
+- `router`
+- `fusion_planner`
+- `retriever`
+
+AI-I5 never claims `source_quality` or `entity_grounding` completed. Those remain separate canonical stages.
 
 ## Security boundaries
 
-- Planner output never directly selects arbitrary network destinations.
-- Search remains behind the existing safe search port and SSRF controls.
-- Disallowed source classes cannot be upgraded by model output.
-- No lane may exceed its own result limit or the route-wide budget.
-- Duplicate lane IDs, duplicate normalized queries, malformed outputs, stale route digests, and unsupported source classes fail closed.
-- Planner and retrieval output are not composition approval or release authorization.
-- No production rollout flag is enabled by this phase.
+- Planner output cannot select arbitrary network destinations.
+- Provider-specific tools cannot bypass the safe search port.
+- Disallowed source classes cannot be re-enabled by model output.
+- No path can exceed its own result cap or the route-wide call/result budget.
+- Retry cannot exceed the route budget.
+- Duplicate lanes, stale/forged route contexts, malformed output, invalid URLs, unsupported source classes, and missing mandatory lanes fail closed.
+- Planner and retrieval output do not authorize composition or release.
+- No rollout flag or production traffic is enabled by this phase.
 
-## Validation
+## Validation evidence
 
-The phase is not complete until tests prove:
+Planner tests cover:
 
-- stale or forged route bindings are rejected;
-- required source, freshness, and entity lanes cannot be omitted;
-- duplicate and disallowed lanes are rejected;
-- concurrency and aggregate budgets cannot be exceeded;
-- cancellation stops pending work without starting new lanes;
-- partial failures are deterministic and bounded;
-- returned completion metadata never claims unexecuted roles;
-- all repository CI and the production build pass.
+- permission isolation and immutable structured output;
+- route authorization;
+- duplicate semantic queries;
+- disallowed classes;
+- required freshness/entity lanes;
+- source diversity;
+- community influence caps;
+- cancellation without planner retry;
+- provider-agnostic structured normalization.
+
+Executor tests cover:
+
+- approved-lane execution;
+- bounded concurrency;
+- URL canonicalization and deduplication;
+- provenance preservation;
+- aggregate result and pre-call tool budgets;
+- bounded `Retry-After`, exponential retry, and transient timeout retry;
+- deterministic failure no-retry behavior;
+- optional partial failure;
+- mandatory-lane fail-closed behavior;
+- cancellation preventing later work;
+- real per-path timeout termination.
+
+Runtime and adapter tests cover:
+
+- Fusion-required route fail-closed behavior;
+- malformed Fusion configuration rejection;
+- completion-report validation;
+- hostile/malformed result rejection;
+- ordinary-search completion accuracy.
+
+Final completion requires the clean PR head, after removal of temporary diagnostic workflow steps, to pass type checking, format checking, lint, tests, native configuration verification, and the production build.
