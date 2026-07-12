@@ -1,4 +1,8 @@
-import type { EvidenceItem, SourceQualityAssessment } from '@/lib/ai/schemas'
+import type {
+  EvidenceItem,
+  SourceClass,
+  SourceQualityAssessment
+} from '@/lib/ai/schemas'
 import type { ResolvedEntity } from '@/lib/entities/knowledge-graph'
 
 import type { AtomicClaim, ClaimCluster } from './claim-extraction'
@@ -19,12 +23,49 @@ export type EvidenceConflict = {
   reason: string
 }
 
+export type EvidenceRetrievalProvenance = Readonly<{
+  routeDigest: string
+  pathId: string
+  pathPurpose:
+    | 'primary_evidence'
+    | 'independent_corroboration'
+    | 'freshness_check'
+    | 'entity_disambiguation'
+    | 'contradiction_check'
+    | 'background_context'
+    | 'community_experience'
+  plannedSourceClass: SourceClass
+  retrievedAt: string
+}>
+
+export type EvidenceIngestionIssueCode =
+  | 'invalid_or_unsupported_url'
+  | 'missing_retrieval_provenance'
+  | 'invalid_retrieval_provenance'
+  | 'route_digest_mismatch'
+  | 'schema_validation_failed'
+
+export type EvidenceIngestionIssue = Readonly<{
+  resultIndex: number
+  code: EvidenceIngestionIssueCode
+}>
+
+export type EvidenceIngestionReport = Readonly<{
+  inputCount: number
+  admittedCount: number
+  excludedCount: number
+  routeDigest: string | null
+  requiredRetrievalProvenance: boolean
+  issues: readonly EvidenceIngestionIssue[]
+}>
+
 export type NormalizedEvidenceItem = EvidenceItem & {
   canonicalUrl: string
   host: string
   originalUrl: string
   sourceQuality: SourceQualityAssessment
   entities: ResolvedEntity[]
+  retrievalProvenance: EvidenceRetrievalProvenance | null
   duplicateOf?: string
   copiedFrom?: string
 }
@@ -42,4 +83,5 @@ export type EvidenceGraph = {
   conflicts: EvidenceConflict[]
   claimsByEvidenceId: Record<string, AtomicClaim[]>
   warnings: string[]
+  ingestion: EvidenceIngestionReport
 }
