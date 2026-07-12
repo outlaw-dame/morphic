@@ -117,7 +117,9 @@ describe('AI-I3D live Coordinator handoff', () => {
     expect(handoff.evaluation.repairPlan.actions).toContain(
       'run_entity_grounding'
     )
-    expect(handoff.state.evidenceGraph.ingestion.excludedCount).toBe(0)
+    expect(handoff.state.evidenceGraph.ingestion).toMatchObject({
+      excludedCount: 0
+    })
   })
 
   it('rejects Fusion evidence bound to another route', () => {
