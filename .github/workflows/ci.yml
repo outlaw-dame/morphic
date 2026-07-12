@@ -113,6 +113,15 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
 
+      - name: Upload final route-digest failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-route-digest-test-failure
+          path: /tmp/test.log
+          if-no-files-found: error
+          retention-days: 1
+
   native-verify:
     runs-on: ubuntu-latest
     name: Native Config Verify
