@@ -1,9 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import {
-  createUIMessageStream,
-  createUIMessageStreamResponse
-} from 'ai'
+import { createUIMessageStream, createUIMessageStreamResponse } from 'ai'
 
 import type { ReleasedProductionResponse } from '@/lib/agents/coordinator/production-release-gate'
 import type { GovernedStreamRolloutDecision } from '@/lib/ai/rollout/governed-stream-rollout'
@@ -78,7 +75,9 @@ function assertEnforcedRollout(
     decision.mode !== 'enforce' ||
     decision.selected !== true
   ) {
-    throw new Error('Governed release stream requires enforced rollout selection.')
+    throw new Error(
+      'Governed release stream requires enforced rollout selection.'
+    )
   }
 }
 
@@ -102,7 +101,11 @@ export function createGovernedReleaseStreamResponse(
         type: 'start-step'
       })
       writer.write({ type: 'text-start', id: textPartId })
-      writer.write({ type: 'text-delta', id: textPartId, delta: release.draft })
+      writer.write({
+        type: 'text-delta',
+        id: textPartId,
+        delta: release.draft
+      })
       writer.write({ type: 'text-end', id: textPartId })
       writer.write({ type: 'finish-step' })
       writer.write({ type: 'finish' })
