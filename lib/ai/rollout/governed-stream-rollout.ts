@@ -48,9 +48,8 @@ function readPercentage(
   return percentage
 }
 
-function readSalt(environment: Environment, percentage: number): string {
+function readSalt(environment: Environment): string {
   const salt = environment.AI_GOVERNED_STREAM_SALT ?? ''
-  if (percentage === 0) return ''
   if (salt.length < MIN_SALT_LENGTH || salt.length > MAX_SALT_LENGTH) {
     throw new Error('Invalid governed stream rollout salt.')
   }
@@ -89,9 +88,6 @@ export function decideGovernedStreamRollout(
   const environment = input.environment ?? process.env
   const mode = readMode(environment)
   const percentage = readPercentage(environment, mode)
-  const cohortKey = readCohortKey(input.cohortKey)
-  const routeDigest = readRouteDigest(input.routeDigest)
-  const salt = readSalt(environment, percentage)
 
   if (mode === 'off' && percentage === 0) {
     return GOVERNED_STREAM_ROLLOUT_DISABLED
@@ -106,6 +102,9 @@ export function decideGovernedStreamRollout(
     })
   }
 
+  const cohortKey = readCohortKey(input.cohortKey)
+  const routeDigest = readRouteDigest(input.routeDigest)
+  const salt = readSalt(environment)
   const digest = createHash('sha256')
     .update(salt)
     .update('\0')
