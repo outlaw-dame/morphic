@@ -30,12 +30,18 @@ This first slice implements the rollout authority and live request boundary:
 - `enforce` may never invoke the legacy researcher for a selected cohort.
 - Invalid configuration fails closed before model selection or streaming.
 - Rollout metadata contains no prompt, draft, evidence, email, IP address, or raw user identifier.
+- Authenticated and guest streaming entrypoints both require the canonical rollout decision and independently enforce it.
+- A selected `enforce` request returns a controlled service-unavailable response until AI-I3K-B supplies and consumes a valid AI-I3J release authorization.
 
 ## Environment contract
 
 - `AI_GOVERNED_STREAM_MODE`: `off`, `shadow`, or `enforce`; defaults to `off`.
 - `AI_GOVERNED_STREAM_PERCENT`: integer `0` through `100`; required for non-off modes.
 - `AI_GOVERNED_STREAM_SALT`: server-only secret with at least 32 characters when percentage is greater than zero.
+
+## Completion gates
+
+AI-I3K-A is complete only when tests, type checking, lint, formatting, native configuration verification, production build, and review all pass, and the final diff contains no temporary diagnostic workflow.
 
 ## Follow-on
 
