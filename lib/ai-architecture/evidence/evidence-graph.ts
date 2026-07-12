@@ -3,29 +3,79 @@ import type { SearchResultItem } from '@/lib/types'
 import { clusterClaims, extractAtomicClaims } from './claim-extraction'
 import { analyzeEvidenceConflicts, conflictWarnings } from './conflict-analysis'
 import { markDuplicateEvidence } from './evidence-dedupe'
-import type { EvidenceGraph } from './evidence-types'
-import { normalizeSearchResultToEvidence } from './normalize-search-result'
+import type {
+  EvidenceGraph,
+  EvidenceIngestionIssue,
+  NormalizedEvidenceItem
+} from './evidence-types'
+import { normalizeSearchResultToEvidenceDetailed } from './normalize-search-result'
 
 export type EvidenceGraphInput = {
   query: string
   results: SearchResultItem[]
   retrievedAt?: string | Date
+  routeDigest?: string
+  requireRetrievalProvenance?: boolean
 }
 
+const MAX_EVIDENCE_RESULTS = 500
+
 export function buildEvidenceGraph(input: EvidenceGraphInput): EvidenceGraph {
+  if (!input || typeof input !== 'object') {
+    throw new Error('Invalid evidence graph input.')
+  }
+  const query = typeof input.query === 'string' ? input.query.trim() : ''
+  if (!query || query.length > 16_000) {
+    throw new Error('Invalid evidence graph query.')
+  }
+  if (!Array.isArray(input.results) || input.results.length > MAX_EVIDENCE_RESULTS) {
+    throw new Error('Invalid evidence graph results.')
+  }
+  if (
+    input.routeDigest !== undefined &&
+    (typeof input.routeDigest !== 'string' || input.routeDigest.length < 16)
+  ) {
+    throw new Error('Invalid evidence graph route digest.')
+  }
+
   const warnings: string[] = []
-  const normalized = input.results
-    .map((result, index) =>
-      normalizeSearchResultToEvidence(result, index, {
-        retrievedAt: input.retrievedAt,
-        retrievalPath: result.retrievalMethod ?? 'search'
+  const issues: EvidenceIngestionIssue[] = []
+  const normalized: NormalizedEvidenceItem[] = []
+
+  input.results.forEach((result, index) => {
+    const outcome = normalizeSearchResultToEvidenceDetailed(result, index, {
+      retrievedAt: input.retrievedAt,
+      retrievalPath: result.retrievalMethod ?? 'search',
+      routeDigest: input.routeDigest,
+      requireRetrievalProvenance: input.requireRetrievalProvenance
+    })
+    if (outcome.item) {
+      normalized.push(outcome.item)
+      return
+    }
+    issues.push(
+      Object.freeze({
+        resultIndex: index,
+        code: outcome.issue ?? 'schema_validation_failed'
       })
     )
-    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+  })
 
-  if (normalized.length < input.results.length) {
+  if (input.requireRetrievalProvenance && issues.length > 0) {
+    const first = issues[0]
+    throw new Error(
+      `Fusion evidence ingestion failed closed at result ${first.resultIndex}: ${first.code}.`
+    )
+  }
+
+  if (issues.some(issue => issue.code === 'invalid_or_unsupported_url')) {
     warnings.push(
       'Some results were excluded because their URLs were invalid or unsupported.'
+    )
+  }
+  if (issues.some(issue => issue.code !== 'invalid_or_unsupported_url')) {
+    warnings.push(
+      'Some results were excluded because their retrieval provenance or schema was invalid.'
     )
   }
 
@@ -37,13 +87,22 @@ export function buildEvidenceGraph(input: EvidenceGraphInput): EvidenceGraph {
     items.map(item => [item.id, item.host] as const)
   )
   const claimClusters = clusterClaims(claimsByEvidenceId, hostByEvidenceId)
+  const ingestion = Object.freeze({
+    inputCount: input.results.length,
+    admittedCount: items.length,
+    excludedCount: issues.length,
+    routeDigest: input.routeDigest ?? null,
+    requiredRetrievalProvenance: input.requireRetrievalProvenance ?? false,
+    issues: Object.freeze([...issues])
+  })
   const graphWithoutConflicts: EvidenceGraph = {
     items,
     duplicateGroups,
     claimClusters,
     conflicts: [],
     claimsByEvidenceId: Object.fromEntries(claimsByEvidenceId),
-    warnings
+    warnings,
+    ingestion
   }
   const conflicts = analyzeEvidenceConflicts(graphWithoutConflicts)
 
