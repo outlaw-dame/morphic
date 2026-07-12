@@ -216,6 +216,34 @@ describe('AI-I5 production Fusion retrieval executor', () => {
     })
   })
 
+  it('retries provider TimeoutError as a transient idempotent read', async () => {
+    const timeout = Object.assign(new Error('provider timeout'), {
+      name: 'TimeoutError'
+    })
+    const search = vi
+      .fn()
+      .mockRejectedValueOnce(timeout)
+      .mockResolvedValueOnce({
+        results: [searchResult('https://example.com/timeout-recovered')],
+        images: [],
+        query
+      })
+
+    const output = await executor([path('timeout-retry', 'official_source')], search)
+      .retrieve({
+        query,
+        routeContext: context({ maxToolCalls: 2 }),
+        attempt: 1,
+        repairActions: []
+      })
+
+    expect(search).toHaveBeenCalledTimes(2)
+    expect(output.fusion?.outcomes[0]).toMatchObject({
+      status: 'succeeded',
+      attempts: 2
+    })
+  })
+
   it('does not retry deterministic failures', async () => {
     const search = vi.fn(async () => {
       throw Object.assign(new Error('invalid request'), { status: 400 })
@@ -351,7 +379,7 @@ describe('AI-I5 production Fusion retrieval executor', () => {
     expect(search).toHaveBeenCalledTimes(1)
   })
 
-  it('retries a transient path timeout without hanging', async () => {
+  it('enforces a real per-path timeout without hanging', async () => {
     vi.useFakeTimers()
     try {
       const search = vi.fn(
@@ -368,7 +396,7 @@ describe('AI-I5 production Fusion retrieval executor', () => {
         perPathTimeoutMs: 250
       }).retrieve({
         query,
-        routeContext: context(),
+        routeContext: context({ maxToolCalls: 1 }),
         attempt: 1,
         repairActions: []
       })
@@ -376,10 +404,9 @@ describe('AI-I5 production Fusion retrieval executor', () => {
         'All Fusion retrieval paths failed'
       )
 
-      await vi.advanceTimersToNextTimerAsync()
-      await vi.advanceTimersToNextTimerAsync()
+      await vi.advanceTimersByTimeAsync(250)
       await rejection
-      expect(search).toHaveBeenCalledTimes(2)
+      expect(search).toHaveBeenCalledTimes(1)
     } finally {
       vi.useRealTimers()
     }
