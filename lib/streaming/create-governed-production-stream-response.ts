@@ -56,7 +56,9 @@ export function createGovernedProductionStreamResponse(
   }
 
   const routeContext = createRouteExecutionContext(input.routeContext)
-  const chainRouteContext = createRouteExecutionContext(input.chain?.routeContext)
+  const chainRouteContext = createRouteExecutionContext(
+    input.chain?.routeContext
+  )
   if (chainRouteContext.routeDigest !== routeContext.routeDigest) {
     throw new Error('Governed production stream route context mismatch.')
   }
