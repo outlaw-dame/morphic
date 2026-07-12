@@ -73,6 +73,17 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Collect formatting diagnostics
+        run: bunx prettier --list-different . > /tmp/prettier-different.txt || true
+
+      - name: Upload formatting diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-i6-format-diagnostics
+          path: /tmp/prettier-different.txt
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Check formatting
         run: bun format:check
 
