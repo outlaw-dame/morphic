@@ -113,6 +113,15 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
 
+      - name: Upload AI-I6 test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-i6-test
+          path: /tmp/test.log
+          if-no-files-found: error
+          retention-days: 1
+
   native-verify:
     runs-on: ubuntu-latest
     name: Native Config Verify
