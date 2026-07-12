@@ -308,8 +308,7 @@ describe('AI architecture drift controls', () => {
         }),
         expect.objectContaining({
           kind: 'test',
-          reference:
-            'lib/ai-architecture/evidence/evidence-ingestion.test.ts'
+          reference: 'lib/ai-architecture/evidence/evidence-ingestion.test.ts'
         }),
         expect.objectContaining({
           kind: 'pull_request',
