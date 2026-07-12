@@ -135,7 +135,7 @@ function hasUnsupportedProvider(
 
 export function resolveProductionRoleRuntimeConfig(
   input: Readonly<{
-    rawConfig: string | undefined
+    rawConfig: unknown
     now?: Date
   }>
 ): ProductionRoleRuntimeResolution {
@@ -143,10 +143,13 @@ export function resolveProductionRoleRuntimeConfig(
     return unavailable('invalid_runtime_config_input')
   }
   const rawConfig = input.rawConfig
-  if (rawConfig === undefined || rawConfig.trim().length === 0) {
+  if (typeof rawConfig !== 'string' || rawConfig.trim().length === 0) {
     return unavailable('runtime_config_missing')
   }
-  if (textEncoder.encode(rawConfig).byteLength > MAX_CONFIG_BYTES) {
+  if (
+    rawConfig.length > MAX_CONFIG_BYTES ||
+    textEncoder.encode(rawConfig).byteLength > MAX_CONFIG_BYTES
+  ) {
     return unavailable('runtime_config_too_large')
   }
 
