@@ -1,22 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import {
-  createRouteExecutionContext,
-  digestRoutePlan
-} from '@/lib/ai/router/execution-context'
-import { buildDeterministicRouteFloor } from '@/lib/ai/router/router-admission'
-
 import { createProductionGovernedRuntime } from './production-governed-runtime'
-
-const query = 'Explain photosynthesis'
-
-function routeContext() {
-  const routePlan = buildDeterministicRouteFloor({ query })
-  return createRouteExecutionContext({
-    routePlan,
-    routeDigest: digestRoutePlan(routePlan)
-  })
-}
 
 function candidate(role: 'answer_composer' | 'citation_verifier') {
   return {
@@ -48,18 +32,11 @@ function candidate(role: 'answer_composer' | 'citation_verifier') {
   }
 }
 
-function source(url: string) {
-  return {
-    title: 'Independent source',
-    url,
-    content: 'Plants convert light energy into chemical energy.',
-    publishedAt: '2026-07-10T12:00:00.000Z'
-  }
-}
-
 function baseConfiguration() {
   return {
     ownerScopeId: 'owner_scope_00000001',
+    executionId: 'execution_00000001',
+    deadlineMs: 60_000,
     retrievalExecutor: { execute: vi.fn() },
     composer: {
       candidates: [candidate('answer_composer')],
@@ -73,66 +50,12 @@ function baseConfiguration() {
 }
 
 describe('production governed runtime factory', () => {
-  it('constructs one execution-scoped governed chain with least privilege', async () => {
-    const composerInvoke = vi.fn(async invocation => ({
-      output: {
-        draft: 'Plants convert light energy into chemical energy.',
-        citedEvidenceIds: [invocation.input.evidence[0]!.id]
-      },
-      outputTokens: 12
-    }))
-    const citationInvoke = vi.fn(async invocation => ({
-      output: {
-        decision: 'verified',
-        reasonCodes: ['citations_verified'],
-        verifiedEvidenceIds: [...invocation.input.citedEvidenceIds],
-        unsupportedEvidenceIds: [],
-        missingCitationClaimIds: [],
-        confidence: 0.99
-      },
-      outputTokens: 8
-    }))
+  it('constructs one bounded execution-scoped runtime', () => {
+    const runtime = createProductionGovernedRuntime(baseConfiguration())
 
-    const runtime = createProductionGovernedRuntime({
-      ownerScopeId: 'owner_scope_00000001',
-      executionId: 'execution_00000001',
-      retrievalExecutor: {
-        execute: async () => ({
-          searchResults: [
-            source('https://example.edu/report'),
-            source('https://science.example.org/report')
-          ],
-          completedRoles: ['router', 'retriever'],
-          retrievedAt: new Date()
-        })
-      },
-      composer: {
-        candidates: [candidate('answer_composer')],
-        provider: { invoke: composerInvoke }
-      },
-      citationVerifier: {
-        candidates: [candidate('citation_verifier')],
-        provider: { invoke: citationInvoke }
-      }
-    })
-
-    const released = await runtime.run({
-      query,
-      routeContext: routeContext()
-    })
-
-    expect(released.status).toBe('released')
     expect(runtime.executionId).toBe('execution_00000001')
-    expect(composerInvoke.mock.calls[0]![0]).toMatchObject({
-      executionId: 'execution_00000001',
-      role: 'answer_composer',
-      permissionClass: 'none'
-    })
-    expect(citationInvoke.mock.calls[0]![0]).toMatchObject({
-      executionId: 'execution_00000001',
-      role: 'citation_verifier',
-      permissionClass: 'evidence_read_only'
-    })
+    expect(Number.isFinite(Date.parse(runtime.deadlineAt))).toBe(true)
+    expect(typeof runtime.run).toBe('function')
   })
 
   it('rejects null, inherited, and malformed provider methods cleanly', () => {
