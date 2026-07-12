@@ -95,7 +95,7 @@ function planner(provider: RoleProviderAdapter<FusionPlannerModelInput>) {
   })
 }
 
-describe('AI-I3K production Fusion Planner adapter', () => {
+describe('AI-I5A production Fusion Planner adapter', () => {
   it('runs through retrieval_plan_only and returns bounded immutable paths', async () => {
     const provider: RoleProviderAdapter<FusionPlannerModelInput> = {
       invoke: vi.fn(async invocation => {
@@ -150,7 +150,7 @@ describe('AI-I3K production Fusion Planner adapter', () => {
     ).rejects.toThrow('Fusion Planner execution failed: malformed_output.')
   })
 
-  it('rejects a disallowed source class', async () => {
+  it('rejects a disallowed source class with bounded diagnostics', async () => {
     await expect(
       planner({
         invoke: async invocation => ({
@@ -170,7 +170,9 @@ describe('AI-I3K production Fusion Planner adapter', () => {
           outputTokens: 100
         })
       }).plan({ query, routeContext: context() })
-    ).rejects.toThrow('Fusion Planner selected a disallowed source class.')
+    ).rejects.toThrow(
+      'Fusion Planner selected disallowed source class "content_farm" in path "blocked_path".'
+    )
   })
 
   it('rejects omission of required entity and freshness lanes', async () => {
@@ -200,14 +202,13 @@ describe('AI-I3K production Fusion Planner adapter', () => {
   it('preserves cancellation during provider invocation', async () => {
     const controller = new AbortController()
     const provider: RoleProviderAdapter<FusionPlannerModelInput> = {
-      invoke: vi.fn(
-        () =>
-          new Promise<Readonly<{ output: unknown; outputTokens: number }>>(
-            () => undefined
-          )
-      )
+      invoke: vi.fn(async () => {
+        controller.abort(new Error('user cancelled fusion'))
+        return new Promise<Readonly<{ output: unknown; outputTokens: number }>>(
+          () => undefined
+        )
+      })
     }
-    setTimeout(() => controller.abort(new Error('user cancelled fusion')), 10)
 
     await expect(
       planner(provider).plan({
