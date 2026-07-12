@@ -46,6 +46,7 @@ function evidenceItem(
       disallowedClaimTypes: []
     },
     entities: [],
+    retrievalProvenance: null,
     ...overrides
   }
 }
@@ -60,6 +61,14 @@ function graph(overrides: Partial<EvidenceGraph> = {}): EvidenceGraph {
     conflicts: [],
     claimsByEvidenceId: {},
     warnings: [],
+    ingestion: {
+      inputCount: items.length,
+      admittedCount: items.length,
+      excludedCount: 0,
+      routeDigest: null,
+      requiredRetrievalProvenance: false,
+      issues: []
+    },
     ...overrides
   }
 }

@@ -66,16 +66,19 @@ export function evaluateLiveCoordinatorHandoff(
   })
   if (
     routeContext.routePlan.needsFreshness &&
-    (input.retrievedAt === undefined || input.retrievedAt === null)
+    (input.retrievedAt === undefined || input.retrievedAt === null) &&
+    !input.searchResults.every(result => result.retrievalProvenance?.retrievedAt)
   ) {
     throw new Error(
-      'Freshness-sensitive routes require an audited retrieval timestamp.'
+      'Freshness-sensitive routes require audited retrieval timestamps.'
     )
   }
 
   const evidenceGraph = buildEvidenceGraph({
     query,
     results: [...input.searchResults],
+    routeDigest: routeContext.routeDigest,
+    requireRetrievalProvenance: routeContext.routePlan.needsFusionPlanning,
     ...(input.retrievedAt ? { retrievedAt: input.retrievedAt } : {})
   })
   const state = createCoordinatorExecutionState({

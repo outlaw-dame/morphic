@@ -34,6 +34,22 @@ function result(
   }
 }
 
+function fusionResult(
+  context: RouteExecutionContext,
+  url: string,
+  pathId: string
+): SearchResultItem {
+  return result(url, {
+    retrievalProvenance: {
+      routeDigest: context.routeDigest,
+      pathId,
+      pathPurpose: 'entity_disambiguation',
+      sourceClass: 'established_news',
+      retrievedAt: now.toISOString()
+    }
+  })
+}
+
 describe('AI-I3D live Coordinator handoff', () => {
   it('permits pre-composition only from verified route and adequate real evidence', () => {
     const context = routeContext('Explain photosynthesis')
@@ -78,23 +94,21 @@ describe('AI-I3D live Coordinator handoff', () => {
     expect(handoff.evaluation.repairPlan.actions).toContain('run_retriever')
   })
 
-  it('does not fabricate entity grounding from ordinary search evidence', () => {
+  it('does not fabricate entity grounding from Fusion retrieval evidence', () => {
     const query = 'Who is the current CEO of OpenAI?'
     const context = routeContext(query)
     const handoff = evaluateLiveCoordinatorHandoff({
       routeContext: context,
       query,
       searchResults: [
-        result('https://example.com/openai'),
-        result('https://other.example.net/openai')
+        fusionResult(context, 'https://example.com/openai', 'entity_path_one'),
+        fusionResult(
+          context,
+          'https://other.example.net/openai',
+          'entity_path_two'
+        )
       ],
-      completedRoles: [
-        'router',
-        'retriever',
-        'fusion_planner',
-        'source_quality',
-        'entity_grounding'
-      ],
+      completedRoles: ['router', 'retriever', 'fusion_planner'],
       retrievedAt: now,
       now
     })
@@ -103,6 +117,35 @@ describe('AI-I3D live Coordinator handoff', () => {
     expect(handoff.evaluation.repairPlan.actions).toContain(
       'run_entity_grounding'
     )
+    expect(handoff.state.evidenceGraph.ingestion).toMatchObject({
+      excludedCount: 0
+    })
+  })
+
+  it('rejects Fusion evidence bound to another route', () => {
+    const query = 'Who is the current CEO of OpenAI?'
+    const context = routeContext(query)
+
+    expect(() =>
+      evaluateLiveCoordinatorHandoff({
+        routeContext: context,
+        query,
+        searchResults: [
+          result('https://example.com/openai', {
+            retrievalProvenance: {
+              routeDigest: 'sha256:fedcba9876543210',
+              pathId: 'forged_path',
+              pathPurpose: 'entity_disambiguation',
+              sourceClass: 'established_news',
+              retrievedAt: now.toISOString()
+            }
+          })
+        ],
+        completedRoles: ['router', 'retriever', 'fusion_planner'],
+        retrievedAt: now,
+        now
+      })
+    ).toThrow('route_digest_mismatch')
   })
 
   it('rejects a forged or tampered route context', () => {
@@ -200,7 +243,7 @@ describe('AI-I3D live Coordinator handoff', () => {
         now
       })
     ).toThrow(
-      'Freshness-sensitive routes require an audited retrieval timestamp.'
+      'Freshness-sensitive routes require audited retrieval timestamps.'
     )
   })
 })

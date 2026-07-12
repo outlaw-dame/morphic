@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   createRouteExecutionContext,
-  digestRoutePlan
+  digestRoutePlan,
+  type RouteExecutionContext
 } from '@/lib/ai/router/execution-context'
 import { buildDeterministicRouteFloor } from '@/lib/ai/router/router-admission'
 import type { SearchResultItem } from '@/lib/types'
@@ -14,7 +15,7 @@ import {
 
 const now = new Date('2026-07-11T12:00:00.000Z')
 
-function context(query: string) {
+function context(query: string): RouteExecutionContext {
   const routePlan = buildDeterministicRouteFloor({ query })
   return createRouteExecutionContext({
     routePlan,
@@ -28,6 +29,23 @@ function result(url: string): SearchResultItem {
     url,
     content: 'Plants convert light energy into chemical energy.',
     publishedAt: '2026-07-10T12:00:00.000Z'
+  }
+}
+
+function fusionResult(
+  routeContext: RouteExecutionContext,
+  url: string,
+  pathId: string
+): SearchResultItem {
+  return {
+    ...result(url),
+    retrievalProvenance: {
+      routeDigest: routeContext.routeDigest,
+      pathId,
+      pathPurpose: 'entity_disambiguation',
+      sourceClass: 'established_news',
+      retrievedAt: now.toISOString()
+    }
   }
 }
 
@@ -98,16 +116,25 @@ describe('AI-I3E governed two-stage pipeline', () => {
   it('never composes when required entity grounding remains absent', async () => {
     const query = 'Who is the current CEO of OpenAI?'
     const compose = vi.fn(async () => 'unsafe answer')
+    const routeContext = context(query)
 
     await expect(
       runGovernedResearchPipeline({
         query,
-        routeContext: context(query),
+        routeContext,
         retrieval: {
           retrieve: async () => ({
             searchResults: [
-              result('https://example.com/openai'),
-              result('https://other.example.net/openai')
+              fusionResult(
+                routeContext,
+                'https://example.com/openai',
+                'entity_path_one'
+              ),
+              fusionResult(
+                routeContext,
+                'https://other.example.net/openai',
+                'entity_path_two'
+              )
             ],
             completedRoles: [
               'router',
