@@ -7,6 +7,10 @@ import {
   PERSONALIZATION_COOKIE_NAME
 } from '@/lib/agents/personalization'
 import {
+  assertLegacyResearchStreamAllowed,
+  decideGovernedStreamRollout
+} from '@/lib/ai/rollout/governed-stream-rollout'
+import {
   admitChatRequest,
   ChatAdmissionInputError,
   executionSearchMode,
@@ -140,6 +144,27 @@ export async function POST(req: Request) {
       `Router admission: mode=${routeContext.routePlan.mode}, executionMode=${searchMode}, risk=${routeContext.routePlan.riskLevel}, digest=${routeContext.routeDigest.slice(0, 12)}`
     )
 
+    let rolloutDecision
+    try {
+      rolloutDecision = decideGovernedStreamRollout({
+        cohortKey: userId
+          ? `authenticated:${userId}`
+          : `guest:${chatId || routeContext.routeDigest}`,
+        routeDigest: routeContext.routeDigest
+      })
+      assertLegacyResearchStreamAllowed(rolloutDecision)
+    } catch (error) {
+      console.error('Governed stream rollout rejected request:', error)
+      return new Response('Governed research streaming is temporarily unavailable', {
+        status: 503,
+        statusText: 'Service Unavailable'
+      })
+    }
+
+    perfLog(
+      `Governed stream rollout: mode=${rolloutDecision.mode}, selected=${rolloutDecision.selected}, percentage=${rolloutDecision.percentage}, cohort=${rolloutDecision.cohortId}`
+    )
+
     if (
       isAdaptiveModeAuthBlocked({
         mode: searchMode,
@@ -202,7 +227,8 @@ export async function POST(req: Request) {
           searchMode,
           chatId,
           personalization,
-          routeContext
+          routeContext,
+          rolloutDecision
         })
       : await createChatStreamResponse({
           message,
@@ -215,7 +241,8 @@ export async function POST(req: Request) {
           isNewChat,
           searchMode,
           personalization,
-          routeContext
+          routeContext,
+          rolloutDecision
         })
 
     perfTime('createChatStreamResponse resolved', streamStart)
@@ -258,12 +285,11 @@ export async function POST(req: Request) {
     perfLog(`=== Summary ===`)
     perfLog(`Chat Type: ${isNewChat ? 'NEW' : 'EXISTING'}`)
     perfLog(`Total Time: ${totalTime.toFixed(2)}ms`)
-    perfLog(`================`)
 
     return response
   } catch (error) {
-    console.error('API route error:', error)
-    return new Response('Error processing your request', {
+    console.error('Chat API error:', error)
+    return new Response('Internal Server Error', {
       status: 500,
       statusText: 'Internal Server Error'
     })
