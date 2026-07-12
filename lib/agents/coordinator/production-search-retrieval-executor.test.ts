@@ -6,6 +6,7 @@ import {
 } from '@/lib/ai/router/execution-context'
 import { buildDeterministicRouteFloor } from '@/lib/ai/router/router-admission'
 
+import { createProductionRetrievalAdapter } from './production-retrieval-adapter'
 import { createProductionSearchRetrievalExecutor } from './production-search-retrieval-executor'
 
 function context(query: string) {
@@ -24,6 +25,12 @@ function result() {
   }
 }
 
+function adapter(search: ReturnType<typeof vi.fn>) {
+  return createProductionRetrievalAdapter(
+    createProductionSearchRetrievalExecutor({ search })
+  )
+}
+
 describe('production governed search retrieval executor', () => {
   it('reports only roles actually completed by the search stack', async () => {
     const search = vi.fn(async () => ({
@@ -32,9 +39,8 @@ describe('production governed search retrieval executor', () => {
       query: 'Who founded Example Corp?',
       number_of_results: 1
     }))
-    const executor = createProductionSearchRetrievalExecutor({ search })
 
-    const output = await executor.execute({
+    const output = await adapter(search).retrieve({
       query: 'Who founded Example Corp?',
       routeContext: context('Who founded Example Corp?'),
       attempt: 1,
@@ -59,9 +65,8 @@ describe('production governed search retrieval executor', () => {
       query: 'Research current concussion treatment guidance',
       number_of_results: 1
     }))
-    const executor = createProductionSearchRetrievalExecutor({ search })
 
-    await executor.execute({
+    await adapter(search).retrieve({
       query: 'Research current concussion treatment guidance',
       routeContext: context('Research current concussion treatment guidance'),
       attempt: 3,
@@ -78,10 +83,9 @@ describe('production governed search retrieval executor', () => {
 
   it('rejects unsupported repair actions before search', async () => {
     const search = vi.fn()
-    const executor = createProductionSearchRetrievalExecutor({ search })
 
     await expect(
-      executor.execute({
+      adapter(search).retrieve({
         query: 'Research TypeScript',
         routeContext: context('Research TypeScript'),
         attempt: 1,
@@ -95,10 +99,9 @@ describe('production governed search retrieval executor', () => {
     const controller = new AbortController()
     controller.abort(new Error('user cancelled search'))
     const search = vi.fn()
-    const executor = createProductionSearchRetrievalExecutor({ search })
 
     await expect(
-      executor.execute({
+      adapter(search).retrieve({
         query: 'Research TypeScript',
         routeContext: context('Research TypeScript'),
         attempt: 1,
@@ -110,12 +113,10 @@ describe('production governed search retrieval executor', () => {
   })
 
   it('rejects malformed search responses', async () => {
-    const executor = createProductionSearchRetrievalExecutor({
-      search: async () => null as never
-    })
+    const search = vi.fn(async () => null)
 
     await expect(
-      executor.execute({
+      adapter(search).retrieve({
         query: 'Research TypeScript',
         routeContext: context('Research TypeScript'),
         attempt: 1,
