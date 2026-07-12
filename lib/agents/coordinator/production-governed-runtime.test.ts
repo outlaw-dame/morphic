@@ -8,7 +8,7 @@ import { buildDeterministicRouteFloor } from '@/lib/ai/router/router-admission'
 
 import { createProductionGovernedRuntime } from './production-governed-runtime'
 
-const query = 'Research the latest TypeScript release'
+const query = "Find today's weather forecast"
 
 function routeContext() {
   const routePlan = buildDeterministicRouteFloor({ query })
@@ -50,9 +50,9 @@ function candidate(role: 'answer_composer' | 'citation_verifier') {
 
 function source(url: string) {
   return {
-    title: 'Official TypeScript release source',
+    title: 'Current weather forecast source',
     url,
-    content: 'The current TypeScript release is documented by the project.',
+    content: 'The current weather forecast is available from this source.',
     publishedAt: new Date().toISOString()
   }
 }
@@ -76,7 +76,7 @@ describe('production governed runtime factory', () => {
   it('constructs one execution-scoped governed chain with least privilege', async () => {
     const composerInvoke = vi.fn(async invocation => ({
       output: {
-        draft: 'The current TypeScript release is documented by the project.',
+        draft: 'The current weather forecast is available from the cited source.',
         citedEvidenceIds: [invocation.input.evidence[0]!.id]
       },
       outputTokens: 12
@@ -99,8 +99,8 @@ describe('production governed runtime factory', () => {
       retrievalExecutor: {
         execute: async () => ({
           searchResults: [
-            source('https://www.typescriptlang.org/docs/'),
-            source('https://github.com/microsoft/TypeScript/releases')
+            source('https://www.weather.gov/'),
+            source('https://www.noaa.gov/weather')
           ],
           completedRoles: [
             'router',
