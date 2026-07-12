@@ -69,12 +69,11 @@ function requestedResultCount(
   return Math.min(MAX_RESULTS, base + repairIncrease + attemptIncrease)
 }
 
-function completedRoles(routeContext: RouteExecutionContext): readonly ModelRole[] {
-  const roles: ModelRole[] = ['router', 'retriever', 'source_quality']
-  if (routeContext.routePlan.needsEntityGrounding) {
-    roles.push('entity_grounding')
-  }
-  return Object.freeze(roles)
+function completedRoles(): readonly ModelRole[] {
+  // This executor performs only retrieval. Source-quality classification,
+  // entity grounding, and Fusion planning are separate governed roles and must
+  // never be reported as complete merely because search returned results.
+  return Object.freeze(['router', 'retriever'] as const)
 }
 
 function normalizeResults(value: SearchResults): readonly SearchResultItem[] {
@@ -128,7 +127,7 @@ export function createProductionSearchRetrievalExecutor(
       throwIfAborted(input.signal)
       return Object.freeze({
         searchResults: normalizeResults(response),
-        completedRoles: completedRoles(routeContext),
+        completedRoles: completedRoles(),
         retrievedAt: new Date()
       })
     }
