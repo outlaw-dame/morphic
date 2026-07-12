@@ -9,7 +9,6 @@ import { buildDeterministicRouteFloor } from '@/lib/ai/router/router-admission'
 import { createProductionGovernedRuntime } from './production-governed-runtime'
 
 const query = 'Explain photosynthesis'
-const now = new Date('2026-07-11T12:00:00.000Z')
 
 function routeContext() {
   const routePlan = buildDeterministicRouteFloor({ query })
@@ -104,7 +103,7 @@ describe('production governed runtime factory', () => {
             source('https://science.example.org/report')
           ],
           completedRoles: ['router', 'retriever'],
-          retrievedAt: now
+          retrievedAt: new Date()
         })
       },
       composer: {
@@ -119,8 +118,7 @@ describe('production governed runtime factory', () => {
 
     const released = await runtime.run({
       query,
-      routeContext: routeContext(),
-      now
+      routeContext: routeContext()
     })
 
     expect(released.status).toBe('released')
