@@ -8,7 +8,8 @@ import { buildDeterministicRouteFloor } from '@/lib/ai/router/router-admission'
 
 import { createProductionGovernedRuntime } from './production-governed-runtime'
 
-const query = "Find today's weather forecast"
+const query = 'Explain photosynthesis'
+const now = new Date('2026-07-11T12:00:00.000Z')
 
 function routeContext() {
   const routePlan = buildDeterministicRouteFloor({ query })
@@ -50,10 +51,10 @@ function candidate(role: 'answer_composer' | 'citation_verifier') {
 
 function source(url: string) {
   return {
-    title: 'Current weather forecast source',
+    title: 'Independent source',
     url,
-    content: 'The current weather forecast is available from this source.',
-    publishedAt: new Date().toISOString()
+    content: 'Plants convert light energy into chemical energy.',
+    publishedAt: '2026-07-10T12:00:00.000Z'
   }
 }
 
@@ -76,7 +77,7 @@ describe('production governed runtime factory', () => {
   it('constructs one execution-scoped governed chain with least privilege', async () => {
     const composerInvoke = vi.fn(async invocation => ({
       output: {
-        draft: 'The current weather forecast is available from the cited source.',
+        draft: 'Plants convert light energy into chemical energy.',
         citedEvidenceIds: [invocation.input.evidence[0]!.id]
       },
       outputTokens: 12
@@ -99,16 +100,11 @@ describe('production governed runtime factory', () => {
       retrievalExecutor: {
         execute: async () => ({
           searchResults: [
-            source('https://www.weather.gov/'),
-            source('https://www.noaa.gov/weather')
+            source('https://example.edu/report'),
+            source('https://science.example.org/report')
           ],
-          completedRoles: [
-            'router',
-            'retriever',
-            'fusion_planner',
-            'source_quality'
-          ],
-          retrievedAt: new Date()
+          completedRoles: ['router', 'retriever'],
+          retrievedAt: now
         })
       },
       composer: {
@@ -121,7 +117,11 @@ describe('production governed runtime factory', () => {
       }
     })
 
-    const released = await runtime.run({ query, routeContext: routeContext() })
+    const released = await runtime.run({
+      query,
+      routeContext: routeContext(),
+      now
+    })
 
     expect(released.status).toBe('released')
     expect(runtime.executionId).toBe('execution_00000001')
