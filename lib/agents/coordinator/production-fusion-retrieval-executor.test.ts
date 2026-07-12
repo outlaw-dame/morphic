@@ -103,7 +103,6 @@ function executor(
 
 describe('AI-I5 production Fusion retrieval executor', () => {
   it('executes approved lanes, canonicalizes and deduplicates results, and preserves provenance', async () => {
-    const routeContext = context()
     const paths = [
       path('official', 'official_source'),
       path('news', 'established_news', 'independent_corroboration')
@@ -123,7 +122,7 @@ describe('AI-I5 production Fusion retrieval executor', () => {
 
     const output = await executor(paths, search).retrieve({
       query,
-      routeContext,
+      routeContext: context(),
       attempt: 1,
       repairActions: []
     })
@@ -134,7 +133,7 @@ describe('AI-I5 production Fusion retrieval executor', () => {
       'https://example.com/source?a=1&b=2'
     )
     expect(output.searchResults[0]?.retrievalProvenance).toMatchObject({
-      routeDigest: routeContext.routeDigest,
+      routeDigest: context().routeDigest,
       pathId: 'official',
       sourceClass: 'official_source'
     })
@@ -149,6 +148,7 @@ describe('AI-I5 production Fusion retrieval executor', () => {
       resultsReturned: 1,
       resultsAllowed: 10
     })
+    expect(output.fusion?.outcomes).toHaveLength(2)
   })
 
   it('enforces bounded concurrency', async () => {
@@ -235,9 +235,7 @@ describe('AI-I5 production Fusion retrieval executor', () => {
   it('prevents calls after the route tool budget is consumed', async () => {
     const search = vi
       .fn()
-      .mockRejectedValueOnce(
-        Object.assign(new Error('reset'), { code: 'ECONNRESET' })
-      )
+      .mockRejectedValueOnce(Object.assign(new Error('reset'), { code: 'ECONNRESET' }))
       .mockResolvedValueOnce({
         results: [searchResult('https://example.com/retry-success')],
         images: [],
@@ -378,7 +376,8 @@ describe('AI-I5 production Fusion retrieval executor', () => {
         'All Fusion retrieval paths failed'
       )
 
-      await vi.runAllTimersAsync()
+      await vi.advanceTimersToNextTimerAsync()
+      await vi.advanceTimersToNextTimerAsync()
       await rejection
       expect(search).toHaveBeenCalledTimes(2)
     } finally {
