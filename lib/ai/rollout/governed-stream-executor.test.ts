@@ -87,9 +87,11 @@ describe('governed stream executor', () => {
     const hostile = new Error('shadow failure')
     Object.defineProperty(hostile, 'name', {
       configurable: true,
-      value: { slice: () => {
-        throw new Error('hostile name executed')
-      } }
+      value: {
+        slice: () => {
+          throw new Error('hostile name executed')
+        }
+      }
     })
 
     const result = await executeGovernedStream({
