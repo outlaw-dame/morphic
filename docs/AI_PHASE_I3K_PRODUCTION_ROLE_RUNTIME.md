@@ -1,5 +1,9 @@
 # AI-I3K — Production Role Runtime Configuration
 
+## Status
+
+Final validation pending against current `main`. This historical integration-slice label is retained for traceability; the canonical phase registry and crosswalk remain authoritative.
+
 ## Objective
 
 Provide a truthful server-only bridge from deployment configuration to the canonical AI-I1 role selector. The runtime must not infer governed-role eligibility from the model selected by the chat UI.
@@ -21,7 +25,7 @@ Each candidate declares:
 
 The runtime is unavailable when:
 
-- configuration is absent, blank, malformed, oversized, or has unknown fields;
+- configuration is absent, blank, non-string, malformed, oversized, or has unknown fields;
 - a candidate identity is duplicated;
 - a provider is unsupported by the production registry;
 - deterministic time is invalid;
@@ -30,7 +34,7 @@ The runtime is unavailable when:
 - role evaluation evidence is missing, stale, or below the minimum score;
 - a candidate is disabled, deprecated, unavailable, cooling down, too slow, too costly, or has insufficient context.
 
-No partial runtime plan is returned. Composer, Advisor, and Citation Verifier must all be eligible before governed execution may start.
+Oversized strings are rejected using a non-allocating character-length check before UTF-8 byte measurement. No partial runtime plan is returned. Composer, Advisor, and Citation Verifier must all be eligible before governed execution may start.
 
 ## Security boundary
 
