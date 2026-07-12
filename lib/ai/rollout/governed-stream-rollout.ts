@@ -75,11 +75,13 @@ function readRouteDigest(value: unknown): string {
   return value
 }
 
-export function decideGovernedStreamRollout(input: Readonly<{
-  cohortKey: unknown
-  routeDigest: unknown
-  environment?: Environment
-}>): GovernedStreamRolloutDecision {
+export function decideGovernedStreamRollout(
+  input: Readonly<{
+    cohortKey: unknown
+    routeDigest: unknown
+    environment?: Environment
+  }>
+): GovernedStreamRolloutDecision {
   if (!input || typeof input !== 'object') {
     throw new Error('Invalid governed stream rollout input.')
   }
@@ -130,6 +132,8 @@ export function assertLegacyResearchStreamAllowed(
     throw new Error('Invalid governed stream rollout decision.')
   }
   if (decision.mode === 'enforce' && decision.selected) {
-    throw new Error('Governed stream enforcement selected without an approved release.')
+    throw new Error(
+      'Governed stream enforcement selected without an approved release.'
+    )
   }
 }

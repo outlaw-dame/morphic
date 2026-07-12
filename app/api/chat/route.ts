@@ -155,10 +155,13 @@ export async function POST(req: Request) {
       assertLegacyResearchStreamAllowed(rolloutDecision)
     } catch (error) {
       console.error('Governed stream rollout rejected request:', error)
-      return new Response('Governed research streaming is temporarily unavailable', {
-        status: 503,
-        statusText: 'Service Unavailable'
-      })
+      return new Response(
+        'Governed research streaming is temporarily unavailable',
+        {
+          status: 503,
+          statusText: 'Service Unavailable'
+        }
+      )
     }
 
     perfLog(

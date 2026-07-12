@@ -149,6 +149,8 @@ describe('AI-I3K governed stream rollout authority', () => {
         bucket: 1,
         cohortId: 'c'.repeat(16)
       })
-    ).toThrow('Governed stream enforcement selected without an approved release.')
+    ).toThrow(
+      'Governed stream enforcement selected without an approved release.'
+    )
   })
 })
