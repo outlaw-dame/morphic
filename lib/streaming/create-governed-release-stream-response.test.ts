@@ -109,5 +109,35 @@ describe('governed release UI stream response', () => {
         rolloutDecision: enforcedDecision
       })
     ).toThrow('Invalid governed production release.')
+
+    expect(() =>
+      createGovernedReleaseStreamResponse({
+        release: release({
+          composerOutputDigest: 42 as unknown as string
+        }),
+        routeContext,
+        rolloutDecision: enforcedDecision
+      })
+    ).toThrow('Invalid governed production release.')
+  })
+
+  it('rejects trace header injection and non-string trace values', () => {
+    expect(() =>
+      createGovernedReleaseStreamResponse({
+        release: release(),
+        routeContext,
+        rolloutDecision: enforcedDecision,
+        traceId: 'safe\r\nX-Injected: true'
+      })
+    ).toThrow('Invalid governed release stream trace ID.')
+
+    expect(() =>
+      createGovernedReleaseStreamResponse({
+        release: release(),
+        routeContext,
+        rolloutDecision: enforcedDecision,
+        traceId: 42 as unknown as string
+      })
+    ).toThrow('Invalid governed release stream trace ID.')
   })
 })
