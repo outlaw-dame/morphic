@@ -259,17 +259,26 @@ describe('AI architecture drift controls', () => {
     expect(ModelRoleSchema.options).toContain('fusion_planner')
   })
 
-  it('records AI-I5 as integrated with evidence without claiming rollout', () => {
+  it('records AI-I0 through AI-I6 as integrated without claiming rollout', () => {
+    const integratedIds = [
+      'AI-I0',
+      'AI-I1',
+      'AI-I2',
+      'AI-I3',
+      'AI-I4',
+      'AI-I5',
+      'AI-I6'
+    ]
     const integratedPrefix = AI_PHASE_REGISTRY.filter(entry =>
-      ['AI-I0', 'AI-I1', 'AI-I2', 'AI-I3', 'AI-I4', 'AI-I5'].includes(entry.id)
+      integratedIds.includes(entry.id)
     )
     const fusion = AI_PHASE_REGISTRY.find(entry => entry.id === 'AI-I5')
+    const evidence = AI_PHASE_REGISTRY.find(entry => entry.id === 'AI-I6')
 
-    expect(integratedPrefix).toHaveLength(6)
+    expect(integratedPrefix).toHaveLength(7)
     expect(integratedPrefix.every(entry => entry.status === 'integrated')).toBe(
       true
     )
-    expect(fusion?.status).toBe('integrated')
     expect(fusion?.evidence).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -277,18 +286,34 @@ describe('AI architecture drift controls', () => {
           reference: 'docs/AI_PHASE_I5_FUSION_PLANNING_EXECUTION.md'
         }),
         expect.objectContaining({
+          kind: 'pull_request',
+          reference: 'PR #106'
+        })
+      ])
+    )
+    expect(evidence?.status).toBe('integrated')
+    expect(evidence?.evidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'document',
+          reference: 'docs/AI_PHASE_I6_EVIDENCE_INGESTION_COMPLETENESS.md'
+        }),
+        expect.objectContaining({
           kind: 'code',
-          reference:
-            'lib/agents/coordinator/production-fusion-retrieval-executor.ts'
+          reference: 'lib/ai-architecture/evidence/evidence-graph.ts'
+        }),
+        expect.objectContaining({
+          kind: 'code',
+          reference: 'lib/agents/coordinator/live-handoff.ts'
         }),
         expect.objectContaining({
           kind: 'test',
           reference:
-            'lib/agents/coordinator/production-fusion-retrieval-executor.test.ts'
+            'lib/ai-architecture/evidence/evidence-ingestion.test.ts'
         }),
         expect.objectContaining({
           kind: 'pull_request',
-          reference: 'PR #106'
+          reference: 'PR #107'
         })
       ])
     )
