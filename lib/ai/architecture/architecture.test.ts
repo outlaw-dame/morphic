@@ -261,9 +261,7 @@ describe('AI architecture drift controls', () => {
 
   it('records AI-I5 as integrated with evidence without claiming rollout', () => {
     const integratedPrefix = AI_PHASE_REGISTRY.filter(entry =>
-      ['AI-I0', 'AI-I1', 'AI-I2', 'AI-I3', 'AI-I4', 'AI-I5'].includes(
-        entry.id
-      )
+      ['AI-I0', 'AI-I1', 'AI-I2', 'AI-I3', 'AI-I4', 'AI-I5'].includes(entry.id)
     )
     const fusion = AI_PHASE_REGISTRY.find(entry => entry.id === 'AI-I5')
 
@@ -307,7 +305,9 @@ describe('Coordinator lifecycle contract', () => {
   it('allows only declared state transitions', () => {
     const legal = getLegalCoordinatorTransitions('route_validated')
     expect(legal).toEqual(['planning'])
-    expect(isLegalCoordinatorTransition('route_validated', 'planning')).toBe(true)
+    expect(isLegalCoordinatorTransition('route_validated', 'planning')).toBe(
+      true
+    )
     expect(isLegalCoordinatorTransition('route_validated', 'released')).toBe(
       false
     )
@@ -324,7 +324,12 @@ describe('Coordinator lifecycle contract', () => {
   })
 
   it('treats terminal states as immutable', () => {
-    for (const state of ['released', 'blocked', 'failed', 'cancelled'] as const) {
+    for (const state of [
+      'released',
+      'blocked',
+      'failed',
+      'cancelled'
+    ] as const) {
       expect(isTerminalCoordinatorState(state)).toBe(true)
       expect(getLegalCoordinatorTransitions(state)).toEqual([])
     }
