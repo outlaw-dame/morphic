@@ -73,6 +73,84 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Generate completed AI-I6 registry
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('lib/ai/architecture/phase-registry.ts')
+          text = path.read_text()
+          old = """    phase({
+                id: 'AI-I6',
+                title: 'Evidence ingestion completeness',
+                dependencies: ['AI-I0', 'AI-I5'],
+                requiredRoles: ['coordinator'],
+                historicalRequirements: [
+                  carried(
+                    'Original AI-7 Evidence Graph',
+                    'Existing normalization and conflict work must cover every evidence-producing path.',
+                    'completed_but_not_integrated'
+                  )
+                ]
+              }),"""
+          new = """    phase({
+                id: 'AI-I6',
+                title: 'Evidence ingestion completeness',
+                status: 'integrated',
+                dependencies: ['AI-I0', 'AI-I5'],
+                requiredRoles: ['coordinator'],
+                historicalRequirements: [
+                  carried(
+                    'Original AI-7 Evidence Graph',
+                    'Normalization, route-bound provenance, deduplication, claim extraction, and conflict analysis now cover every current retrieval evidence path.',
+                    'completed_and_retained'
+                  )
+                ],
+                evidence: [
+                  {
+                    kind: 'document',
+                    reference: 'docs/AI_PHASE_I6_EVIDENCE_INGESTION_COMPLETENESS.md'
+                  },
+                  {
+                    kind: 'code',
+                    reference: 'lib/ai-architecture/evidence/evidence-graph.ts'
+                  },
+                  {
+                    kind: 'code',
+                    reference:
+                      'lib/ai-architecture/evidence/normalize-search-result.ts'
+                  },
+                  {
+                    kind: 'code',
+                    reference: 'lib/agents/coordinator/live-handoff.ts'
+                  },
+                  {
+                    kind: 'test',
+                    reference:
+                      'lib/ai-architecture/evidence/evidence-ingestion.test.ts'
+                  },
+                  {
+                    kind: 'test',
+                    reference: 'lib/agents/coordinator/live-handoff.test.ts'
+                  },
+                  { kind: 'pull_request', reference: 'PR #107' }
+                ]
+              }),"""
+          if old not in text:
+              raise SystemExit('AI-I6 registry block not found exactly once')
+          if text.count(old) != 1:
+              raise SystemExit('AI-I6 registry block was not unique')
+          path.write_text(text.replace(old, new))
+          PY
+          bunx prettier --write lib/ai/architecture/phase-registry.ts
+
+      - name: Upload completed AI-I6 registry
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-i6-completed-registry
+          path: lib/ai/architecture/phase-registry.ts
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Check formatting
         run: bun format:check
 
