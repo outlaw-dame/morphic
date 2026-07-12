@@ -2,9 +2,10 @@ import {
   createRouteExecutionContext,
   type RouteExecutionContext
 } from '@/lib/ai/router/execution-context'
-import type { ModelRole } from '@/lib/ai/schemas'
+import type { ModelRole, SourceClass } from '@/lib/ai/schemas'
 import type { SearchResultItem, SearchResults } from '@/lib/types'
 
+import type { FusionRetrievalPathPurpose } from './governed-pipeline'
 import type { ProductionRetrievalExecutor } from './production-retrieval-adapter'
 
 const MAX_QUERY_LENGTH = 16_000
@@ -35,6 +36,8 @@ export type ProductionSearchPort = Readonly<{
     searchDepth: 'basic' | 'advanced'
     includeDomains: readonly string[]
     excludeDomains: readonly string[]
+    sourceClass?: SourceClass
+    pathPurpose?: FusionRetrievalPathPurpose
     signal?: AbortSignal
   }>): Promise<SearchResults>
 }>
