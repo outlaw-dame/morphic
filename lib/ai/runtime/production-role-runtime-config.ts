@@ -22,6 +22,20 @@ const SUPPORTED_RUNTIME_ROLES = [
   'citation_verifier'
 ] as const satisfies readonly ModelRole[]
 
+const SUPPORTED_PROVIDER_IDS = new Set([
+  'openai',
+  'anthropic',
+  'google',
+  'mistral',
+  'openai-compatible',
+  'nvidia',
+  'ollama-cloud',
+  'gateway',
+  'cloudflare',
+  'openrouter',
+  'ollama'
+])
+
 const CapabilityAssertionSchema = z
   .object({
     capability: ModelCapabilitySchema,
@@ -111,6 +125,14 @@ function hasDuplicateCandidateIdentities(
   return new Set(identities).size !== identities.length
 }
 
+function hasUnsupportedProvider(
+  candidates: readonly RoleModelCandidate[]
+): boolean {
+  return candidates.some(
+    candidate => !SUPPORTED_PROVIDER_IDS.has(candidate.providerId)
+  )
+}
+
 export function resolveProductionRoleRuntimeConfig(input: Readonly<{
   rawConfig: string | undefined
   now?: Date
@@ -141,6 +163,9 @@ export function resolveProductionRoleRuntimeConfig(input: Readonly<{
   const candidates = parsed.data.candidates as readonly RoleModelCandidate[]
   if (hasDuplicateCandidateIdentities(candidates)) {
     return unavailable('runtime_config_duplicate_candidate')
+  }
+  if (hasUnsupportedProvider(candidates)) {
+    return unavailable('runtime_config_unsupported_provider')
   }
 
   const now = input.now ?? new Date()
