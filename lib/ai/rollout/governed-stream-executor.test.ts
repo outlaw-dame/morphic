@@ -91,6 +91,31 @@ describe('governed stream executor', () => {
     expect(JSON.stringify(result)).not.toContain('secret-governed-draft')
   })
 
+  it('registers detached shadow work with a serverless waitUntil hook', async () => {
+    let retained: Promise<void> | undefined
+    const waitUntil = vi.fn((promise: Promise<void>) => {
+      retained = promise
+    })
+    const observer = vi.fn()
+
+    const result = await executeGovernedStream({
+      routeContext: context('Research the current CEO of Apple'),
+      rolloutDecision: decision('shadow', true),
+      executeGoverned: async () => 'shadow-response',
+      executeLegacy: async () => 'legacy-response',
+      onShadowOutcome: observer,
+      waitUntil
+    })
+
+    expect(result).toEqual({ path: 'shadow', value: 'legacy-response' })
+    expect(waitUntil).toHaveBeenCalledTimes(1)
+    expect(retained).toBeInstanceOf(Promise)
+    await retained
+    expect(observer).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'succeeded' })
+    )
+  })
+
   it('isolates shadow and observer failures from the legacy response', async () => {
     const observer = vi.fn(async () => {
       throw new Error('telemetry unavailable')
