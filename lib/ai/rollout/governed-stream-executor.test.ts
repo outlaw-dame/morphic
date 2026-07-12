@@ -32,7 +32,7 @@ describe('governed stream executor', () => {
     const governed = vi.fn(async () => 'governed-response')
 
     const result = await executeGovernedStream({
-      routeContext: context('Hello, how are you?'),
+      routeContext: context('Hello'),
       rolloutDecision: decision('enforce', true),
       executeLegacy: legacy,
       executeGoverned: governed
