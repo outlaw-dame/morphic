@@ -17,6 +17,10 @@ export class InvalidRouteExecutionContextError extends Error {
   }
 }
 
+export function isCanonicalRouteDigest(value: unknown): value is string {
+  return RouteDigestSchema.safeParse(value).success
+}
+
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize)
   if (value === null || typeof value !== 'object') return value
