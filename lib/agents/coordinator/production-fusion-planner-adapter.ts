@@ -17,6 +17,7 @@ import {
 const MAX_QUERY_LENGTH = 16_000
 const MAX_PATHS = 8
 const MAX_PATH_QUERY_LENGTH = 2_000
+const MAX_VALIDATION_ISSUES = 4
 
 const EvidenceRoleSchema = z.enum([
   'primary_evidence',
@@ -112,6 +113,16 @@ function throwCancellation(signal?: AbortSignal): never {
     : new Error(message)
 }
 
+function validationIssueSummary(error: z.ZodError): string {
+  return error.issues
+    .slice(0, MAX_VALIDATION_ISSUES)
+    .map(issue => {
+      const path = issue.path.length > 0 ? issue.path.join('.') : 'root'
+      return `${issue.code}:${path}`
+    })
+    .join(',')
+}
+
 function buildInput(
   query: string,
   routeContext: RouteExecutionContext
@@ -128,7 +139,11 @@ function buildInput(
     needsEntityGrounding: plan.needsEntityGrounding,
     maxToolCalls: plan.maxToolCalls
   })
-  if (!parsed.success) throw new Error('Invalid Fusion Planner input.')
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid Fusion Planner input (${validationIssueSummary(parsed.error)}).`
+    )
+  }
   return parsed.data
 }
 
@@ -137,16 +152,22 @@ function validatePlan(
   input: FusionPlannerModelInput
 ): readonly z.infer<typeof FusionPathSchema>[] {
   const disallowed = new Set(input.disallowedSourceClasses)
-  if (output.paths.some(path => disallowed.has(path.sourceClass))) {
-    throw new Error('Fusion Planner selected a disallowed source class.')
-  }
-  if (
-    input.requiredSourceClasses.some(
-      required => !output.paths.some(path => path.sourceClass === required)
+  const invalidPath = output.paths.find(path => disallowed.has(path.sourceClass))
+  if (invalidPath) {
+    throw new Error(
+      `Fusion Planner selected disallowed source class "${invalidPath.sourceClass}" in path "${invalidPath.id}".`
     )
-  ) {
-    throw new Error('Fusion Planner omitted a required source class.')
   }
+
+  const missingRequired = input.requiredSourceClasses.filter(
+    required => !output.paths.some(path => path.sourceClass === required)
+  )
+  if (missingRequired.length > 0) {
+    throw new Error(
+      `Fusion Planner omitted required source classes: ${missingRequired.join(',')}.`
+    )
+  }
+
   if (
     input.needsFreshness &&
     !output.paths.some(path => path.requiresFreshness)
