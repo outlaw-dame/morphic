@@ -65,7 +65,11 @@ export type NormalizedEvidenceItem = EvidenceItem & {
   originalUrl: string
   sourceQuality: SourceQualityAssessment
   entities: ResolvedEntity[]
-  retrievalProvenance: EvidenceRetrievalProvenance | null
+  /**
+   * Present on newly normalized evidence. Optional only so older persisted or
+   * test graph payloads remain readable while migrations are staged.
+   */
+  retrievalProvenance?: EvidenceRetrievalProvenance | null
   duplicateOf?: string
   copiedFrom?: string
 }
@@ -83,5 +87,9 @@ export type EvidenceGraph = {
   conflicts: EvidenceConflict[]
   claimsByEvidenceId: Record<string, AtomicClaim[]>
   warnings: string[]
-  ingestion: EvidenceIngestionReport
+  /**
+   * Every newly built graph includes this report. Optional supports historical
+   * serialized graph shapes that predate AI-I6.
+   */
+  ingestion?: EvidenceIngestionReport
 }
