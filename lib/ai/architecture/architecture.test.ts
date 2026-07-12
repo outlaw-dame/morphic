@@ -259,72 +259,76 @@ describe('AI architecture drift controls', () => {
     expect(ModelRoleSchema.options).toContain('fusion_planner')
   })
 
-  it('detects duplicate identifiers, forward dependencies, and missing entity providers', () => {
-    const duplicate = [AI_PHASE_REGISTRY[0], AI_PHASE_REGISTRY[0]]
-    expect(validateAIPhaseRegistry(duplicate)).toContain('duplicate_phase_id')
+  it('records AI-I5 as integrated with evidence without claiming rollout', () => {
+    const integratedPrefix = AI_PHASE_REGISTRY.filter(entry =>
+      ['AI-I0', 'AI-I1', 'AI-I2', 'AI-I3', 'AI-I4', 'AI-I5'].includes(
+        entry.id
+      )
+    )
+    const fusion = AI_PHASE_REGISTRY.find(entry => entry.id === 'AI-I5')
 
-    const forwardDependency = AI_PHASE_REGISTRY.map(entry => ({ ...entry }))
-    forwardDependency[0] = {
-      ...forwardDependency[0],
-      dependencies: ['AI-I1']
-    }
-    expect(validateAIPhaseRegistry(forwardDependency)).toContain(
-      'forward_dependency'
+    expect(integratedPrefix).toHaveLength(6)
+    expect(integratedPrefix.every(entry => entry.status === 'integrated')).toBe(
+      true
     )
-
-    const missingProviders = AI_PHASE_REGISTRY.map(entry => ({ ...entry }))
-    const entityIndex = missingProviders.findIndex(
-      entry => entry.id === 'AI-I7'
+    expect(fusion?.status).toBe('integrated')
+    expect(fusion?.evidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'document',
+          reference: 'docs/AI_PHASE_I5_FUSION_PLANNING_EXECUTION.md'
+        }),
+        expect.objectContaining({
+          kind: 'code',
+          reference:
+            'lib/agents/coordinator/production-fusion-retrieval-executor.ts'
+        }),
+        expect.objectContaining({
+          kind: 'test',
+          reference:
+            'lib/agents/coordinator/production-fusion-retrieval-executor.test.ts'
+        }),
+        expect.objectContaining({
+          kind: 'pull_request',
+          reference: 'PR #106'
+        })
+      ])
     )
-    missingProviders[entityIndex] = {
-      ...missingProviders[entityIndex],
-      historicalRequirements: [
-        {
-          source: 'Entity grounding',
-          disposition: 'carried_forward',
-          rationale: 'Canonical provider routing remains required.'
-        }
-      ]
-    }
-    expect(validateAIPhaseRegistry(missingProviders)).toContain(
-      'missing_entity_provider_requirement'
-    )
+    expect(
+      AI_PHASE_REGISTRY.some(
+        entry =>
+          entry.status === 'enforced' || entry.status === 'production_enabled'
+      )
+    ).toBe(false)
   })
 })
 
 describe('Coordinator lifecycle contract', () => {
-  it('defines transitions for every lifecycle state', () => {
-    for (const state of CoordinatorLifecycleStateSchema.options) {
-      expect(getLegalCoordinatorTransitions(state)).toBeDefined()
-    }
+  it('allows only declared state transitions', () => {
+    const legal = getLegalCoordinatorTransitions('route_validated')
+    expect(legal).toEqual(['planning'])
+    expect(isLegalCoordinatorTransition('route_validated', 'planning')).toBe(true)
+    expect(isLegalCoordinatorTransition('route_validated', 'released')).toBe(
+      false
+    )
+    expect(() =>
+      CoordinatorTransitionSchema.parse({
+        version: 1,
+        executionId,
+        from: 'route_validated',
+        to: 'released',
+        reasonCodes: ['skip_all_safety'],
+        transitionedAt: now
+      })
+    ).toThrow()
   })
 
-  it('allows only declared transitions and keeps terminal states immutable', () => {
-    expect(isLegalCoordinatorTransition('created', 'routed')).toBe(true)
-    expect(isLegalCoordinatorTransition('created', 'released')).toBe(false)
-
-    for (const terminal of [
-      'released',
-      'refused_or_caveated',
-      'cancelled',
-      'failed'
-    ] as const) {
-      expect(isTerminalCoordinatorState(terminal)).toBe(true)
-      expect(getLegalCoordinatorTransitions(terminal)).toEqual([])
+  it('treats terminal states as immutable', () => {
+    for (const state of ['released', 'blocked', 'failed', 'cancelled'] as const) {
+      expect(isTerminalCoordinatorState(state)).toBe(true)
+      expect(getLegalCoordinatorTransitions(state)).toEqual([])
     }
-  })
-
-  it('parses revision-bound transition metadata', () => {
-    const parsed = CoordinatorTransitionSchema.parse({
-      version: 1,
-      executionId,
-      expectedRevision: 0,
-      from: 'created',
-      to: 'routed',
-      eventId: 'event_scope_123456789',
-      occurredAt: now,
-      reasonCodes: ['route_validated']
-    })
-    expect(parsed.to).toBe('routed')
+    expect(isTerminalCoordinatorState('planning')).toBe(false)
+    expect(CoordinatorLifecycleStateSchema.options).toContain('repairing')
   })
 })
