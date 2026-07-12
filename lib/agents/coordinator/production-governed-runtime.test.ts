@@ -1,8 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import {
+  createRouteExecutionContext,
+  digestRoutePlan
+} from '@/lib/ai/router/execution-context'
+import { buildDeterministicRouteFloor } from '@/lib/ai/router/router-admission'
+import { parseRoutePlan } from '@/lib/ai/schemas'
+
 import { createProductionGovernedRuntime } from './production-governed-runtime'
 
-function candidate(role: 'answer_composer' | 'citation_verifier') {
+function candidate(
+  role: 'answer_composer' | 'citation_verifier' | 'fusion_planner'
+) {
   return {
     providerId: 'provider-a',
     modelId: `${role}-model`,
@@ -30,6 +39,23 @@ function candidate(role: 'answer_composer' | 'citation_verifier') {
     ],
     cooldownUntil: null
   }
+}
+
+function fusionRouteContext() {
+  const floor = buildDeterministicRouteFloor({
+    query: 'Research current Example Corp ownership.'
+  })
+  const routePlan = parseRoutePlan({
+    ...floor,
+    mode: 'adaptive',
+    requiresResearch: true,
+    needsFusionPlanning: true,
+    maxToolCalls: 4
+  })
+  return createRouteExecutionContext({
+    routePlan,
+    routeDigest: digestRoutePlan(routePlan)
+  })
 }
 
 function baseConfiguration() {
@@ -96,5 +122,46 @@ describe('production governed runtime factory', () => {
         composer: { ...base.composer, candidates: [] }
       })
     ).toThrow('Invalid governed Composer candidates.')
+  })
+
+  it('never falls back to ordinary retrieval for a Fusion-required route', () => {
+    const runtime = createProductionGovernedRuntime(baseConfiguration())
+
+    expect(() =>
+      runtime.run({
+        query: 'Research current Example Corp ownership.',
+        routeContext: fusionRouteContext()
+      })
+    ).toThrow('Fusion-required route has no configured Fusion runtime.')
+  })
+
+  it('validates Fusion role and safe search configuration at construction', () => {
+    const base = baseConfiguration()
+
+    expect(() =>
+      createProductionGovernedRuntime({
+        ...base,
+        fusion: {
+          planner: {
+            candidates: [],
+            provider: { invoke: vi.fn() }
+          },
+          searchPort: { search: vi.fn() }
+        }
+      })
+    ).toThrow('Invalid governed Fusion Planner candidates.')
+
+    expect(() =>
+      createProductionGovernedRuntime({
+        ...base,
+        fusion: {
+          planner: {
+            candidates: [candidate('fusion_planner')],
+            provider: { invoke: vi.fn() }
+          },
+          searchPort: null as never
+        }
+      })
+    ).toThrow('Invalid governed Fusion configuration.')
   })
 })

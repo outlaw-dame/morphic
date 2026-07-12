@@ -52,6 +52,36 @@ export type SearchResultItem = {
   publishedAt?: string
   updatedAt?: string
   siteName?: string
+  retrievalProvenance?: {
+    routeDigest: string
+    pathId: string
+    pathPurpose:
+      | 'primary_evidence'
+      | 'independent_corroboration'
+      | 'freshness_check'
+      | 'entity_disambiguation'
+      | 'contradiction_check'
+      | 'background_context'
+      | 'community_experience'
+    sourceClass:
+      | 'official_source'
+      | 'government_or_regulator'
+      | 'standards_body'
+      | 'academic_or_peer_reviewed'
+      | 'primary_data_source'
+      | 'court_or_legal_record'
+      | 'established_news'
+      | 'specialist_publication'
+      | 'company_or_vendor'
+      | 'independent_blog'
+      | 'forum_or_reddit'
+      | 'social_media'
+      | 'wiki_or_knowledge_graph'
+      | 'content_farm'
+      | 'scraper_or_aggregator'
+      | 'unknown'
+    retrievedAt: string
+  }
   sourceQuality?: {
     score: number
     tier: 'high' | 'medium' | 'low'

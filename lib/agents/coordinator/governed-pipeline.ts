@@ -1,6 +1,6 @@
 import type { EvidenceGraph } from '@/lib/ai-architecture/evidence'
 import type { RouteExecutionContext } from '@/lib/ai/router/execution-context'
-import type { ModelRole } from '@/lib/ai/schemas'
+import type { ModelRole, SourceClass } from '@/lib/ai/schemas'
 import type { SearchResultItem } from '@/lib/types'
 
 import {
@@ -39,10 +39,42 @@ export type CoordinatorCompositionApproval = Readonly<{
   evidenceGraph: EvidenceGraph
 }>
 
+export type FusionRetrievalPathPurpose =
+  | 'primary_evidence'
+  | 'independent_corroboration'
+  | 'freshness_check'
+  | 'entity_disambiguation'
+  | 'contradiction_check'
+  | 'background_context'
+  | 'community_experience'
+
+export type FusionRetrievalPathOutcome = Readonly<{
+  pathId: string
+  sourceClass: SourceClass
+  purpose: FusionRetrievalPathPurpose
+  status: 'succeeded' | 'empty' | 'failed' | 'cancelled'
+  attempts: number
+  resultCount: number
+  errorClass: string | null
+}>
+
+export type FusionRetrievalExecutionReport = Readonly<{
+  routeDigest: string
+  reasonCodes: readonly string[]
+  outcomes: readonly FusionRetrievalPathOutcome[]
+  budget: Readonly<{
+    toolCallsUsed: number
+    toolCallsAllowed: number
+    resultsReturned: number
+    resultsAllowed: number
+  }>
+}>
+
 export type GovernedRetrievalResult = Readonly<{
   searchResults: readonly SearchResultItem[]
   completedRoles: readonly ModelRole[]
   retrievedAt: string | Date
+  fusion?: FusionRetrievalExecutionReport
 }>
 
 export type GovernedRetrievalAdapter = Readonly<{
@@ -191,7 +223,7 @@ export async function runGovernedResearchPipeline<TOutput>(
       routeContext: input.routeContext,
       attempt,
       repairActions,
-      signal: input.signal
+      ...(input.signal ? { signal: input.signal } : {})
     })
 
     throwIfAborted(input.signal)
@@ -208,7 +240,7 @@ export async function runGovernedResearchPipeline<TOutput>(
       retrievalAttempts: attempt,
       maxRetrievalAttempts,
       retrievedAt: retrievalResult.retrievedAt,
-      now: input.now
+      ...(input.now ? { now: input.now } : {})
     })
 
     const proposedRepairs = lastHandoff.evaluation.repairPlan.actions
@@ -234,7 +266,7 @@ export async function runGovernedResearchPipeline<TOutput>(
         evidenceGraph: lastHandoff.state.evidenceGraph,
         completedRoles: Object.freeze([...lastHandoff.state.completedRoles]),
         approval,
-        signal: input.signal
+        ...(input.signal ? { signal: input.signal } : {})
       })
       throwIfAborted(input.signal)
 

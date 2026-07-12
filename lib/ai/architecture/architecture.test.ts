@@ -259,6 +259,47 @@ describe('AI architecture drift controls', () => {
     expect(ModelRoleSchema.options).toContain('fusion_planner')
   })
 
+  it('records AI-I5 as integrated with evidence without claiming rollout', () => {
+    const integratedPrefix = AI_PHASE_REGISTRY.filter(entry =>
+      ['AI-I0', 'AI-I1', 'AI-I2', 'AI-I3', 'AI-I4', 'AI-I5'].includes(entry.id)
+    )
+    const fusion = AI_PHASE_REGISTRY.find(entry => entry.id === 'AI-I5')
+
+    expect(integratedPrefix).toHaveLength(6)
+    expect(integratedPrefix.every(entry => entry.status === 'integrated')).toBe(
+      true
+    )
+    expect(fusion?.status).toBe('integrated')
+    expect(fusion?.evidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'document',
+          reference: 'docs/AI_PHASE_I5_FUSION_PLANNING_EXECUTION.md'
+        }),
+        expect.objectContaining({
+          kind: 'code',
+          reference:
+            'lib/agents/coordinator/production-fusion-retrieval-executor.ts'
+        }),
+        expect.objectContaining({
+          kind: 'test',
+          reference:
+            'lib/agents/coordinator/production-fusion-retrieval-executor.test.ts'
+        }),
+        expect.objectContaining({
+          kind: 'pull_request',
+          reference: 'PR #106'
+        })
+      ])
+    )
+    expect(
+      AI_PHASE_REGISTRY.some(
+        entry =>
+          entry.status === 'enforced' || entry.status === 'production_enabled'
+      )
+    ).toBe(false)
+  })
+
   it('detects duplicate identifiers, forward dependencies, and missing entity providers', () => {
     const duplicate = [AI_PHASE_REGISTRY[0], AI_PHASE_REGISTRY[0]]
     expect(validateAIPhaseRegistry(duplicate)).toContain('duplicate_phase_id')

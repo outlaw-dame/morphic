@@ -2,15 +2,20 @@ import {
   createRouteExecutionContext,
   type RouteExecutionContext
 } from '@/lib/ai/router/execution-context'
-import type { ModelRole } from '@/lib/ai/schemas'
+import type { ModelRole, SourceClass } from '@/lib/ai/schemas'
 import type { SearchResultItem, SearchResults } from '@/lib/types'
 
+import type { FusionRetrievalPathPurpose } from './governed-pipeline'
 import type { ProductionRetrievalExecutor } from './production-retrieval-adapter'
 
 const MAX_QUERY_LENGTH = 16_000
 const MAX_RESULTS = 100
 const MAX_ATTEMPTS = 5
 const DEFAULT_RESULTS = 20
+const COMPLETED_ROLES: readonly ModelRole[] = Object.freeze([
+  'router',
+  'retriever'
+])
 
 const SUPPORTED_REPAIR_ACTIONS = new Set([
   'retrieve_more_sources',
@@ -31,6 +36,8 @@ export type ProductionSearchPort = Readonly<{
     searchDepth: 'basic' | 'advanced'
     includeDomains: readonly string[]
     excludeDomains: readonly string[]
+    sourceClass?: SourceClass
+    pathPurpose?: FusionRetrievalPathPurpose
     signal?: AbortSignal
   }>): Promise<SearchResults>
 }>
@@ -69,12 +76,11 @@ function requestedResultCount(
   return Math.min(MAX_RESULTS, base + repairIncrease + attemptIncrease)
 }
 
-function completedRoles(routeContext: RouteExecutionContext): readonly ModelRole[] {
-  const roles: ModelRole[] = ['router', 'retriever', 'source_quality']
-  if (routeContext.routePlan.needsEntityGrounding) {
-    roles.push('entity_grounding')
-  }
-  return Object.freeze(roles)
+function completedRoles(): readonly ModelRole[] {
+  // This executor performs only retrieval. Source-quality classification,
+  // entity grounding, and Fusion planning are separate governed roles and must
+  // never be reported as complete merely because search returned results.
+  return COMPLETED_ROLES
 }
 
 function normalizeResults(value: SearchResults): readonly SearchResultItem[] {
@@ -128,7 +134,7 @@ export function createProductionSearchRetrievalExecutor(
       throwIfAborted(input.signal)
       return Object.freeze({
         searchResults: normalizeResults(response),
-        completedRoles: completedRoles(routeContext),
+        completedRoles: completedRoles(),
         retrievedAt: new Date()
       })
     }

@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto'
 
-import type { RouteExecutionContext } from '@/lib/ai/router/execution-context'
+import {
+  createRouteExecutionContext,
+  type RouteExecutionContext
+} from '@/lib/ai/router/execution-context'
 import {
   createTrustedRoleExecutionScope,
   type RoleProviderAdapter,
@@ -23,10 +26,19 @@ import {
   createProductionCompositionAdapter,
   type ComposerModelInput
 } from './production-composition-adapter'
+import { createProductionFusionRetrievalExecutor } from './production-fusion-retrieval-executor'
+import {
+  createProductionFusionPlanner,
+  type FusionPlannerModelInput
+} from './production-fusion-planner-adapter'
 import {
   createProductionRetrievalAdapter,
   type ProductionRetrievalExecutor
 } from './production-retrieval-adapter'
+import {
+  createProductionSearchRetrievalExecutor,
+  type ProductionSearchPort
+} from './production-search-retrieval-executor'
 
 const DEFAULT_DEADLINE_MS = 120_000
 const MIN_DEADLINE_MS = 1_000
@@ -38,11 +50,19 @@ export type GovernedRoleRuntimeConfiguration<TInput> = Readonly<{
   limits?: RoleRunnerLimits
 }>
 
+export type ProductionFusionRuntimeConfiguration = Readonly<{
+  planner: GovernedRoleRuntimeConfiguration<FusionPlannerModelInput>
+  searchPort: ProductionSearchPort
+  maxConcurrency?: number
+  perPathTimeoutMs?: number
+}>
+
 export type ProductionGovernedRuntimeConfiguration = Readonly<{
   ownerScopeId: string
   executionId?: string
   deadlineMs?: number
-  retrievalExecutor: ProductionRetrievalExecutor
+  retrievalExecutor?: ProductionRetrievalExecutor
+  fusion?: ProductionFusionRuntimeConfiguration
   composer: GovernedRoleRuntimeConfiguration<ComposerModelInput>
   advisor?: GovernedRoleRuntimeConfiguration<AdvisorModelInput>
   citationVerifier: GovernedRoleRuntimeConfiguration<CitationVerifierModelInput>
@@ -107,7 +127,16 @@ export function createProductionGovernedRuntime(
   if (!configuration || typeof configuration !== 'object') {
     throw new Error('Invalid governed runtime configuration.')
   }
-  if (typeof configuration.retrievalExecutor?.execute !== 'function') {
+  if (
+    configuration.retrievalExecutor === undefined &&
+    configuration.fusion === undefined
+  ) {
+    throw new Error('Missing governed retrieval configuration.')
+  }
+  if (
+    configuration.retrievalExecutor !== undefined &&
+    typeof configuration.retrievalExecutor.execute !== 'function'
+  ) {
     throw new Error('Invalid governed retrieval executor.')
   }
 
@@ -115,6 +144,16 @@ export function createProductionGovernedRuntime(
   assertRoleConfiguration(configuration.citationVerifier, 'Citation Verifier')
   if (configuration.advisor !== undefined) {
     assertRoleConfiguration(configuration.advisor, 'Advisor')
+  }
+  if (configuration.fusion !== undefined) {
+    if (
+      !configuration.fusion ||
+      typeof configuration.fusion !== 'object' ||
+      typeof configuration.fusion.searchPort?.search !== 'function'
+    ) {
+      throw new Error('Invalid governed Fusion configuration.')
+    }
+    assertRoleConfiguration(configuration.fusion.planner, 'Fusion Planner')
   }
 
   const executionId = readExecutionId(configuration.executionId)
@@ -171,9 +210,38 @@ export function createProductionGovernedRuntime(
       : {})
   })
 
-  const retrieval = createProductionRetrievalAdapter(
-    configuration.retrievalExecutor
-  )
+  const ordinaryExecutor =
+    configuration.retrievalExecutor ??
+    createProductionSearchRetrievalExecutor(configuration.fusion!.searchPort)
+  const ordinaryRetrieval = createProductionRetrievalAdapter(ordinaryExecutor)
+
+  const fusionRetrieval = configuration.fusion
+    ? createProductionRetrievalAdapter(
+        createProductionFusionRetrievalExecutor({
+          planner: createProductionFusionPlanner({
+            scope: createTrustedRoleExecutionScope({
+              ownerScopeId: configuration.ownerScopeId,
+              executionId,
+              invocationId: randomUUID(),
+              deadlineAt: deadlineAtIso,
+              allowedPermissionClasses: ['retrieval_plan_only']
+            }),
+            candidates: configuration.fusion.planner.candidates,
+            provider: configuration.fusion.planner.provider,
+            ...(configuration.fusion.planner.limits
+              ? { limits: configuration.fusion.planner.limits }
+              : {})
+          }),
+          searchPort: configuration.fusion.searchPort,
+          ...(configuration.fusion.maxConcurrency === undefined
+            ? {}
+            : { maxConcurrency: configuration.fusion.maxConcurrency }),
+          ...(configuration.fusion.perPathTimeoutMs === undefined
+            ? {}
+            : { perPathTimeoutMs: configuration.fusion.perPathTimeoutMs })
+        })
+      )
+    : undefined
 
   return Object.freeze({
     executionId,
@@ -182,9 +250,17 @@ export function createProductionGovernedRuntime(
       if (!input || typeof input !== 'object') {
         throw new Error('Invalid governed runtime input.')
       }
+      const routeContext = createRouteExecutionContext(input.routeContext)
+      const retrieval = routeContext.routePlan.needsFusionPlanning
+        ? fusionRetrieval
+        : ordinaryRetrieval
+      if (!retrieval) {
+        throw new Error('Fusion-required route has no configured Fusion runtime.')
+      }
+
       const chainInput: ProductionGovernedChainInput = {
         query: input.query,
-        routeContext: input.routeContext,
+        routeContext,
         retrieval,
         composition,
         ...(advisor ? { advisor } : {}),

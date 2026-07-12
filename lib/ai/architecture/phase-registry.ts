@@ -99,13 +99,14 @@ export const AI_PHASE_REGISTRY: readonly AIPhaseRegistryEntry[] = Object.freeze(
     phase({
       id: 'AI-I0',
       title: 'Canonical contracts and phase reconciliation',
-      status: 'implemented_in_isolation',
+      status: 'integrated',
       dependencies: [],
       requiredRoles: [],
       historicalRequirements: [
         carried(
           'Original AI-0 through AI-18 requirements',
-          'The crosswalk preserves every beneficial old requirement under stable identifiers.'
+          'The crosswalk preserves every beneficial old requirement under stable identifiers.',
+          'completed_and_retained'
         )
       ],
       evidence: [
@@ -115,13 +116,15 @@ export const AI_PHASE_REGISTRY: readonly AIPhaseRegistryEntry[] = Object.freeze(
           reference: 'docs/AI_ARCHITECTURE_PHASE_CROSSWALK.md'
         },
         { kind: 'code', reference: 'lib/ai/architecture/contracts.ts' },
-        { kind: 'code', reference: 'lib/ai/architecture/phase-registry.ts' }
+        { kind: 'code', reference: 'lib/ai/architecture/phase-registry.ts' },
+        { kind: 'test', reference: 'lib/ai/architecture/architecture.test.ts' },
+        { kind: 'pull_request', reference: 'PR #79' }
       ]
     }),
     phase({
       id: 'AI-I1',
       title: 'Model registry and role-selection policy V2',
-      status: 'implemented_in_isolation',
+      status: 'integrated',
       dependencies: ['AI-I0'],
       requiredRoles: [],
       historicalRequirements: [
@@ -148,7 +151,7 @@ export const AI_PHASE_REGISTRY: readonly AIPhaseRegistryEntry[] = Object.freeze(
     phase({
       id: 'AI-I2',
       title: 'Common hardened role runner',
-      status: 'implemented_in_isolation',
+      status: 'integrated',
       dependencies: ['AI-I0', 'AI-I1'],
       requiredRoles: [...ModelRoleSchema.options],
       historicalRequirements: [
@@ -171,39 +174,117 @@ export const AI_PHASE_REGISTRY: readonly AIPhaseRegistryEntry[] = Object.freeze(
     phase({
       id: 'AI-I3',
       title: 'Live Router admission',
+      status: 'integrated',
       dependencies: ['AI-I0', 'AI-I1', 'AI-I2'],
       requiredRoles: ['router'],
       historicalRequirements: [
         carried(
           'Original AI-4 Router implementation',
           'The deterministic Router remains the non-waivable floor and fallback.',
-          'completed_but_not_integrated'
+          'completed_and_retained'
         )
+      ],
+      evidence: [
+        { kind: 'code', reference: 'lib/ai/router/router-admission.ts' },
+        { kind: 'code', reference: 'lib/ai/router/execution-context.ts' },
+        { kind: 'test', reference: 'lib/ai/router/router-admission.test.ts' },
+        { kind: 'pull_request', reference: 'PR #82' },
+        { kind: 'pull_request', reference: 'PR #83' },
+        { kind: 'pull_request', reference: 'PR #84' }
       ]
     }),
     phase({
       id: 'AI-I4',
       title: 'Coordinator finite-state machine',
+      status: 'integrated',
       dependencies: ['AI-I0', 'AI-I2', 'AI-I3'],
       requiredRoles: ['coordinator'],
       historicalRequirements: [
         carried(
           'Original AI-8 and historical Coordinator/repair slices',
           'Policies, repair metadata, scope binding, and persistence contracts remain lifecycle building blocks.',
-          'completed_but_not_integrated'
+          'completed_and_retained'
         )
+      ],
+      evidence: [
+        {
+          kind: 'code',
+          reference: 'lib/agents/coordinator/execution-state.ts'
+        },
+        { kind: 'code', reference: 'lib/agents/coordinator/coordinator.ts' },
+        { kind: 'code', reference: 'lib/agents/coordinator/live-handoff.ts' },
+        {
+          kind: 'code',
+          reference: 'lib/agents/coordinator/governed-pipeline.ts'
+        },
+        {
+          kind: 'test',
+          reference: 'lib/agents/coordinator/coordinator.test.ts'
+        },
+        {
+          kind: 'test',
+          reference: 'lib/agents/coordinator/live-handoff.test.ts'
+        },
+        {
+          kind: 'test',
+          reference: 'lib/agents/coordinator/governed-pipeline.test.ts'
+        },
+        { kind: 'pull_request', reference: 'PR #85' },
+        { kind: 'pull_request', reference: 'PR #88' }
       ]
     }),
     phase({
       id: 'AI-I5',
       title: 'Fusion planning and bounded retrieval execution',
+      status: 'integrated',
       dependencies: ['AI-I2', 'AI-I3', 'AI-I4'],
       requiredRoles: ['fusion_planner', 'retriever', 'coordinator'],
       historicalRequirements: [
         carried(
           'Original AI-9 provider-agnostic Fusion',
-          'Independent evidence path planning and execution remain open end-to-end work.'
+          'Independent evidence path planning and bounded execution are integrated through canonical provider-agnostic contracts.',
+          'completed_and_retained'
         )
+      ],
+      evidence: [
+        {
+          kind: 'document',
+          reference: 'docs/AI_PHASE_I5_FUSION_PLANNING_EXECUTION.md'
+        },
+        {
+          kind: 'code',
+          reference:
+            'lib/agents/coordinator/production-fusion-planner-adapter.ts'
+        },
+        {
+          kind: 'code',
+          reference:
+            'lib/agents/coordinator/production-fusion-retrieval-executor.ts'
+        },
+        {
+          kind: 'code',
+          reference: 'lib/agents/coordinator/production-governed-runtime.ts'
+        },
+        {
+          kind: 'code',
+          reference: 'lib/agents/coordinator/production-retrieval-adapter.ts'
+        },
+        {
+          kind: 'test',
+          reference:
+            'lib/agents/coordinator/production-fusion-planner-adapter.test.ts'
+        },
+        {
+          kind: 'test',
+          reference:
+            'lib/agents/coordinator/production-fusion-retrieval-executor.test.ts'
+        },
+        {
+          kind: 'test',
+          reference:
+            'lib/agents/coordinator/production-governed-runtime.test.ts'
+        },
+        { kind: 'pull_request', reference: 'PR #106' }
       ]
     }),
     phase({
@@ -227,7 +308,7 @@ export const AI_PHASE_REGISTRY: readonly AIPhaseRegistryEntry[] = Object.freeze(
       historicalRequirements: [
         carried(
           'Original AI-6 Entity Grounding with Wikidata and DBpedia',
-          'Existing clients and resolution are retained; mandatory provider routing, provenance, and ambiguity enforcement remain.',
+          'Existing clients and resolution are retained; mandatory Wikidata and DBpedia provider routing, provenance, and ambiguity enforcement remain.',
           'completed_but_not_integrated'
         )
       ]
