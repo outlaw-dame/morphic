@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   createRouteExecutionContext,
@@ -52,9 +52,15 @@ function released(routeContext: ReturnType<typeof context>, draft: string) {
 }
 
 describe('governed production stream response', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('does not emit draft text before the governed chain releases it', async () => {
     const routeContext = context()
-    let resolveRelease: ((value: ReturnType<typeof released>) => void) | undefined
+    let resolveRelease:
+      | ((value: ReturnType<typeof released>) => void)
+      | undefined
     runProductionGovernedChain.mockReturnValueOnce(
       new Promise(resolve => {
         resolveRelease = resolve
