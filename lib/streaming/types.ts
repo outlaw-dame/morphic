@@ -1,6 +1,7 @@
 import { UIMessage } from '@ai-sdk/react'
 
 import type { PersonalizationSettings } from '../agents/personalization'
+import type { GovernedStreamRolloutDecision } from '../ai/rollout/governed-stream-rollout'
 import type { RouteExecutionContext } from '../ai/router/execution-context'
 import { Model } from '../types/models'
 import { SearchMode } from '../types/search'
@@ -17,4 +18,5 @@ export interface BaseStreamConfig {
   searchMode?: SearchMode
   personalization?: PersonalizationSettings
   routeContext: RouteExecutionContext
+  rolloutDecision: GovernedStreamRolloutDecision
 }
