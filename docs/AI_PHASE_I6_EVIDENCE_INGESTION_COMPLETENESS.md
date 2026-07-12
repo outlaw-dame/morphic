@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress on PR #107. No production rollout or release authority is enabled by this phase.
+Integrated by PR #107. No production rollout or release authority is enabled by this phase.
 
 ## Purpose
 
@@ -46,7 +46,7 @@ No rejected Fusion result is silently treated as partial corroboration.
 
 ## Validation requirements
 
-Tests must prove:
+Tests prove:
 
 - path-level provenance and per-result retrieval time survive normalization;
 - missing Fusion provenance fails closed;
