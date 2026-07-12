@@ -36,21 +36,21 @@ function context(value: string = query) {
   })
 }
 
-function scope() {
+function scope(invocationId = 'fusion_invocation_0001') {
   return createTrustedRoleExecutionScope({
     ownerScopeId: 'owner_scope_00000001',
     executionId: 'execution_00000001',
-    invocationId: 'fusion_invocation_0001',
+    invocationId,
     deadlineAt: new Date(Date.now() + 60_000).toISOString(),
     allowedPermissionClasses: ['retrieval_plan_only']
   })
 }
 
-function candidate() {
+function candidate(providerId = 'provider-a') {
   return {
-    providerId: 'provider-a',
-    modelId: 'fusion-model',
-    family: 'fusion-family',
+    providerId,
+    modelId: `${providerId}-fusion-model`,
+    family: `${providerId}-fusion-family`,
     availability: 'available',
     locality: 'remote',
     reliability: 'strong',
@@ -115,10 +115,14 @@ function validOutput(input: FusionPlannerModelInput) {
   }
 }
 
-function planner(provider: RoleProviderAdapter<FusionPlannerModelInput>) {
+function planner(
+  provider: RoleProviderAdapter<FusionPlannerModelInput>,
+  providerId = 'provider-a',
+  invocationId = 'fusion_invocation_0001'
+) {
   return createProductionFusionPlanner({
-    scope: scope(),
-    candidates: [candidate()],
+    scope: scope(invocationId),
+    candidates: [candidate(providerId)],
     provider
   })
 }
@@ -143,6 +147,42 @@ describe('AI-I5 production Fusion Planner adapter', () => {
     expect(Object.isFrozen(result.paths)).toBe(true)
     expect(result.roleExecution.role).toBe('fusion_planner')
     expect(provider.invoke).toHaveBeenCalledTimes(1)
+  })
+
+  it('normalizes OpenRouter-like and direct providers into one canonical plan contract', async () => {
+    const directProvider: RoleProviderAdapter<FusionPlannerModelInput> = {
+      invoke: async invocation => ({
+        output: validOutput(invocation.input),
+        outputTokens: 100
+      })
+    }
+    const openRouterLikeProvider: RoleProviderAdapter<FusionPlannerModelInput> = {
+      invoke: async invocation => ({
+        output: validOutput(invocation.input),
+        outputTokens: 100
+      })
+    }
+    const routeContext = context()
+
+    const [direct, openRouterLike] = await Promise.all([
+      planner(
+        directProvider,
+        'provider-a',
+        'fusion_direct_000001'
+      ).plan({ query, routeContext }),
+      planner(
+        openRouterLikeProvider,
+        'openrouter',
+        'fusion_openrouter_001'
+      ).plan({ query, routeContext })
+    ])
+
+    expect(openRouterLike.routeDigest).toBe(direct.routeDigest)
+    expect(openRouterLike.paths).toEqual(direct.paths)
+    expect(openRouterLike.reasonCodes).toEqual(direct.reasonCodes)
+    expect(openRouterLike.roleExecution.selectedModelId).not.toBe(
+      direct.roleExecution.selectedModelId
+    )
   })
 
   it('rejects routes that do not authorize Fusion before provider invocation', async () => {
