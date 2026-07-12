@@ -66,13 +66,42 @@ describe('AI-I6 route-bound evidence ingestion', () => {
     })
   })
 
-  it('fails closed when Fusion evidence omits provenance', () => {
+  it('requires a route digest whenever provenance is mandatory', () => {
+    expect(() =>
+      buildEvidenceGraph({
+        query: 'Who owns Example Corp?',
+        requireRetrievalProvenance: true,
+        results: [
+          result('https://example.com/ownership', {
+            retrievalProvenance: provenance()
+          })
+        ]
+      })
+    ).toThrow('Route digest is required for route-bound evidence ingestion.')
+  })
+
+  it('fails closed when Fusion evidence omits undefined or null provenance', () => {
     expect(() =>
       buildEvidenceGraph({
         query: 'Who owns Example Corp?',
         routeDigest,
         requireRetrievalProvenance: true,
         results: [result('https://example.com/ownership')]
+      })
+    ).toThrow(
+      'Fusion evidence ingestion failed closed at result 0: missing_retrieval_provenance.'
+    )
+
+    const explicitNull = {
+      ...result('https://example.com/null-provenance'),
+      retrievalProvenance: null
+    } as unknown as SearchResultItem
+    expect(() =>
+      buildEvidenceGraph({
+        query: 'Who owns Example Corp?',
+        routeDigest,
+        requireRetrievalProvenance: true,
+        results: [explicitNull]
       })
     ).toThrow(
       'Fusion evidence ingestion failed closed at result 0: missing_retrieval_provenance.'
@@ -113,12 +142,28 @@ describe('AI-I6 route-bound evidence ingestion', () => {
     })
 
     expect(graph.items).toHaveLength(1)
-    expect(graph.ingestion.inputCount).toBe(3)
-    expect(graph.ingestion.admittedCount).toBe(1)
-    expect(graph.ingestion.excludedCount).toBe(2)
-    expect(graph.ingestion.issues).toEqual([
+    expect(graph.ingestion).toMatchObject({
+      inputCount: 3,
+      admittedCount: 1,
+      excludedCount: 2
+    })
+    expect(graph.ingestion?.issues).toEqual([
       { resultIndex: 0, code: 'invalid_or_unsupported_url' },
       { resultIndex: 1, code: 'invalid_retrieval_provenance' }
+    ])
+  })
+
+  it('contains hostile non-object result elements', () => {
+    const graph = buildEvidenceGraph({
+      query: 'Hostile result batch',
+      results: [null, 'bad', result('https://example.org/admitted')] as unknown as SearchResultItem[],
+      retrievedAt
+    })
+
+    expect(graph.items).toHaveLength(1)
+    expect(graph.ingestion?.issues).toEqual([
+      { resultIndex: 0, code: 'schema_validation_failed' },
+      { resultIndex: 1, code: 'schema_validation_failed' }
     ])
   })
 
