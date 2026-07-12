@@ -40,11 +40,20 @@ Prohibited maintenance:
 - using an old phase number as proof of live integration;
 - silently changing completion criteria or role authority.
 
-## Current decision
+## Current repository decision — July 12, 2026
 
-The previously proposed AI-27 restricted PostgreSQL integration is not the next coding phase.
+AI-I0, AI-I1, and AI-I2 are implemented in isolation. Substantial Router, Coordinator handoff, retrieval, Composer, Advisor, Citation Verifier, deterministic release, governed response, and rollout-boundary slices have also merged, but the canonical dependency chain is not complete and production enablement is not claimed.
 
-The next coding phase is **AI-I0: Canonical contracts and phase reconciliation** from the V2 roadmap. It establishes lifecycle and role-execution contracts, a machine-readable implementation-status registry, crosswalk validation, and architecture invariant tests before any live Router, Coordinator, model-role, entity-provider, repair-execution, or database wiring proceeds.
+Before additional canonical implementation phases proceed, repository cleanup and reconciliation are mandatory:
+
+1. close stale or superseded parallel PRs;
+2. preserve unique runtime and rollout work on a clean branch from current `main`;
+3. remove reused AI-I3K/AI-I3L labels from future completion accounting;
+4. distinguish historical AI-13 conflict repair hints from canonical AI-I13 research trace and privacy controls;
+5. reconcile the phase registry, crosswalk, implementation status, and merged PR evidence;
+6. verify the complete CI matrix on the cleanup branch before merge.
+
+After cleanup, the next incomplete canonical dependency is AI-I5 Fusion planning and bounded retrieval execution. AI-I13 is not the next implementation phase and remains dependent on AI-I3, AI-I4, AI-I5, AI-I7, AI-I10, AI-I11, and AI-I12.
 
 ## Completion terminology
 
