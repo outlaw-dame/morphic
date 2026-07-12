@@ -82,6 +82,35 @@ describe('governed stream executor', () => {
     expect(JSON.stringify(result)).not.toContain('secret-governed-draft')
   })
 
+  it('contains hostile Error names inside shadow telemetry', async () => {
+    const observer = vi.fn()
+    const hostile = new Error('shadow failure')
+    Object.defineProperty(hostile, 'name', {
+      configurable: true,
+      value: { slice: () => {
+        throw new Error('hostile name executed')
+      } }
+    })
+
+    const result = await executeGovernedStream({
+      routeContext: context('Research the current CEO of Apple'),
+      rolloutDecision: decision('shadow', true),
+      executeGoverned: async () => {
+        throw hostile
+      },
+      executeLegacy: async () => 'legacy-response',
+      onShadowOutcome: observer
+    })
+
+    expect(result).toEqual({ path: 'shadow', value: 'legacy-response' })
+    expect(observer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'failed',
+        errorClass: 'UnknownError'
+      })
+    )
+  })
+
   it('propagates cancellation and prevents legacy fallback', async () => {
     const controller = new AbortController()
     const legacy = vi.fn(async () => 'legacy-response')
