@@ -105,6 +105,48 @@ async function observeShadow(
   }
 }
 
+async function runShadowExecution<T>(
+  input: GovernedStreamExecutorInput<T>,
+  decision: GovernedStreamRolloutDecision,
+  now: () => number
+): Promise<void> {
+  let startedAt: number
+  try {
+    startedAt = now()
+  } catch {
+    return
+  }
+
+  let status: GovernedShadowOutcome['status'] = 'succeeded'
+  let errorClass: string | null = null
+
+  try {
+    await input.executeGoverned()
+  } catch (error) {
+    status = input.signal?.aborted ? 'cancelled' : 'failed'
+    errorClass = readErrorClass(error)
+  }
+
+  let durationMs = 0
+  try {
+    durationMs = Math.max(0, now() - startedAt)
+  } catch {
+    status = 'failed'
+    errorClass = 'InvalidClockError'
+  }
+
+  await observeShadow(
+    input.onShadowOutcome,
+    Object.freeze({
+      routeDigest: input.routeContext.routeDigest,
+      cohortId: decision.cohortId,
+      status,
+      durationMs,
+      errorClass
+    })
+  )
+}
+
 export async function executeGovernedStream<T>(
   input: GovernedStreamExecutorInput<T>
 ): Promise<GovernedStreamExecutionResult<T>> {
@@ -135,30 +177,12 @@ export async function executeGovernedStream<T>(
     throw new Error('Invalid governed stream rollout mode.')
   }
 
-  const startedAt = now()
-  let shadowStatus: GovernedShadowOutcome['status'] = 'succeeded'
-  let errorClass: string | null = null
+  // Shadow execution is deliberately detached from the user-visible legacy
+  // response. The terminal catch prevents any shadow or telemetry failure from
+  // becoming an unhandled rejection or changing legacy latency/availability.
+  void runShadowExecution(input, decision, now).catch(() => undefined)
 
-  try {
-    await input.executeGoverned()
-  } catch (error) {
-    shadowStatus = input.signal?.aborted ? 'cancelled' : 'failed'
-    errorClass = readErrorClass(error)
-  }
-
-  const durationMs = Math.max(0, now() - startedAt)
-  await observeShadow(
-    input.onShadowOutcome,
-    Object.freeze({
-      routeDigest: input.routeContext.routeDigest,
-      cohortId: decision.cohortId,
-      status: shadowStatus,
-      durationMs,
-      errorClass
-    })
-  )
-
-  throwIfAborted(input.signal)
   const value = await input.executeLegacy()
+  throwIfAborted(input.signal)
   return Object.freeze({ path: 'shadow' as const, value })
 }
