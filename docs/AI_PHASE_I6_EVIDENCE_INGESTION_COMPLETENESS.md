@@ -2,7 +2,7 @@
 
 ## Status
 
-Integrated by PR #107. No production rollout or release authority is enabled by this phase.
+Integrated by PR #107. No production rollout or release authority is enabled by this phase. The canonical machine registry records the phase as integrated with code, test, document, and pull-request evidence.
 
 ## Purpose
 
