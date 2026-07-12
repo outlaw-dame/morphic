@@ -1,0 +1,41 @@
+name: AI-I3K Format Diagnostic
+
+on:
+  push:
+    branches: [agent/ai-i3k-governed-stream-rollout]
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - run: bun install --frozen-lockfile
+      - name: Format permanent AI-I3K files
+        run: |
+          bunx prettier --write \
+            app/api/chat/route.ts \
+            docs/AI_PHASE_I3K_GOVERNED_STREAM_ROLLOUT.md \
+            lib/ai/rollout/governed-stream-rollout.ts \
+            lib/ai/rollout/governed-stream-rollout.test.ts \
+            lib/streaming/types.ts \
+            lib/streaming/create-chat-stream-response.ts \
+            lib/streaming/create-ephemeral-chat-stream-response.ts \
+            lib/streaming/__tests__/create-ephemeral-chat-stream-response.test.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-i3k-formatted-files
+          path: |
+            app/api/chat/route.ts
+            docs/AI_PHASE_I3K_GOVERNED_STREAM_ROLLOUT.md
+            lib/ai/rollout/governed-stream-rollout.ts
+            lib/ai/rollout/governed-stream-rollout.test.ts
+            lib/streaming/types.ts
+            lib/streaming/create-chat-stream-response.ts
+            lib/streaming/create-ephemeral-chat-stream-response.ts
+            lib/streaming/__tests__/create-ephemeral-chat-stream-response.test.ts
