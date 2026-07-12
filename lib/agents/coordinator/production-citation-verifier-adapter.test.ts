@@ -90,13 +90,24 @@ function candidate(role: 'answer_composer' | 'advisor' | 'citation_verifier') {
   }
 }
 
-function result(url: string): SearchResultItem {
+function result(
+  routeContext: RouteExecutionContext,
+  url: string,
+  pathId: string
+): SearchResultItem {
   return {
     title: 'Authoritative medical source',
     url,
     content:
       'Concussion care should follow evaluation by a qualified medical professional.',
-    publishedAt: '2026-07-10T12:00:00.000Z'
+    publishedAt: '2026-07-10T12:00:00.000Z',
+    retrievalProvenance: {
+      routeDigest: routeContext.routeDigest,
+      pathId,
+      pathPurpose: 'primary_evidence',
+      sourceClass: 'government_or_regulator',
+      retrievedAt: now.toISOString()
+    }
   }
 }
 
@@ -119,15 +130,24 @@ async function prepare(): Promise<Prepared> {
       })
     }
   })
+  const signedRoute = context()
 
   const pipeline = await runGovernedResearchPipeline({
     query,
-    routeContext: context(),
+    routeContext: signedRoute,
     retrieval: {
       retrieve: async () => ({
         searchResults: [
-          result('https://www.cdc.gov/traumatic-brain-injury/'),
-          result('https://www.nih.gov/health-information/concussion')
+          result(
+            signedRoute,
+            'https://www.cdc.gov/traumatic-brain-injury/',
+            'cdc_primary'
+          ),
+          result(
+            signedRoute,
+            'https://www.nih.gov/health-information/concussion',
+            'nih_corroboration'
+          )
         ],
         completedRoles: [
           'router',
