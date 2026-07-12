@@ -16,10 +16,10 @@ vi.mock('../agents/coordinator/production-governed-chain', () => ({
 
 import { createGovernedProductionStreamResponse } from './create-governed-production-stream-response'
 
-function context() {
-  const routePlan = buildDeterministicRouteFloor({
-    query: 'Research current concussion treatment guidance'
-  })
+function context(
+  query = 'Research current concussion treatment guidance'
+) {
+  const routePlan = buildDeterministicRouteFloor({ query })
   return createRouteExecutionContext({
     routePlan,
     routeDigest: digestRoutePlan(routePlan)
@@ -118,7 +118,7 @@ describe('governed production stream response', () => {
 
   it('rejects a mismatched route context before governed execution', () => {
     const routeContext = context()
-    const otherContext = context()
+    const otherContext = context('Research a completely different topic')
 
     expect(() =>
       createGovernedProductionStreamResponse({
