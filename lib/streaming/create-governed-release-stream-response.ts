@@ -1,6 +1,5 @@
-import { randomUUID } from 'node:crypto'
-
 import { createUIMessageStream, createUIMessageStreamResponse } from 'ai'
+import { randomUUID } from 'node:crypto'
 
 import type { ReleasedProductionResponse } from '@/lib/agents/coordinator/production-release-gate'
 import type { GovernedStreamRolloutDecision } from '@/lib/ai/rollout/governed-stream-rollout'
