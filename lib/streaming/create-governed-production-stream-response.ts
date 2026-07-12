@@ -6,9 +6,7 @@ import {
 
 import type { RouteExecutionContext } from '@/lib/ai/router/execution-context'
 
-import type {
-  ProductionGovernedChainInput
-} from '../agents/coordinator/production-governed-chain'
+import type { ProductionGovernedChainInput } from '../agents/coordinator/production-governed-chain'
 import { runProductionGovernedChain } from '../agents/coordinator/production-governed-chain'
 
 const TEXT_PART_ID = 'governed-release-text'
