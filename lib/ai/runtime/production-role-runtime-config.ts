@@ -1,6 +1,10 @@
 import { z } from 'zod'
 
-import { type ModelRole, ModelRoleSchema } from '@/lib/ai/schemas'
+import {
+  ModelCapabilitySchema,
+  type ModelRole,
+  ModelRoleSchema
+} from '@/lib/ai/schemas'
 import { getRoleSelectionProfileV2 } from '@/lib/models/role-profiles-v2'
 import {
   type RoleModelCandidate,
@@ -20,16 +24,7 @@ const SUPPORTED_RUNTIME_ROLES = [
 
 const CapabilityAssertionSchema = z
   .object({
-    capability: z.enum([
-      'structured_output',
-      'tool_calling',
-      'streaming',
-      'reasoning',
-      'vision',
-      'long_context',
-      'local_execution',
-      'privacy_preserving'
-    ]),
+    capability: ModelCapabilitySchema,
     provenance: z.enum([
       'evaluation_verified',
       'deployment_configured',
