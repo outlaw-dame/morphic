@@ -1,3 +1,4 @@
+import { isCanonicalRouteDigest } from '@/lib/ai/router/execution-context'
 import type { SearchResultItem } from '@/lib/types'
 
 import { clusterClaims, extractAtomicClaims } from './claim-extraction'
@@ -36,7 +37,7 @@ export function buildEvidenceGraph(input: EvidenceGraphInput): EvidenceGraph {
   }
   if (
     input.routeDigest !== undefined &&
-    (typeof input.routeDigest !== 'string' || input.routeDigest.length < 16)
+    !isCanonicalRouteDigest(input.routeDigest)
   ) {
     throw new Error('Invalid evidence graph route digest.')
   }
