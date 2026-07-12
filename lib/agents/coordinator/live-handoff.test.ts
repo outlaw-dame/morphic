@@ -133,7 +133,7 @@ describe('AI-I3D live Coordinator handoff', () => {
         searchResults: [
           result('https://example.com/openai', {
             retrievalProvenance: {
-              routeDigest: 'sha256:fedcba9876543210',
+              routeDigest: 'f'.repeat(64),
               pathId: 'forged_path',
               pathPurpose: 'entity_disambiguation',
               sourceClass: 'established_news',
