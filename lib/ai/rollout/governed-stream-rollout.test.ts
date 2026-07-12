@@ -17,7 +17,7 @@ function environment(overrides: Record<string, string | undefined> = {}) {
   }
 }
 
-describe('AI-I3K governed stream rollout authority', () => {
+describe('AI-I16A governed stream rollout authority', () => {
   it('defaults to an off, non-selected decision', () => {
     expect(
       decideGovernedStreamRollout({
@@ -34,12 +34,16 @@ describe('AI-I3K governed stream rollout authority', () => {
     })
   })
 
-  it('ignores unused dynamic inputs while rollout is disabled', () => {
+  it('treats off mode as an unconditional kill switch', () => {
     expect(
       decideGovernedStreamRollout({
         cohortKey: null,
         routeDigest: 'malformed',
-        environment: {}
+        environment: {
+          AI_GOVERNED_STREAM_MODE: 'off',
+          AI_GOVERNED_STREAM_PERCENT: '100',
+          AI_GOVERNED_STREAM_SALT: 'too-short'
+        }
       })
     ).toEqual({
       mode: 'off',
@@ -48,7 +52,9 @@ describe('AI-I3K governed stream rollout authority', () => {
       bucket: 0,
       cohortId: 'disabled'
     })
+  })
 
+  it('ignores unused dynamic inputs at zero percent', () => {
     expect(
       decideGovernedStreamRollout({
         cohortKey: undefined,
@@ -97,7 +103,7 @@ describe('AI-I3K governed stream rollout authority', () => {
     expect(decision.mode).toBe('shadow')
   })
 
-  it('rejects malformed configuration and weak salts', () => {
+  it('rejects malformed active configuration and weak salts', () => {
     expect(() =>
       decideGovernedStreamRollout({
         cohortKey: 'owner_scope_1',
