@@ -76,6 +76,21 @@ jobs:
       - name: Check formatting
         run: bun format:check
 
+      - name: Generate exact final test formatting
+        if: failure()
+        run: bunx prettier --write lib/agents/coordinator/production-fusion-planner-adapter.test.ts lib/ai/architecture/architecture.test.ts
+
+      - name: Upload exact final test formatting
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-i5-final-test-formatting
+          path: |
+            lib/agents/coordinator/production-fusion-planner-adapter.test.ts
+            lib/ai/architecture/architecture.test.ts
+          if-no-files-found: error
+          retention-days: 1
+
   test:
     runs-on: ubuntu-latest
     name: Test
