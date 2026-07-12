@@ -76,6 +76,22 @@ jobs:
       - name: Check formatting
         run: bun format:check
 
+      - name: Generate exact formatter output
+        if: failure()
+        run: bunx prettier --write lib/ai/architecture/phase-registry.ts docs/AI_PHASE_I5_FUSION_PLANNING_EXECUTION.md lib/agents/coordinator/production-fusion-retrieval-executor.test.ts
+
+      - name: Upload exact formatter output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-i5-formatter-output
+          path: |
+            lib/ai/architecture/phase-registry.ts
+            docs/AI_PHASE_I5_FUSION_PLANNING_EXECUTION.md
+            lib/agents/coordinator/production-fusion-retrieval-executor.test.ts
+          if-no-files-found: error
+          retention-days: 1
+
   test:
     runs-on: ubuntu-latest
     name: Test
