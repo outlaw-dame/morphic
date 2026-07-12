@@ -15,10 +15,8 @@ import type {
   ProductionFusionPath,
   ProductionFusionPlanner
 } from './production-fusion-planner-adapter'
-import type {
-  ProductionRetrievalExecutor,
-  ProductionSearchPort
-} from './production-retrieval-adapter'
+import type { ProductionRetrievalExecutor } from './production-retrieval-adapter'
+import type { ProductionSearchPort } from './production-search-retrieval-executor'
 
 const MAX_QUERY_LENGTH = 16_000
 const MAX_ATTEMPTS = 5
@@ -30,6 +28,7 @@ const DEFAULT_PATH_TIMEOUT_MS = 10_000
 const MAX_RETRIEVAL_ATTEMPTS = 2
 const MAX_TOTAL_RESULTS = 500
 const MAX_ERROR_CLASS_LENGTH = 128
+const MAX_RETRY_AFTER_MS = 5_000
 
 const COMPLETED_ROLES: readonly ModelRole[] = Object.freeze([
   'router',
@@ -45,6 +44,17 @@ export type ProductionFusionRetrievalExecutorOptions = Readonly<{
   sleep?: (delayMs: number, signal?: AbortSignal) => Promise<void>
   random?: () => number
   now?: () => Date
+}>
+
+type ToolBudget = {
+  used: number
+  readonly allowed: number
+}
+
+type PathExecution = Readonly<{
+  path: ProductionFusionPath
+  outcome: FusionRetrievalPathOutcome
+  results: readonly SearchResultItem[]
 }>
 
 function throwIfAborted(signal?: AbortSignal): void {
@@ -106,15 +116,19 @@ function readRandom(random?: () => number): () => number {
 function defaultSleep(delayMs: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     throwIfAborted(signal)
-    const timer = setTimeout(resolve, delayMs)
     const onAbort = () => {
       clearTimeout(timer)
+      signal?.removeEventListener('abort', onAbort)
       try {
         throwIfAborted(signal)
       } catch (error) {
         reject(error)
       }
     }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, delayMs)
     signal?.addEventListener('abort', onAbort, { once: true })
   })
 }
@@ -143,8 +157,8 @@ function canonicalizeUrl(value: string): string | null {
     ) {
       url.port = ''
     }
-    const sorted = [...url.searchParams.entries()].sort(([a], [b]) =>
-      a.localeCompare(b)
+    const sorted = [...url.searchParams.entries()].sort(([left], [right]) =>
+      left.localeCompare(right)
     )
     url.search = ''
     for (const [key, valuePart] of sorted) url.searchParams.append(key, valuePart)
@@ -165,34 +179,56 @@ function normalizeErrorClass(error: unknown): string {
   return 'UnknownError'
 }
 
+function readRecord(error: unknown): Record<string, unknown> | null {
+  return error && typeof error === 'object'
+    ? (error as Record<string, unknown>)
+    : null
+}
+
 function readStatus(error: unknown): number | null {
-  if (!error || typeof error !== 'object') return null
-  const candidate = error as Record<string, unknown>
-  return Number.isSafeInteger(candidate.status) ? (candidate.status as number) : null
+  const candidate = readRecord(error)
+  return candidate && Number.isSafeInteger(candidate.status)
+    ? (candidate.status as number)
+    : null
 }
 
 function readCode(error: unknown): string | null {
-  if (!error || typeof error !== 'object') return null
-  const candidate = error as Record<string, unknown>
-  return typeof candidate.code === 'string' ? candidate.code : null
+  const candidate = readRecord(error)
+  return candidate && typeof candidate.code === 'string'
+    ? candidate.code
+    : null
+}
+
+function readRetryAfterMs(error: unknown): number | null {
+  const candidate = readRecord(error)
+  if (!candidate) return null
+  const value = candidate.retryAfterMs
+  if (!Number.isSafeInteger(value) || (value as number) < 0) return null
+  return Math.min(value as number, MAX_RETRY_AFTER_MS)
 }
 
 function isTransientFailure(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-  const candidate = error as Record<string, unknown>
+  const candidate = readRecord(error)
+  if (!candidate) return false
   if (candidate.retryable === true) return true
   const status = readStatus(error)
   if (status === 408 || status === 429 || (status !== null && status >= 500)) {
     return true
   }
+  if (error instanceof Error && error.name === 'TimeoutError') return true
   return new Set(['ETIMEDOUT', 'ECONNRESET', 'EAI_AGAIN']).has(
     readCode(error) ?? ''
   )
 }
 
-function retryDelayMs(attempt: number, random: () => number): number {
-  const base = Math.min(1_000, 100 * 2 ** Math.max(0, attempt - 1))
-  return base + Math.floor(random() * 50)
+function retryDelayMs(
+  attempt: number,
+  error: unknown,
+  random: () => number
+): number {
+  const exponential = Math.min(1_000, 100 * 2 ** Math.max(0, attempt - 1))
+  const jittered = exponential + Math.floor(random() * 50)
+  return Math.max(jittered, readRetryAfterMs(error) ?? 0)
 }
 
 function combineAbortSignals(
@@ -221,6 +257,12 @@ function combineAbortSignals(
       parent?.removeEventListener('abort', abortFromParent)
     }
   })
+}
+
+function consumeToolBudget(budget: ToolBudget): boolean {
+  if (budget.used >= budget.allowed) return false
+  budget.used += 1
+  return true
 }
 
 function normalizePathResults(
@@ -274,7 +316,7 @@ function resultFingerprint(item: SearchResultItem): string {
 }
 
 function deduplicateResults(
-  paths: readonly Readonly<{ results: readonly SearchResultItem[] }>[]
+  paths: readonly PathExecution[]
 ): readonly SearchResultItem[] {
   const seen = new Set<string>()
   const output: SearchResultItem[] = []
@@ -302,24 +344,45 @@ function isMandatoryPath(
   )
 }
 
+function failedPath(
+  path: ProductionFusionPath,
+  attempts: number,
+  errorClass: string
+): PathExecution {
+  return Object.freeze({
+    path,
+    outcome: Object.freeze({
+      pathId: path.id,
+      sourceClass: path.sourceClass,
+      purpose: path.purpose,
+      status: 'failed',
+      attempts,
+      resultCount: 0,
+      errorClass
+    }),
+    results: Object.freeze([])
+  })
+}
+
 async function executePath(
   path: ProductionFusionPath,
   routeContext: RouteExecutionContext,
   searchPort: ProductionSearchPort,
+  budget: ToolBudget,
   perPathTimeoutMs: number,
   sleep: (delayMs: number, signal?: AbortSignal) => Promise<void>,
   random: () => number,
   now: () => Date,
   signal?: AbortSignal
-): Promise<Readonly<{
-  outcome: FusionRetrievalPathOutcome
-  results: readonly SearchResultItem[]
-}>> {
+): Promise<PathExecution> {
   let attempts = 0
   let lastError: unknown = null
 
   while (attempts < MAX_RETRIEVAL_ATTEMPTS) {
     throwIfAborted(signal)
+    if (!consumeToolBudget(budget)) {
+      return failedPath(path, attempts, 'ToolBudgetExceeded')
+    }
     attempts += 1
     const scoped = combineAbortSignals(signal, perPathTimeoutMs)
     try {
@@ -342,6 +405,7 @@ async function executePath(
         retrievedAt
       )
       return Object.freeze({
+        path,
         outcome: Object.freeze({
           pathId: path.id,
           sourceClass: path.sourceClass,
@@ -357,6 +421,7 @@ async function executePath(
       lastError = error
       if (signal?.aborted) {
         return Object.freeze({
+          path,
           outcome: Object.freeze({
             pathId: path.id,
             sourceClass: path.sourceClass,
@@ -370,24 +435,16 @@ async function executePath(
         })
       }
       if (!isTransientFailure(error) || attempts >= MAX_RETRIEVAL_ATTEMPTS) break
-      await sleep(retryDelayMs(attempts, random), signal)
+      if (budget.used >= budget.allowed) {
+        return failedPath(path, attempts, 'ToolBudgetExceeded')
+      }
+      await sleep(retryDelayMs(attempts, error, random), signal)
     } finally {
       scoped.cleanup()
     }
   }
 
-  return Object.freeze({
-    outcome: Object.freeze({
-      pathId: path.id,
-      sourceClass: path.sourceClass,
-      purpose: path.purpose,
-      status: 'failed',
-      attempts,
-      resultCount: 0,
-      errorClass: normalizeErrorClass(lastError)
-    }),
-    results: Object.freeze([])
-  })
+  return failedPath(path, attempts, normalizeErrorClass(lastError))
 }
 
 export function createProductionFusionRetrievalExecutor(
@@ -456,10 +513,14 @@ export function createProductionFusionRetrievalExecutor(
         throw new Error('Fusion plan exceeds route tool-call budget.')
       }
 
-      const results: Array<Readonly<{
-        outcome: FusionRetrievalPathOutcome
-        results: readonly SearchResultItem[]
-      }> | null> = Array.from({ length: plan.paths.length }, () => null)
+      const budget: ToolBudget = {
+        used: 0,
+        allowed: routeContext.routePlan.maxToolCalls
+      }
+      const executions: Array<PathExecution | null> = Array.from(
+        { length: plan.paths.length },
+        () => null
+      )
       let cursor = 0
 
       async function worker(): Promise<void> {
@@ -468,10 +529,11 @@ export function createProductionFusionRetrievalExecutor(
           const index = cursor
           if (index >= plan.paths.length) return
           cursor += 1
-          results[index] = await executePath(
+          executions[index] = await executePath(
             plan.paths[index]!,
             routeContext,
             options.searchPort,
+            budget,
             perPathTimeoutMs,
             sleep,
             random,
@@ -489,17 +551,14 @@ export function createProductionFusionRetrievalExecutor(
       )
       throwIfAborted(input.signal)
 
-      const completed = results.filter(
-        (value): value is NonNullable<typeof value> => value !== null
+      const completed = executions.filter(
+        (value): value is PathExecution => value !== null
       )
-      const mandatoryFailure = completed.find((value, index) => {
-        const path = plan.paths[index]
-        return (
-          path !== undefined &&
-          isMandatoryPath(path, routeContext) &&
+      const mandatoryFailure = completed.find(
+        value =>
+          isMandatoryPath(value.path, routeContext) &&
           value.outcome.status !== 'succeeded'
-        )
-      })
+      )
       if (mandatoryFailure) {
         throw new Error(
           `Mandatory Fusion retrieval path failed: ${mandatoryFailure.outcome.pathId}.`
@@ -519,19 +578,12 @@ export function createProductionFusionRetrievalExecutor(
         reasonCodes: Object.freeze([...plan.reasonCodes]),
         outcomes: Object.freeze(completed.map(value => value.outcome)),
         budget: Object.freeze({
-          toolCallsUsed: completed.reduce(
-            (total, value) => total + value.outcome.attempts,
-            0
-          ),
-          toolCallsAllowed: routeContext.routePlan.maxToolCalls,
+          toolCallsUsed: budget.used,
+          toolCallsAllowed: budget.allowed,
           resultsReturned: searchResults.length,
           resultsAllowed
         })
       })
-
-      if (fusion.budget.toolCallsUsed > fusion.budget.toolCallsAllowed) {
-        throw new Error('Fusion retrieval exceeded the route tool-call budget.')
-      }
 
       return Object.freeze({
         searchResults,
