@@ -175,23 +175,47 @@ describe('AI-I5A production Fusion Planner adapter', () => {
     )
   })
 
-  it('rejects omission of required entity and freshness lanes', async () => {
+  it('rejects omission of the required entity lane', async () => {
     await expect(
       planner({
         invoke: async invocation => ({
           output: {
             paths: [
               {
-                id: 'background_only',
-                query: 'Example Corp background',
+                id: 'freshness_only',
+                query: 'Example Corp current changes',
                 sourceClass:
                   invocation.input.requiredSourceClasses[0] ?? 'official_source',
-                evidenceRole: 'background_context',
+                evidenceRole: 'freshness_check',
+                maxResults: 10,
+                requiresFreshness: true
+              }
+            ],
+            reasonCodes: ['freshness_only']
+          },
+          outputTokens: 100
+        })
+      }).plan({ query, routeContext: context() })
+    ).rejects.toThrow('Fusion Planner omitted the required entity path.')
+  })
+
+  it('rejects omission of the required freshness lane', async () => {
+    await expect(
+      planner({
+        invoke: async invocation => ({
+          output: {
+            paths: [
+              {
+                id: 'entity_only',
+                query: 'Example Corp founder identity',
+                sourceClass:
+                  invocation.input.requiredSourceClasses[0] ?? 'official_source',
+                evidenceRole: 'entity_disambiguation',
                 maxResults: 10,
                 requiresFreshness: false
               }
             ],
-            reasonCodes: ['background_only']
+            reasonCodes: ['entity_only']
           },
           outputTokens: 100
         })
