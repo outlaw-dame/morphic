@@ -60,7 +60,7 @@ describe('governed production stream response', () => {
       | ((value: ReturnType<typeof released>) => void)
       | undefined
     runProductionGovernedChain.mockReturnValueOnce(
-      new Promise((resolve) => {
+      new Promise(resolve => {
         resolveRelease = resolve
       })
     )
@@ -74,7 +74,7 @@ describe('governed production stream response', () => {
 
     const early = await Promise.race([
       firstRead.then(() => 'emitted'),
-      new Promise<'pending'>((resolve) =>
+      new Promise<'pending'>(resolve =>
         setTimeout(() => resolve('pending'), 20)
       )
     ])
