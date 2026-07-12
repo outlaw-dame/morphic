@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write
-
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -65,10 +62,8 @@ jobs:
     name: Format Check
 
     steps:
-      - name: Checkout PR head
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -77,86 +72,6 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
-
-      - name: Generate completed AI-I6 registry
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('lib/ai/architecture/phase-registry.ts')
-          text = path.read_text()
-          old = """    phase({
-                id: 'AI-I6',
-                title: 'Evidence ingestion completeness',
-                dependencies: ['AI-I0', 'AI-I5'],
-                requiredRoles: ['coordinator'],
-                historicalRequirements: [
-                  carried(
-                    'Original AI-7 Evidence Graph',
-                    'Existing normalization and conflict work must cover every evidence-producing path.',
-                    'completed_but_not_integrated'
-                  )
-                ]
-              }),"""
-          new = """    phase({
-                id: 'AI-I6',
-                title: 'Evidence ingestion completeness',
-                status: 'integrated',
-                dependencies: ['AI-I0', 'AI-I5'],
-                requiredRoles: ['coordinator'],
-                historicalRequirements: [
-                  carried(
-                    'Original AI-7 Evidence Graph',
-                    'Normalization, route-bound provenance, deduplication, claim extraction, and conflict analysis now cover every current retrieval evidence path.',
-                    'completed_and_retained'
-                  )
-                ],
-                evidence: [
-                  {
-                    kind: 'document',
-                    reference: 'docs/AI_PHASE_I6_EVIDENCE_INGESTION_COMPLETENESS.md'
-                  },
-                  {
-                    kind: 'code',
-                    reference: 'lib/ai-architecture/evidence/evidence-graph.ts'
-                  },
-                  {
-                    kind: 'code',
-                    reference:
-                      'lib/ai-architecture/evidence/normalize-search-result.ts'
-                  },
-                  {
-                    kind: 'code',
-                    reference: 'lib/agents/coordinator/live-handoff.ts'
-                  },
-                  {
-                    kind: 'test',
-                    reference:
-                      'lib/ai-architecture/evidence/evidence-ingestion.test.ts'
-                  },
-                  {
-                    kind: 'test',
-                    reference: 'lib/agents/coordinator/live-handoff.test.ts'
-                  },
-                  { kind: 'pull_request', reference: 'PR #107' }
-                ]
-              }),"""
-          if text.count(old) != 1:
-              raise SystemExit('AI-I6 registry block not found exactly once')
-          path.write_text(text.replace(old, new))
-          PY
-          bunx prettier --write lib/ai/architecture/phase-registry.ts
-
-      - name: Restore normal CI workflow and commit completion
-        env:
-          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
-        run: |
-          git fetch origin main
-          git checkout origin/main -- .github/workflows/ci.yml
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add lib/ai/architecture/phase-registry.ts .github/workflows/ci.yml
-          git commit -m "complete AI-I6 registry and restore CI"
-          git push origin HEAD:"${HEAD_BRANCH}"
 
       - name: Check formatting
         run: bun format:check

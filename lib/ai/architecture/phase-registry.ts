@@ -290,14 +290,42 @@ export const AI_PHASE_REGISTRY: readonly AIPhaseRegistryEntry[] = Object.freeze(
     phase({
       id: 'AI-I6',
       title: 'Evidence ingestion completeness',
+      status: 'integrated',
       dependencies: ['AI-I0', 'AI-I5'],
       requiredRoles: ['coordinator'],
       historicalRequirements: [
         carried(
           'Original AI-7 Evidence Graph',
-          'Existing normalization and conflict work must cover every evidence-producing path.',
-          'completed_but_not_integrated'
+          'Normalization, route-bound provenance, deduplication, claim extraction, and conflict analysis now cover every current retrieval evidence path.',
+          'completed_and_retained'
         )
+      ],
+      evidence: [
+        {
+          kind: 'document',
+          reference: 'docs/AI_PHASE_I6_EVIDENCE_INGESTION_COMPLETENESS.md'
+        },
+        {
+          kind: 'code',
+          reference: 'lib/ai-architecture/evidence/evidence-graph.ts'
+        },
+        {
+          kind: 'code',
+          reference: 'lib/ai-architecture/evidence/normalize-search-result.ts'
+        },
+        {
+          kind: 'code',
+          reference: 'lib/agents/coordinator/live-handoff.ts'
+        },
+        {
+          kind: 'test',
+          reference: 'lib/ai-architecture/evidence/evidence-ingestion.test.ts'
+        },
+        {
+          kind: 'test',
+          reference: 'lib/agents/coordinator/live-handoff.test.ts'
+        },
+        { kind: 'pull_request', reference: 'PR #107' }
       ]
     }),
     phase({
