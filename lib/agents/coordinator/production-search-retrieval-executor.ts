@@ -9,6 +9,7 @@ import type { ProductionRetrievalExecutor } from './production-retrieval-adapter
 
 const MAX_QUERY_LENGTH = 16_000
 const MAX_RESULTS = 100
+const MAX_ATTEMPTS = 5
 const DEFAULT_RESULTS = 20
 
 const SUPPORTED_REPAIR_ACTIONS = new Set([
@@ -99,6 +100,17 @@ export function createProductionSearchRetrievalExecutor(
       if (!query || query.length > MAX_QUERY_LENGTH) {
         throw new Error('Invalid governed search retrieval query.')
       }
+      if (
+        !Number.isSafeInteger(input.attempt) ||
+        input.attempt < 1 ||
+        input.attempt > MAX_ATTEMPTS
+      ) {
+        throw new Error('Invalid governed search retrieval attempt.')
+      }
+      if (!input.routeContext || typeof input.routeContext !== 'object') {
+        throw new Error('Invalid governed search retrieval route context.')
+      }
+
       const routeContext = createRouteExecutionContext(input.routeContext)
       const repairs = validateRepairActions(input.repairActions)
       throwIfAborted(input.signal)
