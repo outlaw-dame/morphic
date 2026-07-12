@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress.
+Validation pending on the final permanent head.
 
 ## Purpose
 
@@ -17,6 +17,8 @@ The stream response must:
 - require an `enforce` rollout decision selected by server-side policy;
 - require the release route digest to match the Router route digest;
 - reject empty drafts, empty citation sets, malformed digests, malformed timestamps, oversized drafts, oversized citation sets, and invalid evidence IDs;
+- explicitly validate digest value types before applying digest patterns;
+- validate and bound optional trace metadata before placing it in HTTP headers, including rejecting CRLF characters;
 - use `Cache-Control: no-store`;
 - expose only bounded operational metadata in headers;
 - never invoke a model, retrieval provider, knowledge graph, database, filesystem, or tool;
@@ -29,6 +31,7 @@ This phase does not construct the production retrieval, Composer, Advisor, or Ci
 ## Completion evidence
 
 - focused release-stream tests;
+- adversarial tests for malformed digest types and HTTP-header injection attempts;
 - full repository tests;
 - type checking;
 - lint;
