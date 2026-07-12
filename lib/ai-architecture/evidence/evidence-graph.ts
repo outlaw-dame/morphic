@@ -31,6 +31,9 @@ export function buildEvidenceGraph(input: EvidenceGraphInput): EvidenceGraph {
   if (!Array.isArray(input.results) || input.results.length > MAX_EVIDENCE_RESULTS) {
     throw new Error('Invalid evidence graph results.')
   }
+  if (input.requireRetrievalProvenance && !input.routeDigest) {
+    throw new Error('Route digest is required for route-bound evidence ingestion.')
+  }
   if (
     input.routeDigest !== undefined &&
     (typeof input.routeDigest !== 'string' || input.routeDigest.length < 16)
@@ -43,9 +46,13 @@ export function buildEvidenceGraph(input: EvidenceGraphInput): EvidenceGraph {
   const normalized: NormalizedEvidenceItem[] = []
 
   input.results.forEach((result, index) => {
+    const retrievalPath =
+      result && typeof result === 'object' && result.retrievalMethod
+        ? result.retrievalMethod
+        : 'search'
     const outcome = normalizeSearchResultToEvidenceDetailed(result, index, {
       retrievedAt: input.retrievedAt,
-      retrievalPath: result.retrievalMethod ?? 'search',
+      retrievalPath,
       routeDigest: input.routeDigest,
       requireRetrievalProvenance: input.requireRetrievalProvenance
     })
