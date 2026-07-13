@@ -2,22 +2,18 @@ import {
   createRouteExecutionContext,
   type RouteExecutionContext
 } from '@/lib/ai/router/execution-context'
-import type { SearchResultItem } from '@/lib/types'
 
 import { extractEntityMentions } from './entity-extraction'
 import { resolveEntities } from './entity-resolution'
-import {
-  ENTITY_PROVIDERS,
-  type ClassifiedEntityFailure,
-  type EntityGroundingLimits,
-  type EntityGroundingProviderOutcome,
-  type GovernedEntityProviderPort,
-  type ProductionEntityGroundingAdapter,
-  type ProductionEntityGroundingConfiguration,
-  type ProductionEntityGroundingReport,
-  type ProviderExecution,
-  type ProviderTask
+import type {
+  ClassifiedEntityFailure,
+  ProductionEntityGroundingAdapter,
+  ProductionEntityGroundingConfiguration,
+  ProductionEntityGroundingReport,
+  ProviderExecution,
+  ProviderTask
 } from './production-entity-grounding-contract'
+import { ENTITY_PROVIDERS } from './production-entity-grounding-contract'
 import {
   assertEntityProviderPort,
   boundedEntityReasonCodes,
@@ -35,6 +31,7 @@ import {
   validateEntityCandidates,
   validateEntityExecutionId
 } from './production-entity-grounding-utils'
+import type { ResolvedEntity } from './entity-types'
 
 export type {
   EntityGroundingLimits,
@@ -46,6 +43,37 @@ export type {
 } from './production-entity-grounding-contract'
 
 const MAX_QUERY_LENGTH = 16_000
+
+function normalizedEntityKey(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^(\p{L}|\p{N})]+/gu, ' ')
+    .trim()
+}
+
+function preserveCanonicalMismatch(entity: ResolvedEntity): ResolvedEntity {
+  if (!entity.dbpediaUri) return entity
+  const resourceName = decodeURIComponent(
+    entity.dbpediaUri.split('/').pop() ?? ''
+  )
+  if (
+    !resourceName ||
+    normalizedEntityKey(resourceName) ===
+      normalizedEntityKey(entity.canonicalName)
+  ) {
+    return entity
+  }
+  return Object.freeze({
+    ...entity,
+    ambiguous: true,
+    ambiguityReasons: Object.freeze([
+      ...new Set([
+        ...entity.ambiguityReasons,
+        'canonical_identifier_label_mismatch'
+      ])
+    ])
+  })
+}
 
 function matchingMentionIds(
   routeDigest: string,
@@ -304,7 +332,7 @@ export function createProductionEntityGroundingAdapter(
           [...mentions],
           executions.flatMap(execution => execution.candidates),
           limits.maxResolvedEntities
-        ).map(entity => Object.freeze({ ...entity }))
+        ).map(entity => preserveCanonicalMismatch(entity))
       )
       const outcomes = Object.freeze(
         executions.map(execution => execution.outcome)
