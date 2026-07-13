@@ -89,12 +89,8 @@ function adapter(
 
 describe('AI-I7 production entity grounding adapter', () => {
   it('binds canonical provider outcomes to the route and execution', async () => {
-    const wikidata = port(
-      vi.fn(async () => [wikidataCandidate()])
-    )
-    const dbpedia = port(
-      vi.fn(async () => [dbpediaCandidate()])
-    )
+    const wikidata = port(vi.fn(async () => [wikidataCandidate()]))
+    const dbpedia = port(vi.fn(async () => [dbpediaCandidate()]))
 
     const result = await adapter(wikidata, dbpedia).ground({
       query,
@@ -127,6 +123,27 @@ describe('AI-I7 production entity grounding adapter', () => {
     expect(result.resolvedEntities[0]?.source).toBe('both')
     expect(result.completed).toBe(true)
     expect(result.reasonCodes).toContain('entity_grounding_completed')
+  })
+
+  it('completes without provider calls when no entity mention is extractable', async () => {
+    const wikidataSearch = vi.fn()
+    const dbpediaSearch = vi.fn()
+
+    const result = await adapter(
+      port(wikidataSearch),
+      port(dbpediaSearch)
+    ).ground({
+      query: '??',
+      results: [],
+      routeContext: route()
+    })
+
+    expect(result.mentions).toEqual([])
+    expect(result.outcomes).toEqual([])
+    expect(result.completed).toBe(true)
+    expect(result.reasonCodes).toContain('entity_grounding_completed')
+    expect(wikidataSearch).not.toHaveBeenCalled()
+    expect(dbpediaSearch).not.toHaveBeenCalled()
   })
 
   it('rejects routes that do not authorize entity grounding before provider calls', async () => {
@@ -165,7 +182,7 @@ describe('AI-I7 production entity grounding adapter', () => {
         expect.objectContaining({
           provider: 'wikidata',
           status: 'failed',
-          failureClass: 'rate_limited',
+          failureClass: 'transient_provider_failure',
           attempts: 2,
           reasonCodes: ['provider_rate_limited']
         }),
@@ -209,7 +226,7 @@ describe('AI-I7 production entity grounding adapter', () => {
         expect.objectContaining({
           provider: 'dbpedia',
           status: 'failed',
-          failureClass: 'policy',
+          failureClass: 'policy_violation',
           attempts: 1
         })
       ])
@@ -260,7 +277,7 @@ describe('AI-I7 production entity grounding adapter', () => {
         expect.objectContaining({
           provider: 'dbpedia',
           status: 'failed',
-          failureClass: 'policy',
+          failureClass: 'policy_violation',
           attempts: 0,
           networkCallStarted: false,
           reasonCodes: ['provider_call_budget_exhausted']
@@ -291,10 +308,12 @@ describe('AI-I7 production entity grounding adapter', () => {
       routeContext: route()
     })
 
-    expect(result.outcomes.every(outcome => outcome.status === 'failed')).toBe(true)
+    expect(result.outcomes.every(outcome => outcome.status === 'failed')).toBe(
+      true
+    )
     expect(
       result.outcomes.every(
-        outcome => outcome.failureClass === 'malformed_response'
+        outcome => outcome.failureClass === 'malformed_output'
       )
     ).toBe(true)
     expect(result.completed).toBe(false)
@@ -302,7 +321,9 @@ describe('AI-I7 production entity grounding adapter', () => {
   })
 
   it('preserves same-label canonical conflicts as ambiguity blockers', async () => {
-    const wikidata = port(async () => [wikidataCandidate('Example Corp', 'Q123')])
+    const wikidata = port(async () => [
+      wikidataCandidate('Example Corp', 'Q123')
+    ])
     const dbpedia = port(async () => [
       dbpediaCandidate(
         'Example Corp',
