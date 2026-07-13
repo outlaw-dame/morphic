@@ -1,9 +1,3 @@
-import { createHash } from 'node:crypto'
-
-import {
-  EntityProviderResultSchema,
-  type EntityProviderResult
-} from '@/lib/ai/architecture/contracts'
 import {
   createRouteExecutionContext,
   type RouteExecutionContext
@@ -12,496 +6,93 @@ import type { SearchResultItem } from '@/lib/types'
 
 import { extractEntityMentions } from './entity-extraction'
 import { resolveEntities } from './entity-resolution'
-import type {
-  EntityMention,
-  KnowledgeGraphEntity,
-  ResolvedEntity
-} from './entity-types'
+import {
+  ENTITY_PROVIDERS,
+  type ClassifiedEntityFailure,
+  type EntityGroundingLimits,
+  type EntityGroundingProviderOutcome,
+  type GovernedEntityProviderPort,
+  type ProductionEntityGroundingAdapter,
+  type ProductionEntityGroundingConfiguration,
+  type ProductionEntityGroundingReport,
+  type ProviderExecution,
+  type ProviderTask
+} from './production-entity-grounding-contract'
+import {
+  assertEntityProviderPort,
+  boundedEntityReasonCodes,
+  canonicalEntityIds,
+  classifyEntityProviderFailure,
+  createEntityMentionId,
+  createEntityProviderOutcome,
+  createEntityTimeout,
+  digestEntityValue,
+  entityRetryDelay,
+  missingCanonicalEntityIdError,
+  normalizeEntityGroundingLimits,
+  sleepForEntityRetry,
+  throwIfEntityGroundingAborted,
+  validateEntityCandidates,
+  validateEntityExecutionId
+} from './production-entity-grounding-utils'
 
-const PROVIDERS = ['wikidata', 'dbpedia'] as const
+export type {
+  EntityGroundingLimits,
+  EntityGroundingProviderOutcome,
+  GovernedEntityProviderPort,
+  ProductionEntityGroundingAdapter,
+  ProductionEntityGroundingConfiguration,
+  ProductionEntityGroundingReport
+} from './production-entity-grounding-contract'
+
 const MAX_QUERY_LENGTH = 16_000
-const MAX_EXECUTION_ID_LENGTH = 128
-const MAX_REASON_CODE_LENGTH = 128
-const DEFAULT_MAX_ATTEMPTS = 2
-const DEFAULT_BASE_RETRY_DELAY_MS = 100
-const DEFAULT_MAX_RETRY_DELAY_MS = 1_000
 
-type EntityProvider = (typeof PROVIDERS)[number]
-type FailureClass = NonNullable<EntityProviderResult['failureClass']>
-
-type ProviderSearchInput = Readonly<{
-  query: string
-  maxResults: number
-  signal: AbortSignal
-}>
-
-export type GovernedEntityProviderPort = Readonly<{
-  search(input: ProviderSearchInput): Promise<readonly KnowledgeGraphEntity[]>
-}>
-
-export type EntityGroundingLimits = Readonly<{
-  maxMentions: number
-  maxCandidatesPerProvider: number
-  maxResolvedEntities: number
-  maxCanonicalIdsPerOutcome: number
-  maxProviderCalls: number
-  maxConcurrency: number
-  perProviderTimeoutMs: number
-  maxAttemptsPerProvider?: number
-  baseRetryDelayMs?: number
-  maxRetryDelayMs?: number
-}>
-
-export type ProductionEntityGroundingConfiguration = Readonly<{
-  executionId: string
-  wikidata: GovernedEntityProviderPort
-  dbpedia: GovernedEntityProviderPort
-  limits: EntityGroundingLimits
-  sleep?: (milliseconds: number, signal?: AbortSignal) => Promise<void>
-  random?: () => number
-  now?: () => Date
-}>
-
-export type EntityGroundingProviderOutcome = EntityProviderResult &
-  Readonly<{
-    attempts: number
-    networkCallStarted: boolean
-  }>
-
-export type ProductionEntityGroundingReport = Readonly<{
-  routeDigest: string
-  executionId: string
-  mentions: readonly EntityMention[]
-  outcomes: readonly EntityGroundingProviderOutcome[]
-  resolvedEntities: readonly ResolvedEntity[]
+function matchingMentionIds(
+  routeDigest: string,
+  mentions: ReturnType<typeof extractEntityMentions>,
+  resolvedEntities: ProductionEntityGroundingReport['resolvedEntities']
+): Readonly<{
   unresolvedMentionIds: readonly string[]
   ambiguousMentionIds: readonly string[]
-  completed: boolean
-  reasonCodes: readonly string[]
-  budget: Readonly<{
-    providerCallsUsed: number
-    providerCallsAllowed: number
-  }>
-}>
+}> {
+  const unresolvedMentionIds: string[] = []
+  const ambiguousMentionIds: string[] = []
 
-export type ProductionEntityGroundingAdapter = Readonly<{
-  ground(input: Readonly<{
-    query: string
-    results: readonly SearchResultItem[]
-    routeContext: RouteExecutionContext
-    signal?: AbortSignal
-  }>): Promise<ProductionEntityGroundingReport>
-}>
-
-type ProviderTask = Readonly<{
-  provider: EntityProvider
-  mention: EntityMention
-  mentionId: string
-}>
-
-type ProviderExecution = Readonly<{
-  outcome: EntityGroundingProviderOutcome
-  candidates: readonly KnowledgeGraphEntity[]
-}>
-
-type ClassifiedFailure = Readonly<{
-  failureClass: FailureClass
-  reasonCode: string
-  retryable: boolean
-}>
-
-function assertSafeInteger(
-  value: number,
-  minimum: number,
-  maximum: number,
-  name: string
-): number {
-  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
-    throw new Error(`Invalid entity grounding ${name}.`)
-  }
-  return value
-}
-
-function normalizeLimits(
-  limits: EntityGroundingLimits
-): Required<EntityGroundingLimits> {
-  if (!limits || typeof limits !== 'object') {
-    throw new Error('Invalid entity grounding limits.')
-  }
-
-  const normalized = {
-    maxMentions: assertSafeInteger(limits.maxMentions, 1, 32, 'mention limit'),
-    maxCandidatesPerProvider: assertSafeInteger(
-      limits.maxCandidatesPerProvider,
-      1,
-      16,
-      'candidate limit'
-    ),
-    maxResolvedEntities: assertSafeInteger(
-      limits.maxResolvedEntities,
-      1,
-      32,
-      'resolved entity limit'
-    ),
-    maxCanonicalIdsPerOutcome: assertSafeInteger(
-      limits.maxCanonicalIdsPerOutcome,
-      1,
-      32,
-      'canonical identifier limit'
-    ),
-    maxProviderCalls: assertSafeInteger(
-      limits.maxProviderCalls,
-      1,
-      256,
-      'provider call limit'
-    ),
-    maxConcurrency: assertSafeInteger(
-      limits.maxConcurrency,
-      1,
-      8,
-      'concurrency limit'
-    ),
-    perProviderTimeoutMs: assertSafeInteger(
-      limits.perProviderTimeoutMs,
-      100,
-      30_000,
-      'provider timeout'
-    ),
-    maxAttemptsPerProvider: assertSafeInteger(
-      limits.maxAttemptsPerProvider ?? DEFAULT_MAX_ATTEMPTS,
-      1,
-      3,
-      'attempt limit'
-    ),
-    baseRetryDelayMs: assertSafeInteger(
-      limits.baseRetryDelayMs ?? DEFAULT_BASE_RETRY_DELAY_MS,
-      0,
-      10_000,
-      'base retry delay'
-    ),
-    maxRetryDelayMs: assertSafeInteger(
-      limits.maxRetryDelayMs ?? DEFAULT_MAX_RETRY_DELAY_MS,
-      0,
-      30_000,
-      'maximum retry delay'
+  for (const mention of mentions) {
+    const id = createEntityMentionId(routeDigest, mention)
+    const matching = resolvedEntities.filter(entity =>
+      entity.supportingMentions.some(
+        supporting =>
+          supporting.normalizedText.toLowerCase() ===
+          mention.normalizedText.toLowerCase()
+      )
     )
+    if (matching.length === 0) unresolvedMentionIds.push(id)
+    if (matching.some(entity => entity.ambiguous)) {
+      ambiguousMentionIds.push(id)
+    }
   }
-
-  if (normalized.baseRetryDelayMs > normalized.maxRetryDelayMs) {
-    throw new Error('Invalid entity grounding retry delay range.')
-  }
-
-  return Object.freeze(normalized)
+  return Object.freeze({
+    unresolvedMentionIds: Object.freeze(unresolvedMentionIds),
+    ambiguousMentionIds: Object.freeze(ambiguousMentionIds)
+  })
 }
 
-function assertProviderPort(
-  value: GovernedEntityProviderPort,
-  provider: EntityProvider
-): void {
-  if (!value || typeof value !== 'object') {
-    throw new Error(`Invalid ${provider} entity provider.`)
-  }
-  const descriptor = Object.getOwnPropertyDescriptor(value, 'search')
-  if (!descriptor || typeof descriptor.value !== 'function') {
-    throw new Error(`Invalid ${provider} entity provider.`)
-  }
-}
-
-function validateExecutionId(value: string): string {
-  if (
-    typeof value !== 'string' ||
-    value.length < 16 ||
-    value.length > MAX_EXECUTION_ID_LENGTH ||
-    !/^[A-Za-z0-9_-]+$/.test(value)
-  ) {
-    throw new Error('Invalid entity grounding execution ID.')
-  }
-  return value
-}
-
-function sha256(value: string): string {
-  return `sha256:${createHash('sha256').update(value).digest('hex')}`
-}
-
-function createMentionId(
-  routeDigest: string,
-  mention: EntityMention
-): string {
-  return `mention_${createHash('sha256')
-    .update(`${routeDigest}\n${mention.normalizedText.toLowerCase()}`)
-    .digest('hex')
-    .slice(0, 32)}`
-}
-
-function canonicalIds(
-  candidates: readonly KnowledgeGraphEntity[],
-  maximum: number
-): readonly string[] {
-  const ids: string[] = []
-  for (const candidate of candidates) {
-    const identifier = candidate.wikidataId ?? candidate.dbpediaUri
-    if (!identifier || ids.includes(identifier)) continue
-    ids.push(identifier)
-    if (ids.length >= maximum) break
-  }
-  return Object.freeze(ids)
-}
-
-function throwIfAborted(signal?: AbortSignal): void {
-  if (!signal?.aborted) return
-  if (signal.reason instanceof Error) throw signal.reason
-  const message =
-    typeof signal.reason === 'string'
-      ? signal.reason
-      : 'Entity grounding was cancelled.'
-  throw typeof DOMException !== 'undefined'
-    ? new DOMException(message, 'AbortError')
-    : new Error(message)
-}
-
-function boundedReasonCodes(values: readonly string[]): readonly string[] {
+function buildTasks(
+  routeContext: RouteExecutionContext,
+  mentions: ReturnType<typeof extractEntityMentions>
+): readonly ProviderTask[] {
   return Object.freeze(
-    [...new Set(values)]
-      .filter(
-        value =>
-          typeof value === 'string' &&
-          value.length > 0 &&
-          value.length <= MAX_REASON_CODE_LENGTH
+    mentions.flatMap(mention => {
+      const mentionId = createEntityMentionId(
+        routeContext.routeDigest,
+        mention
       )
-      .slice(0, 32)
+      return ENTITY_PROVIDERS.map(provider =>
+        Object.freeze({ provider, mention, mentionId })
+      )
+    })
   )
-}
-
-function classifyFailure(error: unknown): ClassifiedFailure {
-  const record =
-    error && typeof error === 'object'
-      ? (error as Record<string, unknown>)
-      : undefined
-  const status = typeof record?.status === 'number' ? record.status : undefined
-  const code = typeof record?.code === 'string' ? record.code : undefined
-  const name = error instanceof Error ? error.name : undefined
-
-  if (status === 429) {
-    return {
-      failureClass: 'transient_provider_failure',
-      reasonCode: 'provider_rate_limited',
-      retryable: true
-    }
-  }
-  if (status === 408) {
-    return {
-      failureClass: 'timeout',
-      reasonCode: 'provider_timeout',
-      retryable: true
-    }
-  }
-  if (status !== undefined && status >= 500) {
-    return {
-      failureClass: 'transient_provider_failure',
-      reasonCode: 'provider_server_error',
-      retryable: true
-    }
-  }
-  if (status !== undefined && status >= 400 && status < 500) {
-    return {
-      failureClass: 'policy_violation',
-      reasonCode: 'provider_deterministic_4xx',
-      retryable: false
-    }
-  }
-  if (name === 'TimeoutError' || code === 'ETIMEDOUT') {
-    return {
-      failureClass: 'timeout',
-      reasonCode: 'provider_timeout',
-      retryable: true
-    }
-  }
-  if (code === 'ECONNRESET' || code === 'EAI_AGAIN') {
-    return {
-      failureClass: 'transient_provider_failure',
-      reasonCode: 'provider_network_failure',
-      retryable: true
-    }
-  }
-  if (name === 'AbortError') {
-    return {
-      failureClass: 'cancelled',
-      reasonCode: 'provider_cancelled',
-      retryable: false
-    }
-  }
-  if (record?.failureClass === 'malformed_response') {
-    return {
-      failureClass: 'malformed_output',
-      reasonCode: 'provider_malformed_response',
-      retryable: false
-    }
-  }
-  return {
-    failureClass: 'permanent_provider_failure',
-    reasonCode: 'provider_internal_failure',
-    retryable: false
-  }
-}
-
-function retryDelay(
-  attempt: number,
-  baseDelayMs: number,
-  maxDelayMs: number,
-  random: () => number,
-  error: unknown
-): number {
-  const record =
-    error && typeof error === 'object'
-      ? (error as Record<string, unknown>)
-      : undefined
-  const retryAfterMs =
-    typeof record?.retryAfterMs === 'number' &&
-    Number.isFinite(record.retryAfterMs) &&
-    record.retryAfterMs >= 0
-      ? Math.min(record.retryAfterMs, maxDelayMs)
-      : undefined
-  if (retryAfterMs !== undefined) return retryAfterMs
-
-  const exponential = Math.min(maxDelayMs, baseDelayMs * 2 ** (attempt - 1))
-  const jitter = 0.5 + Math.max(0, Math.min(1, random())) * 0.5
-  return Math.floor(exponential * jitter)
-}
-
-function defaultSleep(
-  milliseconds: number,
-  signal?: AbortSignal
-): Promise<void> {
-  if (milliseconds <= 0) return Promise.resolve()
-  return new Promise((resolve, reject) => {
-    let settled = false
-    const finish = (callback: () => void) => {
-      if (settled) return
-      settled = true
-      signal?.removeEventListener('abort', onAbort)
-      callback()
-    }
-    const timer = setTimeout(() => finish(resolve), milliseconds)
-    const onAbort = () => {
-      clearTimeout(timer)
-      finish(() =>
-        reject(
-          signal?.reason ??
-            new Error('Entity grounding retry was cancelled.')
-        )
-      )
-    }
-
-    if (signal?.aborted) {
-      onAbort()
-      return
-    }
-    signal?.addEventListener('abort', onAbort, { once: true })
-  })
-}
-
-function withTimeout(
-  parentSignal: AbortSignal | undefined,
-  timeoutMs: number
-): Readonly<{ signal: AbortSignal; dispose(): void; timedOut(): boolean }> {
-  const controller = new AbortController()
-  let didTimeout = false
-  const timeout = setTimeout(() => {
-    didTimeout = true
-    const error = new Error('Entity provider request timed out.')
-    error.name = 'TimeoutError'
-    controller.abort(error)
-  }, timeoutMs)
-
-  const abortFromParent = () => controller.abort(parentSignal?.reason)
-  if (parentSignal) {
-    if (parentSignal.aborted) abortFromParent()
-    else parentSignal.addEventListener('abort', abortFromParent, { once: true })
-  }
-
-  return Object.freeze({
-    signal: controller.signal,
-    dispose() {
-      clearTimeout(timeout)
-      parentSignal?.removeEventListener('abort', abortFromParent)
-    },
-    timedOut() {
-      return didTimeout
-    }
-  })
-}
-
-function malformedCandidateError(message: string): Error {
-  return Object.assign(new Error(message), {
-    failureClass: 'malformed_response'
-  })
-}
-
-function validateCandidates(
-  value: readonly KnowledgeGraphEntity[],
-  provider: EntityProvider,
-  maximum: number
-): readonly KnowledgeGraphEntity[] {
-  if (!Array.isArray(value) || value.length > maximum) {
-    throw malformedCandidateError(
-      'Entity provider returned an invalid candidate set.'
-    )
-  }
-
-  const candidates: KnowledgeGraphEntity[] = []
-  for (const candidate of value) {
-    if (!candidate || typeof candidate !== 'object') {
-      throw malformedCandidateError(
-        'Entity provider returned a malformed candidate.'
-      )
-    }
-    const label = typeof candidate.label === 'string' ? candidate.label.trim() : ''
-    const matchedText =
-      typeof candidate.matchedText === 'string'
-        ? candidate.matchedText.trim()
-        : ''
-    const confidence = candidate.confidence
-    if (
-      !label ||
-      label.length > 256 ||
-      !matchedText ||
-      matchedText.length > 256 ||
-      typeof confidence !== 'number' ||
-      !Number.isFinite(confidence) ||
-      confidence < 0 ||
-      confidence > 1 ||
-      candidate.source !== provider
-    ) {
-      throw malformedCandidateError(
-        'Entity provider returned a malformed candidate.'
-      )
-    }
-    candidates.push(Object.freeze({ ...candidate, label, matchedText }))
-  }
-  return Object.freeze(candidates)
-}
-
-function createOutcome(
-  value: Omit<EntityGroundingProviderOutcome, 'version' | 'executionId'>,
-  executionId: string
-): EntityGroundingProviderOutcome {
-  const parsed = EntityProviderResultSchema.parse({
-    version: 1,
-    executionId,
-    provider: value.provider,
-    mentionId: value.mentionId,
-    status: value.status,
-    canonicalIds: value.canonicalIds,
-    resultDigest: value.resultDigest,
-    retrievedAt: value.retrievedAt,
-    failureClass: value.failureClass,
-    reasonCodes: value.reasonCodes
-  })
-  return Object.freeze({
-    ...parsed,
-    attempts: value.attempts,
-    networkCallStarted: value.networkCallStarted
-  })
 }
 
 export function createProductionEntityGroundingAdapter(
@@ -510,21 +101,13 @@ export function createProductionEntityGroundingAdapter(
   if (!configuration || typeof configuration !== 'object') {
     throw new Error('Invalid entity grounding configuration.')
   }
-  const executionId = validateExecutionId(configuration.executionId)
-  assertProviderPort(configuration.wikidata, 'wikidata')
-  assertProviderPort(configuration.dbpedia, 'dbpedia')
-  const limits = normalizeLimits(configuration.limits)
-  const sleep = configuration.sleep ?? defaultSleep
+  const executionId = validateEntityExecutionId(configuration.executionId)
+  assertEntityProviderPort(configuration.wikidata, 'wikidata')
+  assertEntityProviderPort(configuration.dbpedia, 'dbpedia')
+  const limits = normalizeEntityGroundingLimits(configuration.limits)
+  const sleep = configuration.sleep ?? sleepForEntityRetry
   const random = configuration.random ?? Math.random
   const now = configuration.now ?? (() => new Date())
-  if (
-    typeof sleep !== 'function' ||
-    typeof random !== 'function' ||
-    typeof now !== 'function'
-  ) {
-    throw new Error('Invalid entity grounding runtime dependency.')
-  }
-
   const ports = Object.freeze({
     wikidata: configuration.wikidata,
     dbpedia: configuration.dbpedia
@@ -543,7 +126,7 @@ export function createProductionEntityGroundingAdapter(
       if (!routeContext.routePlan.needsEntityGrounding) {
         throw new Error('Router did not authorize entity grounding.')
       }
-      throwIfAborted(input.signal)
+      throwIfEntityGroundingAborted(input.signal)
 
       const mentions = Object.freeze(
         extractEntityMentions(
@@ -552,14 +135,7 @@ export function createProductionEntityGroundingAdapter(
           limits.maxMentions
         ).map(mention => Object.freeze({ ...mention }))
       )
-      const tasks: ProviderTask[] = []
-      for (const mention of mentions) {
-        const id = createMentionId(routeContext.routeDigest, mention)
-        for (const provider of PROVIDERS) {
-          tasks.push(Object.freeze({ provider, mention, mentionId: id }))
-        }
-      }
-
+      const tasks = buildTasks(routeContext, mentions)
       if (tasks.length > limits.maxProviderCalls) {
         throw new Error(
           'Entity grounding provider call budget exceeded before execution.'
@@ -573,35 +149,12 @@ export function createProductionEntityGroundingAdapter(
       const executeTask = async (
         task: ProviderTask
       ): Promise<ProviderExecution> => {
-        if (input.signal?.aborted) {
-          return {
-            candidates: Object.freeze([]),
-            outcome: createOutcome(
-              {
-                provider: task.provider,
-                mentionId: task.mentionId,
-                status: 'cancelled',
-                canonicalIds: [],
-                resultDigest: null,
-                retrievedAt: now().toISOString(),
-                failureClass: 'cancelled',
-                reasonCodes: boundedReasonCodes([
-                  'cancelled_before_provider_start'
-                ]),
-                attempts: 0,
-                networkCallStarted: false
-              },
-              executionId
-            )
-          }
-        }
-
         let attempts = 0
         let networkCallStarted = false
-        let lastFailure: ClassifiedFailure | undefined
+        let lastFailure: ClassifiedEntityFailure | undefined
 
         while (attempts < limits.maxAttemptsPerProvider) {
-          throwIfAborted(input.signal)
+          throwIfEntityGroundingAborted(input.signal)
           if (providerCallsUsed >= limits.maxProviderCalls) {
             lastFailure = {
               failureClass: 'policy_violation',
@@ -614,82 +167,76 @@ export function createProductionEntityGroundingAdapter(
           providerCallsUsed += 1
           attempts += 1
           networkCallStarted = true
-          const timeout = withTimeout(
+          const timeout = createEntityTimeout(
             input.signal,
             limits.perProviderTimeoutMs
           )
           try {
-            const raw = await ports[task.provider].search({
-              query: task.mention.normalizedText,
-              maxResults: limits.maxCandidatesPerProvider,
-              signal: timeout.signal
-            })
-            const candidates = validateCandidates(
-              raw,
+            const candidates = validateEntityCandidates(
+              await ports[task.provider].search({
+                query: task.mention.normalizedText,
+                maxResults: limits.maxCandidatesPerProvider,
+                signal: timeout.signal
+              }),
               task.provider,
               limits.maxCandidatesPerProvider
             )
-            const ids = canonicalIds(
+            const canonicalIds = canonicalEntityIds(
               candidates,
               limits.maxCanonicalIdsPerOutcome
             )
             const retrievedAt = now().toISOString()
+
             if (candidates.length === 0) {
               return {
                 candidates,
-                outcome: createOutcome(
-                  {
-                    provider: task.provider,
-                    mentionId: task.mentionId,
-                    status: 'not_found',
-                    canonicalIds: [],
-                    resultDigest: null,
-                    retrievedAt,
-                    failureClass: null,
-                    reasonCodes: boundedReasonCodes([
-                      'provider_returned_no_candidates'
-                    ]),
-                    attempts,
-                    networkCallStarted
-                  },
-                  executionId
-                )
-              }
-            }
-            if (ids.length === 0) {
-              throw malformedCandidateError(
-                'Entity provider candidates lacked canonical identifiers.'
-              )
-            }
-            return {
-              candidates,
-              outcome: createOutcome(
-                {
+                outcome: createEntityProviderOutcome(executionId, {
                   provider: task.provider,
                   mentionId: task.mentionId,
-                  status: 'succeeded',
-                  canonicalIds: ids,
-                  resultDigest: sha256(JSON.stringify(candidates)),
+                  status: 'not_found',
+                  canonicalIds: [],
+                  resultDigest: null,
                   retrievedAt,
                   failureClass: null,
-                  reasonCodes: boundedReasonCodes([
-                    'provider_candidates_validated'
+                  reasonCodes: boundedEntityReasonCodes([
+                    'provider_returned_no_candidates'
                   ]),
                   attempts,
                   networkCallStarted
-                },
-                executionId
-              )
+                })
+              }
+            }
+            if (canonicalIds.length === 0) {
+              throw missingCanonicalEntityIdError()
+            }
+            return {
+              candidates,
+              outcome: createEntityProviderOutcome(executionId, {
+                provider: task.provider,
+                mentionId: task.mentionId,
+                status: 'succeeded',
+                canonicalIds,
+                resultDigest: digestEntityValue(JSON.stringify(candidates)),
+                retrievedAt,
+                failureClass: null,
+                reasonCodes: boundedEntityReasonCodes([
+                  'provider_candidates_validated'
+                ]),
+                attempts,
+                networkCallStarted
+              })
             }
           } catch (error) {
-            if (input.signal?.aborted) throwIfAborted(input.signal)
+            if (input.signal?.aborted) {
+              throwIfEntityGroundingAborted(input.signal)
+            }
             lastFailure = timeout.timedOut()
               ? {
                   failureClass: 'timeout',
                   reasonCode: 'provider_timeout',
                   retryable: true
                 }
-              : classifyFailure(error)
+              : classifyEntityProviderFailure(error)
             if (
               !lastFailure.retryable ||
               attempts >= limits.maxAttemptsPerProvider ||
@@ -698,13 +245,7 @@ export function createProductionEntityGroundingAdapter(
               break
             }
             await sleep(
-              retryDelay(
-                attempts,
-                limits.baseRetryDelayMs,
-                limits.maxRetryDelayMs,
-                random,
-                error
-              ),
+              entityRetryDelay(attempts, limits, random, error),
               input.signal
             )
           } finally {
@@ -721,26 +262,23 @@ export function createProductionEntityGroundingAdapter(
           } as const)
         return {
           candidates: Object.freeze([]),
-          outcome: createOutcome(
-            {
-              provider: task.provider,
-              mentionId: task.mentionId,
-              status: 'failed',
-              canonicalIds: [],
-              resultDigest: null,
-              retrievedAt: now().toISOString(),
-              failureClass: failure.failureClass,
-              reasonCodes: boundedReasonCodes([failure.reasonCode]),
-              attempts,
-              networkCallStarted
-            },
-            executionId
-          )
+          outcome: createEntityProviderOutcome(executionId, {
+            provider: task.provider,
+            mentionId: task.mentionId,
+            status: 'failed',
+            canonicalIds: [],
+            resultDigest: null,
+            retrievedAt: now().toISOString(),
+            failureClass: failure.failureClass,
+            reasonCodes: boundedEntityReasonCodes([failure.reasonCode]),
+            attempts,
+            networkCallStarted
+          })
         }
       }
 
       const worker = async () => {
-        while (true) {
+        while (nextTaskIndex < tasks.length) {
           const index = nextTaskIndex
           nextTaskIndex += 1
           const task = tasks[index]
@@ -748,7 +286,6 @@ export function createProductionEntityGroundingAdapter(
           executions[index] = await executeTask(task)
         }
       }
-
       await Promise.all(
         Array.from(
           {
@@ -760,54 +297,27 @@ export function createProductionEntityGroundingAdapter(
           () => worker()
         )
       )
-      throwIfAborted(input.signal)
+      throwIfEntityGroundingAborted(input.signal)
 
-      const candidates = executions.flatMap(
-        execution => execution.candidates
-      )
       const resolvedEntities = Object.freeze(
         resolveEntities(
           [...mentions],
-          candidates,
+          executions.flatMap(execution => execution.candidates),
           limits.maxResolvedEntities
         ).map(entity => Object.freeze({ ...entity }))
       )
       const outcomes = Object.freeze(
         executions.map(execution => execution.outcome)
       )
-      const unresolvedMentionIds: string[] = []
-      const ambiguousMentionIds: string[] = []
-
-      for (const mention of mentions) {
-        const id = createMentionId(routeContext.routeDigest, mention)
-        const matching = resolvedEntities.filter(entity =>
-          entity.supportingMentions.some(
-            supporting =>
-              supporting.normalizedText.toLowerCase() ===
-              mention.normalizedText.toLowerCase()
-          )
-        )
-        if (matching.length === 0) unresolvedMentionIds.push(id)
-        if (matching.some(entity => entity.ambiguous)) {
-          ambiguousMentionIds.push(id)
-        }
-      }
-
+      const mentionState = matchingMentionIds(
+        routeContext.routeDigest,
+        mentions,
+        resolvedEntities
+      )
       const completed =
-        unresolvedMentionIds.length === 0 &&
-        ambiguousMentionIds.length === 0 &&
+        mentionState.unresolvedMentionIds.length === 0 &&
+        mentionState.ambiguousMentionIds.length === 0 &&
         outcomes.length === tasks.length
-      const reasonCodes = boundedReasonCodes([
-        completed
-          ? 'entity_grounding_completed'
-          : 'entity_grounding_blocked',
-        ...(unresolvedMentionIds.length > 0
-          ? ['required_entity_unresolved']
-          : []),
-        ...(ambiguousMentionIds.length > 0
-          ? ['required_entity_ambiguous']
-          : [])
-      ])
 
       return Object.freeze({
         routeDigest: routeContext.routeDigest,
@@ -815,10 +325,20 @@ export function createProductionEntityGroundingAdapter(
         mentions,
         outcomes,
         resolvedEntities,
-        unresolvedMentionIds: Object.freeze(unresolvedMentionIds),
-        ambiguousMentionIds: Object.freeze(ambiguousMentionIds),
+        unresolvedMentionIds: mentionState.unresolvedMentionIds,
+        ambiguousMentionIds: mentionState.ambiguousMentionIds,
         completed,
-        reasonCodes,
+        reasonCodes: boundedEntityReasonCodes([
+          completed
+            ? 'entity_grounding_completed'
+            : 'entity_grounding_blocked',
+          ...(mentionState.unresolvedMentionIds.length > 0
+            ? ['required_entity_unresolved']
+            : []),
+          ...(mentionState.ambiguousMentionIds.length > 0
+            ? ['required_entity_ambiguous']
+            : [])
+        ]),
         budget: Object.freeze({
           providerCallsUsed,
           providerCallsAllowed: limits.maxProviderCalls
