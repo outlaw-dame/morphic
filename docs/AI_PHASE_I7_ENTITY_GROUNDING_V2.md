@@ -22,7 +22,7 @@ These components are useful foundations, but the current helper calls both provi
 
 1. Run the `entity_grounding` role through the common hardened role runner only when the signed Router requires it.
 2. Bind every grounding operation to the exact Router digest and one execution identity.
-3. Require both Wikidata and DBpedia provider outcomes for entity-sensitive routes, recording either a validated response or a bounded classified failure; when cancellation or the route-wide deadline prevents a call from starting, represent that through the canonical `cancelled` or `failed` status with the existing `cancelled` or `timeout` failure class.
+3. Require both Wikidata and DBpedia provider outcomes for entity-sensitive routes, recording either a validated response or a bounded classified failure; when cancellation or the route-wide deadline prevents a call from starting, represent that through the canonical `cancelled` status with the `cancelled` failure class or the canonical `failed` status with the `timeout` failure class.
 4. Normalize each provider response into the canonical `EntityProviderResult` contract with provider identity, mention identity, status, canonical IDs, result digest, retrieval time, reason codes and bounded failure class.
 5. Apply per-provider deadlines, bounded concurrency and cancellation propagation.
 6. Retry only transient idempotent provider reads, including transient HTTP 429 rate limits, with capped exponential backoff and jitter; never retry malformed responses, deterministic non-transient 4xx responses such as 400, 401, 403 or 404, policy failures or model execution.
@@ -51,7 +51,7 @@ A provider outage alone must not permanently block composition when the other re
 Entity-sensitive research must not proceed to composition when:
 
 - the route digest is missing, malformed, stale or forged;
-- a required provider outcome is missing without a canonical cancellation or timeout record;
+- a required provider outcome is missing without a canonical `cancelled` status with the `cancelled` failure class or a canonical `failed` status with the `timeout` failure class;
 - provider output is malformed or exceeds bounds;
 - canonical identifiers conflict without an explicit ambiguity result;
 - a required entity remains unresolved;
@@ -67,7 +67,7 @@ Historical entity helper APIs may remain for non-governed utility use, but the p
 The phase is not complete until tests prove:
 
 - exact Router-digest and execution-scope binding;
-- mandatory Wikidata and DBpedia outcome accounting, including bounded failures and canonical cancellation/timeout records for work that never started;
+- mandatory Wikidata and DBpedia outcome accounting, including bounded failures and canonical `cancelled` plus `cancelled`-failure-class or `failed` plus `timeout`-failure-class records for work that never started;
 - cancellation prevents later provider work;
 - transient-only retry, explicit 429 handling and bounded backoff;
 - governed configuration limits replace hardcoded production bounds;
