@@ -27,6 +27,7 @@ const DEFAULT_BASE_RETRY_DELAY_MS = 100
 const DEFAULT_MAX_RETRY_DELAY_MS = 1_000
 
 type EntityProvider = (typeof PROVIDERS)[number]
+type FailureClass = NonNullable<EntityProviderResult['failureClass']>
 
 type ProviderSearchInput = Readonly<{
   query: string
@@ -92,8 +93,6 @@ export type ProductionEntityGroundingAdapter = Readonly<{
   }>): Promise<ProductionEntityGroundingReport>
 }>
 
-type FailureClass = NonNullable<EntityProviderResult['failureClass']>
-
 type ProviderTask = Readonly<{
   provider: EntityProvider
   mention: EntityMention
@@ -103,6 +102,12 @@ type ProviderTask = Readonly<{
 type ProviderExecution = Readonly<{
   outcome: EntityGroundingProviderOutcome
   candidates: readonly KnowledgeGraphEntity[]
+}>
+
+type ClassifiedFailure = Readonly<{
+  failureClass: FailureClass
+  reasonCode: string
+  retryable: boolean
 }>
 
 function assertSafeInteger(
@@ -117,7 +122,9 @@ function assertSafeInteger(
   return value
 }
 
-function normalizeLimits(limits: EntityGroundingLimits): Required<EntityGroundingLimits> {
+function normalizeLimits(
+  limits: EntityGroundingLimits
+): Required<EntityGroundingLimits> {
   if (!limits || typeof limits !== 'object') {
     throw new Error('Invalid entity grounding limits.')
   }
@@ -139,7 +146,7 @@ function normalizeLimits(limits: EntityGroundingLimits): Required<EntityGroundin
     maxCanonicalIdsPerOutcome: assertSafeInteger(
       limits.maxCanonicalIdsPerOutcome,
       1,
-      64,
+      32,
       'canonical identifier limit'
     ),
     maxProviderCalls: assertSafeInteger(
@@ -216,7 +223,10 @@ function sha256(value: string): string {
   return `sha256:${createHash('sha256').update(value).digest('hex')}`
 }
 
-function mentionId(routeDigest: string, mention: EntityMention): string {
+function createMentionId(
+  routeDigest: string,
+  mention: EntityMention
+): string {
   return `mention_${createHash('sha256')
     .update(`${routeDigest}\n${mention.normalizedText.toLowerCase()}`)
     .digest('hex')
@@ -258,15 +268,11 @@ function boundedReasonCodes(values: readonly string[]): readonly string[] {
           value.length > 0 &&
           value.length <= MAX_REASON_CODE_LENGTH
       )
-      .slice(0, 64)
+      .slice(0, 32)
   )
 }
 
-function classifyFailure(error: unknown): Readonly<{
-  failureClass: FailureClass
-  reasonCode: string
-  retryable: boolean
-}> {
+function classifyFailure(error: unknown): ClassifiedFailure {
   const record =
     error && typeof error === 'object'
       ? (error as Record<string, unknown>)
@@ -277,21 +283,28 @@ function classifyFailure(error: unknown): Readonly<{
 
   if (status === 429) {
     return {
-      failureClass: 'rate_limited',
+      failureClass: 'transient_provider_failure',
       reasonCode: 'provider_rate_limited',
       retryable: true
     }
   }
-  if (status === 408 || (status !== undefined && status >= 500)) {
+  if (status === 408) {
     return {
-      failureClass: status === 408 ? 'timeout' : 'network',
-      reasonCode: status === 408 ? 'provider_timeout' : 'provider_server_error',
+      failureClass: 'timeout',
+      reasonCode: 'provider_timeout',
+      retryable: true
+    }
+  }
+  if (status !== undefined && status >= 500) {
+    return {
+      failureClass: 'transient_provider_failure',
+      reasonCode: 'provider_server_error',
       retryable: true
     }
   }
   if (status !== undefined && status >= 400 && status < 500) {
     return {
-      failureClass: 'policy',
+      failureClass: 'policy_violation',
       reasonCode: 'provider_deterministic_4xx',
       retryable: false
     }
@@ -305,7 +318,7 @@ function classifyFailure(error: unknown): Readonly<{
   }
   if (code === 'ECONNRESET' || code === 'EAI_AGAIN') {
     return {
-      failureClass: 'network',
+      failureClass: 'transient_provider_failure',
       reasonCode: 'provider_network_failure',
       retryable: true
     }
@@ -319,13 +332,13 @@ function classifyFailure(error: unknown): Readonly<{
   }
   if (record?.failureClass === 'malformed_response') {
     return {
-      failureClass: 'malformed_response',
+      failureClass: 'malformed_output',
       reasonCode: 'provider_malformed_response',
       retryable: false
     }
   }
   return {
-    failureClass: 'internal',
+    failureClass: 'permanent_provider_failure',
     reasonCode: 'provider_internal_failure',
     retryable: false
   }
@@ -351,21 +364,39 @@ function retryDelay(
   if (retryAfterMs !== undefined) return retryAfterMs
 
   const exponential = Math.min(maxDelayMs, baseDelayMs * 2 ** (attempt - 1))
-  return Math.floor(exponential * (0.5 + Math.max(0, Math.min(1, random())) * 0.5))
+  const jitter = 0.5 + Math.max(0, Math.min(1, random())) * 0.5
+  return Math.floor(exponential * jitter)
 }
 
-function defaultSleep(milliseconds: number, signal?: AbortSignal): Promise<void> {
+function defaultSleep(
+  milliseconds: number,
+  signal?: AbortSignal
+): Promise<void> {
   if (milliseconds <= 0) return Promise.resolve()
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(resolve, milliseconds)
-    signal?.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer)
-        reject(signal.reason ?? new Error('Entity grounding retry was cancelled.'))
-      },
-      { once: true }
-    )
+    let settled = false
+    const finish = (callback: () => void) => {
+      if (settled) return
+      settled = true
+      signal?.removeEventListener('abort', onAbort)
+      callback()
+    }
+    const timer = setTimeout(() => finish(resolve), milliseconds)
+    const onAbort = () => {
+      clearTimeout(timer)
+      finish(() =>
+        reject(
+          signal?.reason ??
+            new Error('Entity grounding retry was cancelled.')
+        )
+      )
+    }
+
+    if (signal?.aborted) {
+      onAbort()
+      return
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
   })
 }
 
@@ -400,27 +431,35 @@ function withTimeout(
   })
 }
 
+function malformedCandidateError(message: string): Error {
+  return Object.assign(new Error(message), {
+    failureClass: 'malformed_response'
+  })
+}
+
 function validateCandidates(
   value: readonly KnowledgeGraphEntity[],
   provider: EntityProvider,
   maximum: number
 ): readonly KnowledgeGraphEntity[] {
   if (!Array.isArray(value) || value.length > maximum) {
-    throw Object.assign(new Error('Entity provider returned an invalid candidate set.'), {
-      failureClass: 'malformed_response'
-    })
+    throw malformedCandidateError(
+      'Entity provider returned an invalid candidate set.'
+    )
   }
 
   const candidates: KnowledgeGraphEntity[] = []
   for (const candidate of value) {
     if (!candidate || typeof candidate !== 'object') {
-      throw Object.assign(new Error('Entity provider returned a malformed candidate.'), {
-        failureClass: 'malformed_response'
-      })
+      throw malformedCandidateError(
+        'Entity provider returned a malformed candidate.'
+      )
     }
     const label = typeof candidate.label === 'string' ? candidate.label.trim() : ''
     const matchedText =
-      typeof candidate.matchedText === 'string' ? candidate.matchedText.trim() : ''
+      typeof candidate.matchedText === 'string'
+        ? candidate.matchedText.trim()
+        : ''
     const confidence = candidate.confidence
     if (
       !label ||
@@ -433,9 +472,9 @@ function validateCandidates(
       confidence > 1 ||
       candidate.source !== provider
     ) {
-      throw Object.assign(new Error('Entity provider returned a malformed candidate.'), {
-        failureClass: 'malformed_response'
-      })
+      throw malformedCandidateError(
+        'Entity provider returned a malformed candidate.'
+      )
     }
     candidates.push(Object.freeze({ ...candidate, label, matchedText }))
   }
@@ -478,7 +517,11 @@ export function createProductionEntityGroundingAdapter(
   const sleep = configuration.sleep ?? defaultSleep
   const random = configuration.random ?? Math.random
   const now = configuration.now ?? (() => new Date())
-  if (typeof sleep !== 'function' || typeof random !== 'function' || typeof now !== 'function') {
+  if (
+    typeof sleep !== 'function' ||
+    typeof random !== 'function' ||
+    typeof now !== 'function'
+  ) {
     throw new Error('Invalid entity grounding runtime dependency.')
   }
 
@@ -503,27 +546,33 @@ export function createProductionEntityGroundingAdapter(
       throwIfAborted(input.signal)
 
       const mentions = Object.freeze(
-        extractEntityMentions(query, [...input.results], limits.maxMentions).map(
-          mention => Object.freeze({ ...mention })
-        )
+        extractEntityMentions(
+          query,
+          [...input.results],
+          limits.maxMentions
+        ).map(mention => Object.freeze({ ...mention }))
       )
       const tasks: ProviderTask[] = []
       for (const mention of mentions) {
-        const id = mentionId(routeContext.routeDigest, mention)
+        const id = createMentionId(routeContext.routeDigest, mention)
         for (const provider of PROVIDERS) {
           tasks.push(Object.freeze({ provider, mention, mentionId: id }))
         }
       }
 
       if (tasks.length > limits.maxProviderCalls) {
-        throw new Error('Entity grounding provider call budget exceeded before execution.')
+        throw new Error(
+          'Entity grounding provider call budget exceeded before execution.'
+        )
       }
 
       let providerCallsUsed = 0
       let nextTaskIndex = 0
       const executions: ProviderExecution[] = []
 
-      const executeTask = async (task: ProviderTask): Promise<ProviderExecution> => {
+      const executeTask = async (
+        task: ProviderTask
+      ): Promise<ProviderExecution> => {
         if (input.signal?.aborted) {
           return {
             candidates: Object.freeze([]),
@@ -536,7 +585,9 @@ export function createProductionEntityGroundingAdapter(
                 resultDigest: null,
                 retrievedAt: now().toISOString(),
                 failureClass: 'cancelled',
-                reasonCodes: boundedReasonCodes(['cancelled_before_provider_start']),
+                reasonCodes: boundedReasonCodes([
+                  'cancelled_before_provider_start'
+                ]),
                 attempts: 0,
                 networkCallStarted: false
               },
@@ -547,13 +598,13 @@ export function createProductionEntityGroundingAdapter(
 
         let attempts = 0
         let networkCallStarted = false
-        let lastFailure: ReturnType<typeof classifyFailure> | undefined
+        let lastFailure: ClassifiedFailure | undefined
 
         while (attempts < limits.maxAttemptsPerProvider) {
           throwIfAborted(input.signal)
           if (providerCallsUsed >= limits.maxProviderCalls) {
             lastFailure = {
-              failureClass: 'policy',
+              failureClass: 'policy_violation',
               reasonCode: 'provider_call_budget_exhausted',
               retryable: false
             }
@@ -563,7 +614,10 @@ export function createProductionEntityGroundingAdapter(
           providerCallsUsed += 1
           attempts += 1
           networkCallStarted = true
-          const timeout = withTimeout(input.signal, limits.perProviderTimeoutMs)
+          const timeout = withTimeout(
+            input.signal,
+            limits.perProviderTimeoutMs
+          )
           try {
             const raw = await ports[task.provider].search({
               query: task.mention.normalizedText,
@@ -575,7 +629,10 @@ export function createProductionEntityGroundingAdapter(
               task.provider,
               limits.maxCandidatesPerProvider
             )
-            const ids = canonicalIds(candidates, limits.maxCanonicalIdsPerOutcome)
+            const ids = canonicalIds(
+              candidates,
+              limits.maxCanonicalIdsPerOutcome
+            )
             const retrievedAt = now().toISOString()
             if (candidates.length === 0) {
               return {
@@ -589,7 +646,9 @@ export function createProductionEntityGroundingAdapter(
                     resultDigest: null,
                     retrievedAt,
                     failureClass: null,
-                    reasonCodes: boundedReasonCodes(['provider_returned_no_candidates']),
+                    reasonCodes: boundedReasonCodes([
+                      'provider_returned_no_candidates'
+                    ]),
                     attempts,
                     networkCallStarted
                   },
@@ -598,9 +657,8 @@ export function createProductionEntityGroundingAdapter(
               }
             }
             if (ids.length === 0) {
-              throw Object.assign(
-                new Error('Entity provider candidates lacked canonical identifiers.'),
-                { failureClass: 'malformed_response' }
+              throw malformedCandidateError(
+                'Entity provider candidates lacked canonical identifiers.'
               )
             }
             return {
@@ -614,7 +672,9 @@ export function createProductionEntityGroundingAdapter(
                   resultDigest: sha256(JSON.stringify(candidates)),
                   retrievedAt,
                   failureClass: null,
-                  reasonCodes: boundedReasonCodes(['provider_candidates_validated']),
+                  reasonCodes: boundedReasonCodes([
+                    'provider_candidates_validated'
+                  ]),
                   attempts,
                   networkCallStarted
                 },
@@ -655,7 +715,7 @@ export function createProductionEntityGroundingAdapter(
         const failure =
           lastFailure ??
           ({
-            failureClass: 'internal',
+            failureClass: 'permanent_provider_failure',
             reasonCode: 'provider_internal_failure',
             retryable: false
           } as const)
@@ -691,24 +751,35 @@ export function createProductionEntityGroundingAdapter(
 
       await Promise.all(
         Array.from(
-          { length: Math.min(limits.maxConcurrency, Math.max(1, tasks.length)) },
+          {
+            length: Math.min(
+              limits.maxConcurrency,
+              Math.max(1, tasks.length)
+            )
+          },
           () => worker()
         )
       )
       throwIfAborted(input.signal)
 
-      const candidates = executions.flatMap(execution => execution.candidates)
-      const resolvedEntities = Object.freeze(
-        resolveEntities([...mentions], candidates, limits.maxResolvedEntities).map(
-          entity => Object.freeze({ ...entity })
-        )
+      const candidates = executions.flatMap(
+        execution => execution.candidates
       )
-      const outcomes = Object.freeze(executions.map(execution => execution.outcome))
+      const resolvedEntities = Object.freeze(
+        resolveEntities(
+          [...mentions],
+          candidates,
+          limits.maxResolvedEntities
+        ).map(entity => Object.freeze({ ...entity }))
+      )
+      const outcomes = Object.freeze(
+        executions.map(execution => execution.outcome)
+      )
       const unresolvedMentionIds: string[] = []
       const ambiguousMentionIds: string[] = []
 
       for (const mention of mentions) {
-        const id = mentionId(routeContext.routeDigest, mention)
+        const id = createMentionId(routeContext.routeDigest, mention)
         const matching = resolvedEntities.filter(entity =>
           entity.supportingMentions.some(
             supporting =>
@@ -717,18 +788,25 @@ export function createProductionEntityGroundingAdapter(
           )
         )
         if (matching.length === 0) unresolvedMentionIds.push(id)
-        if (matching.some(entity => entity.ambiguous)) ambiguousMentionIds.push(id)
+        if (matching.some(entity => entity.ambiguous)) {
+          ambiguousMentionIds.push(id)
+        }
       }
 
       const completed =
-        mentions.length > 0 &&
         unresolvedMentionIds.length === 0 &&
         ambiguousMentionIds.length === 0 &&
         outcomes.length === tasks.length
       const reasonCodes = boundedReasonCodes([
-        completed ? 'entity_grounding_completed' : 'entity_grounding_blocked',
-        ...(unresolvedMentionIds.length > 0 ? ['required_entity_unresolved'] : []),
-        ...(ambiguousMentionIds.length > 0 ? ['required_entity_ambiguous'] : [])
+        completed
+          ? 'entity_grounding_completed'
+          : 'entity_grounding_blocked',
+        ...(unresolvedMentionIds.length > 0
+          ? ['required_entity_unresolved']
+          : []),
+        ...(ambiguousMentionIds.length > 0
+          ? ['required_entity_ambiguous']
+          : [])
       ])
 
       return Object.freeze({
