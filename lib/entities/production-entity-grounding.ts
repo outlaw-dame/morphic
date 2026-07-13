@@ -5,15 +5,16 @@ import {
 
 import { extractEntityMentions } from './entity-extraction'
 import { resolveEntities } from './entity-resolution'
-import type {
-  ClassifiedEntityFailure,
-  ProductionEntityGroundingAdapter,
-  ProductionEntityGroundingConfiguration,
-  ProductionEntityGroundingReport,
-  ProviderExecution,
-  ProviderTask
+import type { ResolvedEntity } from './entity-types'
+import {
+  ENTITY_PROVIDERS,
+  type ClassifiedEntityFailure,
+  type ProductionEntityGroundingAdapter,
+  type ProductionEntityGroundingConfiguration,
+  type ProductionEntityGroundingReport,
+  type ProviderExecution,
+  type ProviderTask
 } from './production-entity-grounding-contract'
-import { ENTITY_PROVIDERS } from './production-entity-grounding-contract'
 import {
   assertEntityProviderPort,
   boundedEntityReasonCodes,
@@ -31,7 +32,6 @@ import {
   validateEntityCandidates,
   validateEntityExecutionId
 } from './production-entity-grounding-utils'
-import type { ResolvedEntity } from './entity-types'
 
 export type {
   EntityGroundingLimits,
@@ -47,7 +47,7 @@ const MAX_QUERY_LENGTH = 16_000
 function normalizedEntityKey(value: string): string {
   return value
     .toLowerCase()
-    .replace(/[^(\p{L}|\p{N})]+/gu, ' ')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim()
 }
 
@@ -66,12 +66,12 @@ function preserveCanonicalMismatch(entity: ResolvedEntity): ResolvedEntity {
   return Object.freeze({
     ...entity,
     ambiguous: true,
-    ambiguityReasons: Object.freeze([
+    ambiguityReasons: [
       ...new Set([
         ...entity.ambiguityReasons,
         'canonical_identifier_label_mismatch'
       ])
-    ])
+    ]
   })
 }
 
