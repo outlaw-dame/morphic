@@ -75,12 +75,14 @@ export type ProductionEntityGroundingReport = Readonly<{
 }>
 
 export type ProductionEntityGroundingAdapter = Readonly<{
-  ground(input: Readonly<{
-    query: string
-    results: readonly SearchResultItem[]
-    routeContext: RouteExecutionContext
-    signal?: AbortSignal
-  }>): Promise<ProductionEntityGroundingReport>
+  ground(
+    input: Readonly<{
+      query: string
+      results: readonly SearchResultItem[]
+      routeContext: RouteExecutionContext
+      signal?: AbortSignal
+    }>
+  ): Promise<ProductionEntityGroundingReport>
 }>
 
 export type ProviderTask = Readonly<{
