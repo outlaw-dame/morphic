@@ -52,11 +52,14 @@ export type ProductionEntityGroundingConfiguration = Readonly<{
   now?: () => Date
 }>
 
-export type EntityGroundingProviderOutcome = EntityProviderResult &
-  Readonly<{
+export type EntityGroundingProviderOutcome = Readonly<
+  Omit<EntityProviderResult, 'canonicalIds' | 'reasonCodes'> & {
+    canonicalIds: readonly string[]
+    reasonCodes: readonly string[]
     attempts: number
     networkCallStarted: boolean
-  }>
+  }
+>
 
 export type ProductionEntityGroundingReport = Readonly<{
   routeDigest: string
